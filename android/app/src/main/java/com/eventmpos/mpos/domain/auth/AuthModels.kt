@@ -11,12 +11,15 @@ data class AuthUser(
     val role: Role,
 )
 
+enum class EventStatus { DRAFT, ACTIVE, CLOSED }
+
 data class AssignedEvent(
     val id: String,
     val code: String,
     val name: String,
     val startDate: String?,
     val endDate: String?,
+    val status: EventStatus,
 )
 
 /** A typed result so the UI layer never has to touch exceptions/HTTP codes directly. */

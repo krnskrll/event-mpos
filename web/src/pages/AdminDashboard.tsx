@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { AxiosError } from "axios";
 import Layout from "./Layout";
 import { api } from "../api/client";
-import type { EventResponse, Role, UserResponse } from "../types";
+import type { EventResponse, EventStatus, Role, UserResponse } from "../types";
 
 const ROLES: Role[] = ["ADMIN", "BA", "WAREHOUSE"];
 
@@ -39,11 +39,24 @@ export default function AdminDashboard() {
       <AssignBaCard users={users} events={events} onDone={reload} />
 
       <div style={{ height: 20 }} />
-      <div className="grid-2">
-        <UsersTable users={users} />
-        <EventsTable events={events} />
-      </div>
+      <UsersTable users={users} />
+      <div style={{ height: 20 }} />
+      <EventsTable events={events} onDone={reload} />
     </Layout>
+  );
+}
+
+const STATUS_COLOR: Record<EventStatus, string> = {
+  DRAFT: "#9aa3b2",
+  ACTIVE: "#22c55e",
+  CLOSED: "#ef4444",
+};
+
+function StatusBadge({ status }: { status: EventStatus }) {
+  return (
+    <span className="badge" style={{ color: STATUS_COLOR[status], borderColor: STATUS_COLOR[status] }}>
+      {status}
+    </span>
   );
 }
 
@@ -235,24 +248,104 @@ function UsersTable({ users }: { users: UserResponse[] }) {
   );
 }
 
-function EventsTable({ events }: { events: EventResponse[] }) {
+function EventsTable({ events, onDone }: { events: EventResponse[]; onDone: () => void }) {
+  const [editing, setEditing] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function changeStatus(ev: EventResponse, status: EventStatus) {
+    setError(null);
+    try {
+      await api.patch(`/api/admin/events/${ev.id}/status`, { status });
+      onDone();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
   return (
     <div className="card">
       <h2>Events ({events.length})</h2>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Lifecycle: DRAFT → ACTIVE → CLOSED. BAs can only sell while an event is ACTIVE.
+      </p>
+      {error && <div className="error">{error}</div>}
       <table>
         <thead>
-          <tr><th>Code</th><th>Name</th><th>Dates</th></tr>
+          <tr><th>Code</th><th>Name</th><th>Dates</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody>
-          {events.map((ev) => (
-            <tr key={ev.id}>
-              <td><span className="badge">{ev.code}</span></td>
-              <td>{ev.name}</td>
-              <td className="muted">{ev.startDate ?? "—"} → {ev.endDate ?? "—"}</td>
-            </tr>
-          ))}
+          {events.map((ev) =>
+            editing === ev.id ? (
+              <EditEventRow key={ev.id} event={ev} onClose={() => setEditing(null)} onDone={onDone} />
+            ) : (
+              <tr key={ev.id}>
+                <td><span className="badge">{ev.code}</span></td>
+                <td>{ev.name}</td>
+                <td className="muted">{ev.startDate ?? "—"} → {ev.endDate ?? "—"}</td>
+                <td><StatusBadge status={ev.status} /></td>
+                <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  {ev.status === "DRAFT" && (
+                    <button onClick={() => changeStatus(ev, "ACTIVE")}>Activate</button>
+                  )}
+                  {ev.status === "ACTIVE" && (
+                    <button onClick={() => changeStatus(ev, "CLOSED")}>Close</button>
+                  )}
+                  {ev.status !== "CLOSED" && (
+                    <button className="secondary" onClick={() => setEditing(ev.id)}>Edit</button>
+                  )}
+                </td>
+              </tr>
+            ),
+          )}
         </tbody>
       </table>
     </div>
+  );
+}
+
+function EditEventRow({
+  event,
+  onClose,
+  onDone,
+}: {
+  event: EventResponse;
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const [name, setName] = useState(event.name);
+  const [startDate, setStartDate] = useState(event.startDate ?? "");
+  const [endDate, setEndDate] = useState(event.endDate ?? "");
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setError(null);
+    try {
+      await api.put(`/api/admin/events/${event.id}`, {
+        name,
+        startDate: startDate || null,
+        endDate: endDate || null,
+      });
+      onClose();
+      onDone();
+    } catch (err) {
+      setError(errMsg(err));
+    }
+  }
+
+  return (
+    <tr>
+      <td><span className="badge">{event.code}</span></td>
+      <td><input value={name} onChange={(e) => setName(e.target.value)} style={{ margin: 0 }} /></td>
+      <td>
+        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ margin: 0 }} />
+        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ margin: "4px 0 0" }} />
+      </td>
+      <td><StatusBadge status={event.status} /></td>
+      <td style={{ display: "flex", gap: 6 }}>
+        <button onClick={save}>Save</button>
+        <button className="secondary" onClick={onClose}>Cancel</button>
+        {error && <div className="error">{error}</div>}
+      </td>
+    </tr>
   );
 }

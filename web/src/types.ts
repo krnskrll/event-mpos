@@ -14,13 +14,15 @@ export interface TokenResponse {
   user: UserSummary;
 }
 
+export type EventStatus = "DRAFT" | "ACTIVE" | "CLOSED";
+
 export interface EventResponse {
   id: string;
   code: string;
   name: string;
   startDate: string | null;
   endDate: string | null;
-  active: boolean;
+  status: EventStatus;
 }
 
 export interface UserResponse extends UserSummary {

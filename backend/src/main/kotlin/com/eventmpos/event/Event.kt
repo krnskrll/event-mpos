@@ -2,6 +2,8 @@ package com.eventmpos.event
 
 import jakarta.persistence.Column
 import jakarta.persistence.Entity
+import jakarta.persistence.EnumType
+import jakarta.persistence.Enumerated
 import jakarta.persistence.Id
 import jakarta.persistence.Table
 import java.time.Instant
@@ -32,9 +34,14 @@ class Event(
     @Column(name = "end_date")
     var endDate: LocalDate? = null,
 
+    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    var active: Boolean = true,
+    var status: EventStatus = EventStatus.DRAFT,
 
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
+
+    /** Bumped on any edit/status change; feeds the snapshot version so devices know when to re-sync. */
+    @Column(name = "updated_at", nullable = false)
+    var updatedAt: Instant = Instant.now(),
 )

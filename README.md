@@ -40,8 +40,11 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
 ## Epic Status
 - **EPIC-01 — Foundation & Authentication**: ✅ implemented. JWT login + refresh, role-based
   access (Admin/BA/Warehouse), admin user creation + BA→event assignment, Android secure-token
-  login, web role-based routing. See [docs/EPIC-01-verification.md](docs/EPIC-01-verification.md)
-  for how to verify it end to end.
+  login, web role-based routing. See [docs/EPIC-01-verification.md](docs/EPIC-01-verification.md).
+- **EPIC-02 — Event Management**: ✅ implemented. Event lifecycle DRAFT→ACTIVE→CLOSED, admin
+  create/edit/close UI, BA event selection with one-call snapshot download cached in Room,
+  version-gated re-sync, auto-select for a single event, and ACTIVE-only selling enforced on
+  server + app. See [docs/EPIC-02-verification.md](docs/EPIC-02-verification.md).
 
 ## How to Use the Prompts
 

@@ -4,6 +4,7 @@ import com.eventmpos.event.BaEventAssignment
 import com.eventmpos.event.BaEventAssignmentRepository
 import com.eventmpos.event.Event
 import com.eventmpos.event.EventRepository
+import com.eventmpos.event.EventStatus
 import com.eventmpos.user.Role
 import com.eventmpos.user.User
 import com.eventmpos.user.UserRepository
@@ -53,6 +54,7 @@ class DataSeeder {
                 name = "Mid-Year Beauty Roadshow",
                 startDate = LocalDate.of(2026, 7, 1),
                 endDate = LocalDate.of(2026, 7, 14),
+                status = EventStatus.ACTIVE,
             ),
         )
         assignments.save(BaEventAssignment(userId = ba.id, eventId = event.id))
