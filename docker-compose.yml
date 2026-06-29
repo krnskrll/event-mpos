@@ -1,0 +1,36 @@
+# Brings up Postgres + the backend API with one command, no local JDK needed:
+#   docker compose up --build
+# Backend on http://localhost:8080, Postgres on localhost:5432.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: eventmpos
+      POSTGRES_USER: eventmpos
+      POSTGRES_PASSWORD: eventmpos
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U eventmpos"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build: ./backend
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/eventmpos
+      DB_USERNAME: eventmpos
+      DB_PASSWORD: eventmpos
+      SEED_ENABLED: "true"
+      # Override JWT_SECRET (base64, 256-bit) in any real deployment.
+    ports:
+      - "8080:8080"
+
+volumes:
+  pgdata:

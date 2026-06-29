@@ -1,0 +1,101 @@
+# event-mpos
+
+Event-based Android Mobile POS for retail beauty events.
+
+## System Overview
+
+| Component | Tech | Purpose |
+|---|---|---|
+| Android mPOS | Kotlin + Jetpack Compose | Beauty Advisor selling tool |
+| Backend API | Spring Boot + PostgreSQL | Source of truth |
+| Web Dashboard | React + TypeScript | Warehouse order execution |
+
+## Project Structure
+
+```
+event-mpos/
+├── android/          # Android mPOS app (Kotlin)
+├── backend/          # Spring Boot API
+├── web/              # React web dashboard
+└── prompts/          # Cursor development prompts (one per epic)
+```
+
+## Quick Start (local dev)
+
+```bash
+# 1. Backend + Postgres (no local JDK needed — uses Docker)
+docker compose up --build          # API on http://localhost:8080, seeded with demo users
+
+# 2. Web dashboard
+cd web && npm install && npm run dev   # http://localhost:5173
+
+# 3. Android app
+# open the android/ folder in Android Studio and Run on an emulator
+```
+
+Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
+`ba@eventmpos.local` / `Ba123456!` (BA, assigned to EV01),
+`wh@eventmpos.local` / `Wh123456!` (warehouse).
+
+## Epic Status
+- **EPIC-01 — Foundation & Authentication**: ✅ implemented. JWT login + refresh, role-based
+  access (Admin/BA/Warehouse), admin user creation + BA→event assignment, Android secure-token
+  login, web role-based routing. See [docs/EPIC-01-verification.md](docs/EPIC-01-verification.md)
+  for how to verify it end to end.
+
+## How to Use the Prompts
+
+Each file in `prompts/` is a Cursor prompt for one epic.
+Open the project in Cursor, open the relevant prompt file, and paste it into the Cursor chat.
+Work through epics in order — each one builds on the previous.
+
+```
+prompts/
+├── EPIC-01-foundation-auth.md
+├── EPIC-02-event-management.md
+├── EPIC-03-product-erp-sync.md
+├── EPIC-04-member-integration.md
+├── EPIC-05-allocation-stock.md
+├── EPIC-06-promotions.md
+├── EPIC-07-cart-order.md
+├── EPIC-08-receipt-print.md
+├── EPIC-09-warehouse-dashboard.md
+├── EPIC-10-offline-resilience.md
+└── EPIC-11-backoffice-admin.md
+```
+
+## Git Setup (First Time)
+
+```bash
+git init
+git remote add origin https://github.com/krnskrll/event-mpos.git
+git checkout -b main
+git add .
+git commit -m "chore: initial project setup"
+git push -u origin main
+```
+
+## Epic Branch Workflow
+
+Each epic runs on its own branch:
+
+```bash
+# Start a new epic
+git checkout main
+git pull origin main
+git checkout -b feature/epic-01-auth
+
+# During development — commit often
+git add .
+git commit -m "feat: epic-01 add JWT auth and login screen"
+
+# When epic is done
+git push origin feature/epic-01-auth
+# Then open a Pull Request to main on GitHub
+```
+
+## Target Hardware
+
+**Sunmi V2 Pro — Label Version** (2D barcode scanner + 58mm thermal printer)
+
+> ⚠️ Must purchase the **Label Version** to get the 2D scanner required for QR code scanning.

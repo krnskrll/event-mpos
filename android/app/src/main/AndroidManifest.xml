@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <application
+        android:name=".MposApplication"
+        android:allowBackup="false"
+        android:label="event-mpos"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.EventMpos"
+        android:usesCleartextTraffic="true">
+        <!-- usesCleartextTraffic is for local-dev HTTP against the backend. Use HTTPS in production. -->
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.EventMpos">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+    </application>
+</manifest>

@@ -1,0 +1,96 @@
+:root {
+  --bg: #0f1115;
+  --panel: #1a1d23;
+  --border: #2a2f37;
+  --text: #e7e9ee;
+  --muted: #9aa3b2;
+  --accent: #e0457b;
+  --accent-hover: #c83a6c;
+  --danger: #ef4444;
+  --ok: #22c55e;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+}
+
+a { color: var(--accent); }
+
+.center {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 1rem;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.5rem;
+}
+
+.login-card { width: 360px; max-width: 100%; }
+
+input, select {
+  width: 100%;
+  padding: 0.6rem 0.7rem;
+  margin: 0.35rem 0 0.9rem;
+  background: #0f1115;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+label { font-size: 0.8rem; color: var(--muted); }
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 8px;
+  padding: 0.6rem 0.9rem;
+  background: var(--accent);
+  color: white;
+  font-weight: 600;
+}
+button:hover { background: var(--accent-hover); }
+button:disabled { opacity: 0.5; cursor: not-allowed; }
+button.secondary { background: transparent; border: 1px solid var(--border); color: var(--text); }
+
+.error { color: var(--danger); font-size: 0.85rem; margin: 0.25rem 0; }
+.ok { color: var(--ok); font-size: 0.85rem; }
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.8rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.container { max-width: 1000px; margin: 0 auto; padding: 1.5rem 1.2rem; }
+
+.grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1.2rem; }
+@media (max-width: 760px) { .grid-2 { grid-template-columns: 1fr; } }
+
+table { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+th, td { text-align: left; padding: 0.5rem 0.4rem; border-bottom: 1px solid var(--border); }
+th { color: var(--muted); font-weight: 600; }
+
+.badge {
+  font-size: 0.72rem;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: #2a2f37;
+  color: var(--muted);
+}
+h1 { font-size: 1.2rem; margin: 0; }
+h2 { font-size: 1rem; margin: 0 0 0.8rem; }
+.muted { color: var(--muted); }
