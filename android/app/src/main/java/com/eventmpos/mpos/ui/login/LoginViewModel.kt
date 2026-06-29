@@ -38,8 +38,10 @@ class LoginViewModel @Inject constructor(
             return
         }
         _state.update { it.copy(loading = true, error = null) }
+        // Normalize the email so soft-keyboard autocorrect/spaces can't produce an invalid address.
+        val email = current.email.trim().replace(" ", "").lowercase()
         viewModelScope.launch {
-            when (val result = authRepository.login(current.email, current.password)) {
+            when (val result = authRepository.login(email, current.password)) {
                 is AuthResult.Success -> _state.update { it.copy(loading = false, loggedIn = true) }
                 is AuthResult.Failure -> _state.update { it.copy(loading = false, error = result.message) }
             }
