@@ -37,6 +37,8 @@ class DataSeeder {
         events: EventRepository,
         assignments: BaEventAssignmentRepository,
         encoder: PasswordEncoder,
+        erpSyncService: com.eventmpos.product.erp.ErpSyncService,
+        productService: com.eventmpos.product.ProductService,
     ) = ApplicationRunner {
         if (users.count() > 0L) {
             log.info("Seed skipped — users already exist")
@@ -58,6 +60,11 @@ class DataSeeder {
             ),
         )
         assignments.save(BaEventAssignment(userId = ba.id, eventId = event.id))
-        log.info("Seed complete: 3 users, 1 event (EV01), BA assigned to EV01")
+
+        // Pull the initial product catalogue from the (mock) ERP and make it all available for EV01,
+        // so the BA's event snapshot has real products to browse/scan out of the box.
+        val sync = erpSyncService.sync()
+        productService.list().forEach { productService.setAvailability(event.id, it.id, true) }
+        log.info("Seed complete: 3 users, 1 event (EV01) with {} products available", sync.total)
     }
 }

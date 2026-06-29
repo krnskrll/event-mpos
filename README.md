@@ -45,6 +45,11 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   create/edit/close UI, BA event selection with one-call snapshot download cached in Room,
   version-gated re-sync, auto-select for a single event, and ACTIVE-only selling enforced on
   server + app. See [docs/EPIC-02-verification.md](docs/EPIC-02-verification.md).
+- **EPIC-03 — Product Catalogue & ERP Sync**: ✅ implemented. Pluggable ERP adapter (mock/file/REST)
+  with scheduled + on-demand sync, products with multiple barcodes, admin product add/edit, per-event
+  product availability, products carried in the event snapshot, barcode→product lookup, and an
+  Android offline product grid (Room + Coil) with a `ScannerPort` abstraction for the Sunmi scanner.
+  See [docs/EPIC-03-verification.md](docs/EPIC-03-verification.md).
 
 ## How to Use the Prompts
 

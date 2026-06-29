@@ -17,6 +17,9 @@ Useful for a quick smoke test or a demo when only the backend is running.
    - **Event management + snapshot (EPIC-02):** http://localhost:5500/epic2-tester.html
      Admin: event lifecycle (create/activate/close/rename) + **map a BA to an event**.
      BA: download an event snapshot and see the version gate (`changed:false`) and ACTIVE-only blocking.
+   - **Products + ERP sync (EPIC-03):** http://localhost:5500/epic3-tester.html
+     Admin: ERP sync + status, **add/edit products**, toggle per-event product availability.
+     BA: load the snapshot (lists products) and **scan a barcode** to resolve a product.
 
 Seeded dev logins: `admin@eventmpos.local` / `Admin123!`, `ba@eventmpos.local` / `Ba123456!`,
 `wh@eventmpos.local` / `Wh123456!`.

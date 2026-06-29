@@ -29,3 +29,36 @@ export interface UserResponse extends UserSummary {
   active: boolean;
   createdAt: string;
 }
+
+export type ProductSource = "ERP" | "MANUAL";
+
+export interface BarcodeDto {
+  barcode: string;
+  label: string | null;
+}
+
+export interface ProductResponse {
+  id: string;
+  sku: string;
+  name: string;
+  brand: string | null;
+  price: number;
+  imageUrl: string | null;
+  source: ProductSource;
+  active: boolean;
+  barcodes: BarcodeDto[];
+  updatedAt: string;
+}
+
+export interface EventProductResponse {
+  product: ProductResponse;
+  available: boolean;
+}
+
+export interface ErpSyncStatus {
+  lastSyncAt: string | null;
+  lastResult: string | null;
+  productCount: number;
+  source: string | null;
+  message: string | null;
+}

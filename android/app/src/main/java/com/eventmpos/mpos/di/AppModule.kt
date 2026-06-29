@@ -2,13 +2,18 @@ package com.eventmpos.mpos.di
 
 import android.content.Context
 import androidx.room.Room
+import com.eventmpos.mpos.core.scanner.ManualScannerPort
+import com.eventmpos.mpos.core.scanner.ScannerPort
 import com.eventmpos.mpos.core.secure.SecureTokenStorage
 import com.eventmpos.mpos.data.auth.AuthRepositoryImpl
 import com.eventmpos.mpos.data.event.EventRepositoryImpl
 import com.eventmpos.mpos.data.local.AppDatabase
 import com.eventmpos.mpos.data.local.EventSnapshotDao
+import com.eventmpos.mpos.data.local.ProductDao
+import com.eventmpos.mpos.data.product.ProductRepositoryImpl
 import com.eventmpos.mpos.domain.auth.AuthRepository
 import com.eventmpos.mpos.domain.event.EventRepository
+import com.eventmpos.mpos.domain.product.ProductRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -35,6 +40,9 @@ object AppProvidesModule {
 
     @Provides
     fun provideEventSnapshotDao(db: AppDatabase): EventSnapshotDao = db.eventSnapshotDao()
+
+    @Provides
+    fun provideProductDao(db: AppDatabase): ProductDao = db.productDao()
 }
 
 @Module
@@ -48,4 +56,12 @@ abstract class AppBindsModule {
     @Binds
     @Singleton
     abstract fun bindEventRepository(impl: EventRepositoryImpl): EventRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProductRepository(impl: ProductRepositoryImpl): ProductRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindScannerPort(impl: ManualScannerPort): ScannerPort
 }

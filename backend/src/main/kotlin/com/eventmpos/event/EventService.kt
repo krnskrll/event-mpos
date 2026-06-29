@@ -1,6 +1,7 @@
 package com.eventmpos.event
 
 import com.eventmpos.common.ApiException
+import com.eventmpos.product.ProductService
 import com.eventmpos.user.Role
 import com.eventmpos.user.UserRepository
 import org.springframework.http.HttpStatus
@@ -15,6 +16,7 @@ class EventService(
     private val eventRepository: EventRepository,
     private val assignmentRepository: BaEventAssignmentRepository,
     private val userRepository: UserRepository,
+    private val productService: ProductService,
 ) {
 
     fun listEvents(): List<EventResponse> = eventRepository.findAll().map { it.toResponse() }
@@ -96,7 +98,11 @@ class EventService(
     fun snapshotForEvent(eventId: UUID): EventSnapshot {
         val event = findOrThrow(eventId)
         requireActive(event)
-        return EventSnapshot(event = event.toResponse(), version = versionOf(event))
+        return EventSnapshot(
+            event = event.toResponse(),
+            version = versionOf(event),
+            products = productService.availableSnapshotProducts(eventId),
+        )
     }
 
     /** The current snapshot version, used by the device to decide whether a re-sync is needed. */
@@ -129,6 +135,8 @@ class EventService(
             event.endDate,
             event.status,
             event.updatedAt.toEpochMilli(),
+            // products available for this event — so adding/removing/repricing a product re-syncs devices
+            productService.availabilityFingerprint(event.id),
         ).joinToString("|")
         val digest = MessageDigest.getInstance("SHA-256").digest(material.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }.take(16)

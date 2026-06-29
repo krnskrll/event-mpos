@@ -45,10 +45,22 @@ data class EventResponseDto(
  * Both decode into this one DTO (unknown keys ignored); [changed] is null for the full shape.
  */
 @Serializable
+data class ProductDto(
+    val id: String,
+    val sku: String,
+    val name: String,
+    val brand: String? = null,
+    val price: Double = 0.0,
+    val imageUrl: String? = null,
+    val barcodes: List<String> = emptyList(),
+)
+
+@Serializable
 data class SnapshotEnvelopeDto(
     val version: String,
     val changed: Boolean? = null,
     val event: EventResponseDto? = null,
+    val products: List<ProductDto> = emptyList(),
 )
 
 fun UserSummaryDto.toDomain() = AuthUser(id, email, fullName, Role.valueOf(role))

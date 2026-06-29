@@ -28,6 +28,16 @@ app:
   seed:
     # Seed an initial admin + sample data on startup when true (dev convenience).
     enabled: ${SEED_ENABLED:true}
+  erp:
+    # Which ERP adapter to use: mock (dev default) | file | rest
+    source: ${ERP_SOURCE:mock}
+    # For source=file: a Spring resource path to the CSV export
+    file-path: ${ERP_FILE_PATH:classpath:erp/products.csv}
+    # For source=rest: the ERP product endpoint
+    rest-url: ${ERP_REST_URL:}
+    # Background pull on a schedule. Off by default; admins can also sync on demand from the dashboard.
+    scheduled-sync-enabled: ${ERP_SCHEDULED:false}
+    sync-cron: ${ERP_SYNC_CRON:0 0 * * * *}
 
 logging:
   level:

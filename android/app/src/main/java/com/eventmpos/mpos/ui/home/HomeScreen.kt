@@ -36,6 +36,7 @@ import com.eventmpos.mpos.domain.auth.AssignedEvent
 @Composable
 fun HomeScreen(
     onLoggedOut: () -> Unit,
+    onBrowseProducts: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -79,6 +80,7 @@ fun HomeScreen(
                 showBack = state.events.size > 1,
                 onRetry = viewModel::retrySync,
                 onBack = viewModel::backToList,
+                onBrowseProducts = onBrowseProducts,
             )
         }
 
@@ -119,6 +121,7 @@ private fun SelectedEvent(
     showBack: Boolean,
     onRetry: () -> Unit,
     onBack: () -> Unit,
+    onBrowseProducts: (String) -> Unit,
 ) {
     Text("Your event", style = MaterialTheme.typography.headlineSmall)
     Card(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
@@ -138,6 +141,14 @@ private fun SelectedEvent(
             }
             Spacer(Modifier.height(16.dp))
             SyncStatus(sync, onRetry)
+            if (sync is SyncUi.Ready) {
+                Button(
+                    onClick = { onBrowseProducts(event.id) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
+                ) {
+                    Text("Browse products")
+                }
+            }
         }
     }
     if (showBack) {

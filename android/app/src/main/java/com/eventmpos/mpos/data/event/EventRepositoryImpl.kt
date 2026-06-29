@@ -4,6 +4,8 @@ import com.eventmpos.mpos.data.auth.AuthApi
 import com.eventmpos.mpos.data.auth.toDomain
 import com.eventmpos.mpos.data.local.EventSnapshotDao
 import com.eventmpos.mpos.data.local.EventSnapshotEntity
+import com.eventmpos.mpos.data.local.ProductDao
+import com.eventmpos.mpos.data.local.ProductEntity
 import com.eventmpos.mpos.domain.auth.AssignedEvent
 import com.eventmpos.mpos.domain.event.EventRepository
 import com.eventmpos.mpos.domain.event.SyncResult
@@ -21,6 +23,7 @@ import javax.inject.Singleton
 class EventRepositoryImpl @Inject constructor(
     private val api: AuthApi,
     private val dao: EventSnapshotDao,
+    private val productDao: ProductDao,
     private val json: Json,
 ) : EventRepository {
 
@@ -43,7 +46,8 @@ class EventRepositoryImpl @Inject constructor(
                     return@withContext SyncResult.Ready(version = envelope.version, unchanged = true)
                 }
 
-                // Full snapshot -> cache it (whole envelope JSON; later epics normalize into tables).
+                // Full snapshot -> cache it. Normalize products into their own table for fast
+                // offline browsing/scanning; keep the raw envelope for anything not yet normalized.
                 dao.upsert(
                     EventSnapshotEntity(
                         eventId = eventId,
@@ -54,6 +58,22 @@ class EventRepositoryImpl @Inject constructor(
                         ),
                         syncedAtEpochMs = System.currentTimeMillis(),
                     ),
+                )
+                productDao.replaceForEvent(
+                    eventId,
+                    envelope.products.map { p ->
+                        ProductEntity(
+                            rowKey = "$eventId:${p.id}",
+                            eventId = eventId,
+                            id = p.id,
+                            sku = p.sku,
+                            name = p.name,
+                            brand = p.brand,
+                            price = p.price,
+                            imageUrl = p.imageUrl,
+                            barcodes = p.barcodes.joinToString("\n"),
+                        )
+                    },
                 )
                 SyncResult.Ready(version = envelope.version, unchanged = false)
             } catch (e: HttpException) {

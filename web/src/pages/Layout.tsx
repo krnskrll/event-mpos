@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
 
 /** Shared shell with a top bar showing the signed-in user and a logout button. */
@@ -15,7 +15,15 @@ export default function Layout({ title, children }: { title: string; children: R
   return (
     <>
       <div className="topbar">
-        <h1>{title}</h1>
+        <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+          <h1>{title}</h1>
+          {user?.role === "ADMIN" && (
+            <nav style={{ display: "flex", gap: 12, fontSize: "0.85rem" }}>
+              <Link to="/admin">Dashboard</Link>
+              <Link to="/admin/products">Products</Link>
+            </nav>
+          )}
+        </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           <span className="muted">
             {user?.fullName} <span className="badge">{user?.role}</span>

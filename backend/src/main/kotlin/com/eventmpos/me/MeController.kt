@@ -6,6 +6,8 @@ import com.eventmpos.event.EventResponse
 import com.eventmpos.event.EventService
 import com.eventmpos.event.EventSnapshot
 import com.eventmpos.event.SnapshotStatus
+import com.eventmpos.product.ProductResponse
+import com.eventmpos.product.ProductService
 import com.eventmpos.user.Role
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -31,6 +33,7 @@ data class MeResponse(
 @RequestMapping("/api/me")
 class MeController(
     private val eventService: EventService,
+    private val productService: ProductService,
 ) {
 
     @GetMapping
@@ -69,6 +72,21 @@ class MeController(
             return SnapshotStatus(changed = false, version = version)
         }
         return eventService.snapshotForEvent(eventId)
+    }
+
+    /**
+     * Resolve a scanned barcode to a product available for this event. The Android app does this
+     * locally from Room while offline; this endpoint backs online lookups and validation.
+     */
+    @GetMapping("/events/{eventId}/products/by-barcode/{barcode}")
+    fun productByBarcode(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable eventId: UUID,
+        @PathVariable barcode: String,
+    ): ProductResponse {
+        requireBa(principal)
+        eventService.requireAssigned(principal.userId, eventId)
+        return productService.findAvailableByBarcode(eventId, barcode)
     }
 
     private fun requireBa(principal: AuthPrincipal) {

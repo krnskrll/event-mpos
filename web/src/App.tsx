@@ -3,6 +3,7 @@ import { useAuth } from "./auth/AuthContext";
 import { ProtectedRoute, homePathForRole } from "./auth/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/AdminDashboard";
+import ProductsPage from "./pages/ProductsPage";
 import WarehousePage from "./pages/WarehousePage";
 import BaPage from "./pages/BaPage";
 
@@ -18,6 +19,14 @@ export default function App() {
         element={
           <ProtectedRoute allow={["ADMIN"]}>
             <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/products"
+        element={
+          <ProtectedRoute allow={["ADMIN"]}>
+            <ProductsPage />
           </ProtectedRoute>
         }
       />

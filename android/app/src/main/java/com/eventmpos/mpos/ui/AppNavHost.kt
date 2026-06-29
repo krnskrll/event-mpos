@@ -1,15 +1,20 @@
 package com.eventmpos.mpos.ui
 
 import androidx.compose.runtime.Composable
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import com.eventmpos.mpos.ui.catalogue.CatalogueScreen
 import com.eventmpos.mpos.ui.home.HomeScreen
 import com.eventmpos.mpos.ui.login.LoginScreen
 
 object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
+    const val CATALOGUE = "catalogue/{eventId}"
+    fun catalogue(eventId: String) = "catalogue/$eventId"
 }
 
 @Composable
@@ -36,7 +41,14 @@ fun AppNavHost(startLoggedIn: Boolean) {
                         popUpTo(Routes.HOME) { inclusive = true }
                     }
                 },
+                onBrowseProducts = { eventId -> navController.navigate(Routes.catalogue(eventId)) },
             )
+        }
+        composable(
+            Routes.CATALOGUE,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType }),
+        ) {
+            CatalogueScreen()
         }
     }
 }
