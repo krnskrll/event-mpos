@@ -1,0 +1,67 @@
+# event-mpos — Cursor Project Rules
+
+## What This Project Is
+An event-based Mobile POS system for retail beauty events (pop-ups, roadshows, brand activations).
+Beauty Advisors (BAs) use an Android device to scan customers, build carts, and print receipts.
+A warehouse team uses a web dashboard to pack and fulfill orders in real-time.
+Payment happens at an external cashier (Guardian, Watsons, etc.) — this system does not handle payment.
+
+## System Components
+- **Android mPOS** — used by Beauty Advisors at events (Sunmi V2 Pro device with built-in 58mm thermal printer + 2D barcode scanner)
+- **Backend API** — Spring Boot + PostgreSQL, the single source of truth
+- **Web Dashboard** — React + TypeScript, used by warehouse team and admins
+
+## Core Concept: Everything Is Scoped to an Event
+An Event is the central domain boundary. Products, stock, promotions, orders, and BA assignments all belong to an event. Never design a feature without considering which event it belongs to.
+
+## Tech Stack
+
+### Android
+- Kotlin + Jetpack Compose
+- Clean Architecture + MVVM
+- Room (local cache/offline)
+- Retrofit + OkHttp (networking)
+- Hilt (dependency injection)
+- WorkManager (background jobs + retry queue)
+- Sunmi InnerPrinter SDK (thermal printing via AIDL)
+- Sunmi Scanner SDK (barcode/QR via AIDL)
+- Coil (image loading)
+- EncryptedSharedPreferences (secure token storage)
+
+### Backend
+- Spring Boot (Kotlin or Java)
+- PostgreSQL
+- Spring Security + JWT
+- Spring WebSocket + STOMP (real-time order push)
+- Spring Batch / Scheduler (ERP and member sync jobs)
+
+### Web Dashboard
+- React + TypeScript
+- SockJS + STOMP.js (WebSocket client)
+
+## Key Architecture Rules
+1. **Backend is the source of truth** — Android uses Room as a local cache, never as the authority
+2. **Event snapshot on login** — when BA selects an event, download products + stock + members + promotions to Room in one call
+3. **Order submission requires network** — cart can be built offline, but submit needs server confirmation; use WorkManager retry queue
+4. **Receipt prints only after server confirms the order** — never print on submission attempt
+5. **Stock validation is atomic on the server** — use PostgreSQL SELECT FOR UPDATE; never trust client-side stock checks
+6. **Idempotency key on every order submission** — prevent duplicate orders from double taps
+7. **PrinterPort abstraction** — wrap all Sunmi printer SDK calls behind an interface so hardware can be swapped later
+
+## Order Lifecycle
+NEW → PACKING → READY → COLLECTED
+
+## Order Number Strategy
+- `id` — UUID (internal, API only)
+- `reference_id` — ORD-YYYYMMDD-EVXX-NNN (for support and reconciliation)
+- `order_number` — #042 (daily sequence integer, shown on receipt and used verbally)
+
+## Receipt Format (58mm thermal)
+Brand name, event name, order number (#042), customer name, product lines (name + price), discount, total, cashier instruction footer.
+
+## Git Workflow
+- Main branch: `main`
+- Feature branches: `feature/epic-XX-short-name`
+- One branch per epic
+- Commit messages: `feat: epic-XX description`
+- Remote: https://github.com/krnskrll/event-mpos

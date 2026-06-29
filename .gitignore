@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+
+# ---- Backend (Gradle / Kotlin) ----
+backend/.gradle/
+backend/build/
+backend/!gradle/wrapper/gradle-wrapper.jar
+backend/out/
+
+# ---- Web (Node / Vite) ----
+web/node_modules/
+web/dist/
+web/.vite/
+web/*.local
+
+# ---- Android ----
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+android/.idea/
+android/captures/
+*.apk
+*.keystore
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Env / secrets
+.env
+*.env.local
