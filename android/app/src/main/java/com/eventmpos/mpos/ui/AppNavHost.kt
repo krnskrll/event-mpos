@@ -7,6 +7,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.eventmpos.mpos.ui.catalogue.CatalogueScreen
+import com.eventmpos.mpos.ui.customer.CustomerScreen
 import com.eventmpos.mpos.ui.home.HomeScreen
 import com.eventmpos.mpos.ui.login.LoginScreen
 
@@ -14,6 +15,7 @@ object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
     const val CATALOGUE = "catalogue/{eventId}"
+    const val CUSTOMER = "customer"
     fun catalogue(eventId: String) = "catalogue/$eventId"
 }
 
@@ -42,6 +44,7 @@ fun AppNavHost(startLoggedIn: Boolean) {
                     }
                 },
                 onBrowseProducts = { eventId -> navController.navigate(Routes.catalogue(eventId)) },
+                onIdentifyCustomer = { navController.navigate(Routes.CUSTOMER) },
             )
         }
         composable(
@@ -49,6 +52,9 @@ fun AppNavHost(startLoggedIn: Boolean) {
             arguments = listOf(navArgument("eventId") { type = NavType.StringType }),
         ) {
             CatalogueScreen()
+        }
+        composable(Routes.CUSTOMER) {
+            CustomerScreen()
         }
     }
 }

@@ -37,6 +37,7 @@ import com.eventmpos.mpos.domain.auth.AssignedEvent
 fun HomeScreen(
     onLoggedOut: () -> Unit,
     onBrowseProducts: (String) -> Unit,
+    onIdentifyCustomer: () -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -81,6 +82,7 @@ fun HomeScreen(
                 onRetry = viewModel::retrySync,
                 onBack = viewModel::backToList,
                 onBrowseProducts = onBrowseProducts,
+                onIdentifyCustomer = onIdentifyCustomer,
             )
         }
 
@@ -122,6 +124,7 @@ private fun SelectedEvent(
     onRetry: () -> Unit,
     onBack: () -> Unit,
     onBrowseProducts: (String) -> Unit,
+    onIdentifyCustomer: () -> Unit,
 ) {
     Text("Your event", style = MaterialTheme.typography.headlineSmall)
     Card(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
@@ -147,6 +150,12 @@ private fun SelectedEvent(
                     modifier = Modifier.fillMaxWidth().padding(top = 16.dp),
                 ) {
                     Text("Browse products")
+                }
+                OutlinedButton(
+                    onClick = onIdentifyCustomer,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    Text("Identify customer")
                 }
             }
         }

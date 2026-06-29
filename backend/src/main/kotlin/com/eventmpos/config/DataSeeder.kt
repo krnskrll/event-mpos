@@ -39,6 +39,7 @@ class DataSeeder {
         encoder: PasswordEncoder,
         erpSyncService: com.eventmpos.product.erp.ErpSyncService,
         productService: com.eventmpos.product.ProductService,
+        memberSyncService: com.eventmpos.member.sync.MemberSyncService,
     ) = ApplicationRunner {
         if (users.count() > 0L) {
             log.info("Seed skipped — users already exist")
@@ -65,6 +66,12 @@ class DataSeeder {
         // so the BA's event snapshot has real products to browse/scan out of the box.
         val sync = erpSyncService.sync()
         productService.list().forEach { productService.setAvailability(event.id, it.id, true) }
-        log.info("Seed complete: 3 users, 1 event (EV01) with {} products available", sync.total)
+
+        // Pull the member directory from the (mock) external member system.
+        val memberSync = memberSyncService.sync()
+        log.info(
+            "Seed complete: 3 users, 1 event (EV01) with {} products available, {} members synced",
+            sync.total, memberSync.total,
+        )
     }
 }

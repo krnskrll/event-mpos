@@ -56,11 +56,27 @@ data class ProductDto(
 )
 
 @Serializable
+data class MemberDto(
+    val qrCode: String,
+    val name: String,
+    val tier: String = "STANDARD",
+)
+
+/** Online QR-lookup response (api/me/members/by-qr). */
+@Serializable
+data class MemberLookupDto(
+    val qrCode: String,
+    val name: String,
+    val tier: String = "STANDARD",
+)
+
+@Serializable
 data class SnapshotEnvelopeDto(
     val version: String,
     val changed: Boolean? = null,
     val event: EventResponseDto? = null,
     val products: List<ProductDto> = emptyList(),
+    val members: List<MemberDto> = emptyList(),
 )
 
 fun UserSummaryDto.toDomain() = AuthUser(id, email, fullName, Role.valueOf(role))

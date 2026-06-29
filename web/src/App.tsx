@@ -4,6 +4,7 @@ import { ProtectedRoute, homePathForRole } from "./auth/ProtectedRoute";
 import LoginPage from "./pages/LoginPage";
 import AdminDashboard from "./pages/AdminDashboard";
 import ProductsPage from "./pages/ProductsPage";
+import MembersPage from "./pages/MembersPage";
 import WarehousePage from "./pages/WarehousePage";
 import BaPage from "./pages/BaPage";
 
@@ -27,6 +28,14 @@ export default function App() {
         element={
           <ProtectedRoute allow={["ADMIN"]}>
             <ProductsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/members"
+        element={
+          <ProtectedRoute allow={["ADMIN"]}>
+            <MembersPage />
           </ProtectedRoute>
         }
       />

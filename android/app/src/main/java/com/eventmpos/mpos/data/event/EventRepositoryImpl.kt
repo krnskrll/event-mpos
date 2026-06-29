@@ -4,6 +4,8 @@ import com.eventmpos.mpos.data.auth.AuthApi
 import com.eventmpos.mpos.data.auth.toDomain
 import com.eventmpos.mpos.data.local.EventSnapshotDao
 import com.eventmpos.mpos.data.local.EventSnapshotEntity
+import com.eventmpos.mpos.data.local.MemberDao
+import com.eventmpos.mpos.data.local.MemberEntity
 import com.eventmpos.mpos.data.local.ProductDao
 import com.eventmpos.mpos.data.local.ProductEntity
 import com.eventmpos.mpos.domain.auth.AssignedEvent
@@ -24,6 +26,7 @@ class EventRepositoryImpl @Inject constructor(
     private val api: AuthApi,
     private val dao: EventSnapshotDao,
     private val productDao: ProductDao,
+    private val memberDao: MemberDao,
     private val json: Json,
 ) : EventRepository {
 
@@ -74,6 +77,10 @@ class EventRepositoryImpl @Inject constructor(
                             barcodes = p.barcodes.joinToString("\n"),
                         )
                     },
+                )
+                // Member directory is global; refresh the device cache for offline QR identification.
+                memberDao.replaceAll(
+                    envelope.members.map { m -> MemberEntity(qrCode = m.qrCode, name = m.name, tier = m.tier) },
                 )
                 SyncResult.Ready(version = envelope.version, unchanged = false)
             } catch (e: HttpException) {

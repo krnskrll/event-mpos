@@ -1,6 +1,7 @@
 package com.eventmpos.event
 
 import com.eventmpos.common.ApiException
+import com.eventmpos.member.MemberService
 import com.eventmpos.product.ProductService
 import com.eventmpos.user.Role
 import com.eventmpos.user.UserRepository
@@ -17,6 +18,7 @@ class EventService(
     private val assignmentRepository: BaEventAssignmentRepository,
     private val userRepository: UserRepository,
     private val productService: ProductService,
+    private val memberService: MemberService,
 ) {
 
     fun listEvents(): List<EventResponse> = eventRepository.findAll().map { it.toResponse() }
@@ -98,10 +100,13 @@ class EventService(
     fun snapshotForEvent(eventId: UUID): EventSnapshot {
         val event = findOrThrow(eventId)
         requireActive(event)
+        val members = memberService.activeSnapshotMembers()
         return EventSnapshot(
             event = event.toResponse(),
             version = versionOf(event),
             products = productService.availableSnapshotProducts(eventId),
+            members = members,
+            memberCount = members.size,
         )
     }
 
@@ -137,6 +142,8 @@ class EventService(
             event.updatedAt.toEpochMilli(),
             // products available for this event — so adding/removing/repricing a product re-syncs devices
             productService.availabilityFingerprint(event.id),
+            // member directory — so member changes also re-sync the device cache
+            memberService.fingerprint(),
         ).joinToString("|")
         val digest = MessageDigest.getInstance("SHA-256").digest(material.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }.take(16)

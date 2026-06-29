@@ -50,6 +50,10 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   product availability, products carried in the event snapshot, barcode→product lookup, and an
   Android offline product grid (Room + Coil) with a `ScannerPort` abstraction for the Sunmi scanner.
   See [docs/EPIC-03-verification.md](docs/EPIC-03-verification.md).
+- **EPIC-04 — Member / Customer Integration**: ✅ implemented. Pluggable member-system adapter
+  (mock/file/REST) with scheduled + on-demand sync and region filtering, members carried in the
+  event snapshot, indexed QR lookup, and an Android customer-identify flow (offline Room cache →
+  online fallback → manual name). See [docs/EPIC-04-verification.md](docs/EPIC-04-verification.md).
 
 ## How to Use the Prompts
 

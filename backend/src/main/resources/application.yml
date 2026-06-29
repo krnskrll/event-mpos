@@ -38,6 +38,15 @@ app:
     # Background pull on a schedule. Off by default; admins can also sync on demand from the dashboard.
     scheduled-sync-enabled: ${ERP_SCHEDULED:false}
     sync-cron: ${ERP_SYNC_CRON:0 0 * * * *}
+  member:
+    # External member system adapter: mock (dev default) | file | rest
+    source: ${MEMBER_SOURCE:mock}
+    file-path: ${MEMBER_FILE_PATH:classpath:members/members.csv}
+    rest-url: ${MEMBER_REST_URL:}
+    # Optional: only sync members from this region (narrows large datasets at sync time)
+    region-filter: ${MEMBER_REGION_FILTER:}
+    scheduled-sync-enabled: ${MEMBER_SCHEDULED:false}
+    sync-cron: ${MEMBER_SYNC_CRON:0 0 2 * * *}
 
 logging:
   level:

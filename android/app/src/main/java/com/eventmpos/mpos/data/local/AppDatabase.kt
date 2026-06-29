@@ -4,11 +4,12 @@ import androidx.room.Database
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [EventSnapshotEntity::class, ProductEntity::class],
-    version = 2,
+    entities = [EventSnapshotEntity::class, ProductEntity::class, MemberEntity::class],
+    version = 3,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun eventSnapshotDao(): EventSnapshotDao
     abstract fun productDao(): ProductDao
+    abstract fun memberDao(): MemberDao
 }

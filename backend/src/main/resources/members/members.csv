@@ -1,0 +1,7 @@
+memberCode,qrCode,name,tier,region,active
+M00001,MBR-00001,Aisha Rahman,PLATINUM,Central,true
+M00002,MBR-00002,Bryan Tan,GOLD,Central,true
+M00003,MBR-00003,Chloe Lim,SILVER,North,true
+M00004,MBR-00004,Devan Nair,STANDARD,South,true
+M00005,MBR-00005,Elena Wong,GOLD,Central,true
+M00006,MBR-00006,Former Customer,STANDARD,East,false

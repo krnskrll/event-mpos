@@ -27,4 +27,7 @@ interface AuthApi {
         @Path("eventId") eventId: String,
         @Query("version") version: String?,
     ): SnapshotEnvelopeDto
+
+    @GET("api/me/members/by-qr/{qrCode}")
+    suspend fun getMemberByQr(@Path("qrCode") qrCode: String): MemberLookupDto
 }

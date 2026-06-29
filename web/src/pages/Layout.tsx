@@ -21,6 +21,7 @@ export default function Layout({ title, children }: { title: string; children: R
             <nav style={{ display: "flex", gap: 12, fontSize: "0.85rem" }}>
               <Link to="/admin">Dashboard</Link>
               <Link to="/admin/products">Products</Link>
+              <Link to="/admin/members">Members</Link>
             </nav>
           )}
         </div>

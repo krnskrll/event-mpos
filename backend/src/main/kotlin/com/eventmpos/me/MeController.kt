@@ -6,6 +6,9 @@ import com.eventmpos.event.EventResponse
 import com.eventmpos.event.EventService
 import com.eventmpos.event.EventSnapshot
 import com.eventmpos.event.SnapshotStatus
+import com.eventmpos.member.MemberResponse
+import com.eventmpos.member.MemberService
+import com.eventmpos.member.MemberSnapshotDto
 import com.eventmpos.product.ProductResponse
 import com.eventmpos.product.ProductService
 import com.eventmpos.user.Role
@@ -34,6 +37,7 @@ data class MeResponse(
 class MeController(
     private val eventService: EventService,
     private val productService: ProductService,
+    private val memberService: MemberService,
 ) {
 
     @GetMapping
@@ -87,6 +91,26 @@ class MeController(
         requireBa(principal)
         eventService.requireAssigned(principal.userId, eventId)
         return productService.findAvailableByBarcode(eventId, barcode)
+    }
+
+    /**
+     * The active member directory, for the device to cache (the "separate step" alternative to
+     * carrying members in the snapshot, useful when the dataset is large).
+     */
+    @GetMapping("/members")
+    fun members(@AuthenticationPrincipal principal: AuthPrincipal): List<MemberSnapshotDto> {
+        requireBa(principal)
+        return memberService.activeSnapshotMembers()
+    }
+
+    /** Online QR fallback when a scanned member isn't in the device cache. 404 if unknown/inactive. */
+    @GetMapping("/members/by-qr/{qrCode}")
+    fun memberByQr(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable qrCode: String,
+    ): MemberResponse {
+        requireBa(principal)
+        return memberService.byQr(qrCode)
     }
 
     private fun requireBa(principal: AuthPrincipal) {

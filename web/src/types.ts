@@ -62,3 +62,24 @@ export interface ErpSyncStatus {
   source: string | null;
   message: string | null;
 }
+
+export type MemberTier = "STANDARD" | "SILVER" | "GOLD" | "PLATINUM";
+
+export interface MemberResponse {
+  id: string;
+  memberCode: string;
+  qrCode: string;
+  name: string;
+  tier: MemberTier;
+  region: string | null;
+  active: boolean;
+  updatedAt: string;
+}
+
+export interface MemberSyncStatus {
+  lastSyncAt: string | null;
+  lastResult: string | null;
+  memberCount: number;
+  source: string | null;
+  message: string | null;
+}

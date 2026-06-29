@@ -19,6 +19,8 @@ data class EventSnapshot(
     val stock: List<Any> = emptyList(),
     val members: List<Any> = emptyList(),
     val promotions: List<Any> = emptyList(),
+    /** Count for client awareness even when the member list is fetched as a separate step. */
+    val memberCount: Int = 0,
 )
 
 /** Returned by the conditional snapshot endpoint when the client's version is already current. */
