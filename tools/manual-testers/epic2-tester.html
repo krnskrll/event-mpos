@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>event-mpos · EPIC-02 tester</title>
+<style>
+  :root { --bg:#0f1115; --panel:#1a1d23; --border:#2a2f37; --text:#e7e9ee; --muted:#9aa3b2; --accent:#e0457b; --ok:#22c55e; --err:#ef4444; --draft:#9aa3b2; --active:#22c55e; --closed:#ef4444; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); padding:1.2rem; }
+  .wrap { max-width:760px; margin:0 auto; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1rem; }
+  h1 { font-size:1.2rem; margin:0 0 .2rem; } h2 { font-size:1rem; margin:0 0 .7rem; }
+  p.sub { color:var(--muted); margin:.1rem 0 0; font-size:.85rem; }
+  label { font-size:.75rem; color:var(--muted); }
+  input { width:100%; padding:.5rem .6rem; margin:.25rem 0 .6rem; background:#0f1115; border:1px solid var(--border); border-radius:8px; color:var(--text); }
+  button { cursor:pointer; border:none; border-radius:8px; padding:.45rem .8rem; background:var(--accent); color:#fff; font-weight:600; font-size:.85rem; }
+  button.sec { background:transparent; border:1px solid var(--border); color:var(--text); font-weight:500; }
+  button.sm { padding:.3rem .6rem; font-size:.78rem; }
+  .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  .chips button { background:transparent; border:1px solid var(--border); color:var(--text); font-weight:500; }
+  table { width:100%; border-collapse:collapse; font-size:.85rem; margin-top:.5rem; }
+  th,td { text-align:left; padding:.45rem .35rem; border-bottom:1px solid var(--border); vertical-align:middle; }
+  th { color:var(--muted); }
+  .badge { font-size:.7rem; padding:.12rem .5rem; border-radius:999px; border:1px solid var(--border); }
+  .DRAFT { color:var(--draft); border-color:var(--draft); }
+  .ACTIVE { color:var(--active); border-color:var(--active); }
+  .CLOSED { color:var(--closed); border-color:var(--closed); }
+  pre { background:#0b0d11; border:1px solid var(--border); border-radius:8px; padding:.7rem; overflow:auto; font-size:.78rem; white-space:pre-wrap; word-break:break-all; }
+  .ok { color:var(--ok); } .err { color:var(--err); }
+  .hidden { display:none; }
+  .who { font-size:.8rem; color:var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>event-mpos — EPIC-02 tester</h1>
+    <p class="sub">Event lifecycle + snapshot sync, against the live backend (localhost:8080)</p>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="card" id="loginCard">
+    <h2>1. Sign in</h2>
+    <div class="row chips" style="margin-bottom:.6rem">
+      <button onclick="fill('admin@eventmpos.local','Admin123!')">Admin</button>
+      <button onclick="fill('ba@eventmpos.local','Ba123456!')">BA</button>
+    </div>
+    <div class="row">
+      <input id="email" value="admin@eventmpos.local" style="flex:2" />
+      <input id="password" value="Admin123!" style="flex:1" />
+      <button onclick="login()">Sign in</button>
+    </div>
+    <div id="loginMsg" class="who"></div>
+  </div>
+
+  <!-- ADMIN: events -->
+  <div class="card hidden" id="adminCard">
+    <h2>2. Admin · Events (lifecycle DRAFT → ACTIVE → CLOSED)</h2>
+    <div class="row" style="margin-bottom:.6rem">
+      <input id="newCode" placeholder="Code e.g. EV05" style="flex:1" />
+      <input id="newName" placeholder="Event name" style="flex:2" />
+      <button onclick="createEvent()">Create (DRAFT)</button>
+    </div>
+    <div id="eventsBox">Loading…</div>
+
+    <h2 style="margin-top:1.4rem">2b. Admin · Map a BA account to an event</h2>
+    <p class="sub">The BA will see this event (and can sync it when ACTIVE) on the Android app / BA view.</p>
+    <div class="row" style="margin-top:.6rem">
+      <select id="assignBa" style="flex:2"></select>
+      <select id="assignEvent" style="flex:2"></select>
+      <button onclick="assignBa()">Assign</button>
+    </div>
+    <div id="assignMsg" class="who"></div>
+    <div id="assignTable" style="margin-top:.6rem"></div>
+  </div>
+
+  <!-- BA: snapshot -->
+  <div class="card hidden" id="baCard">
+    <h2>3. BA · Event snapshot sync</h2>
+    <p class="sub">Pick an assigned event to download its snapshot. ACTIVE only — DRAFT/CLOSED are blocked (409).</p>
+    <div id="baEventsBox" style="margin-top:.6rem">Loading…</div>
+    <pre id="snapOut">Snapshot result appears here.</pre>
+  </div>
+</div>
+
+<script>
+const API = "http://localhost:8080";
+let token = null, role = null, lastVersion = {};
+
+function fill(e,p){ document.getElementById("email").value=e; document.getElementById("password").value=p; }
+async function req(method, path, body){
+  const opt = { method, headers:{} };
+  if(token) opt.headers["Authorization"]="Bearer "+token;
+  if(body){ opt.headers["Content-Type"]="application/json"; opt.body=JSON.stringify(body); }
+  const res = await fetch(API+path, opt);
+  let data=null; try{ data=await res.json(); }catch(_){}
+  return { ok:res.ok, status:res.status, data };
+}
+
+async function login(){
+  const r = await req("POST","/api/auth/login",{ email:email.value, password:password.value });
+  const m = document.getElementById("loginMsg");
+  if(!r.ok){ m.className="err"; m.textContent="❌ "+r.status+" "+(r.data?.message||""); return; }
+  token = r.data.accessToken; role = r.data.user.role;
+  m.className="ok"; m.textContent="✅ Signed in as "+r.data.user.fullName+" ("+role+")";
+  document.getElementById("adminCard").classList.toggle("hidden", role!=="ADMIN");
+  document.getElementById("baCard").classList.toggle("hidden", role!=="BA");
+  if(role==="ADMIN"){ loadEvents(); loadBas(); }
+  if(role==="BA") loadBaEvents();
+}
+
+// ---------- ADMIN ----------
+async function loadEvents(){
+  const r = await req("GET","/api/admin/events");
+  const box = document.getElementById("eventsBox");
+  if(!r.ok){ box.innerHTML='<span class="err">'+r.status+' '+(r.data?.message||'')+'</span>'; return; }
+  const rows = r.data.sort((a,b)=>a.code.localeCompare(b.code)).map(ev=>{
+    let actions="";
+    if(ev.status==="DRAFT") actions+=`<button class="sm" onclick="setStatus('${ev.id}','ACTIVE')">Activate</button> `;
+    if(ev.status==="ACTIVE") actions+=`<button class="sm" onclick="setStatus('${ev.id}','CLOSED')">Close</button> `;
+    if(ev.status!=="CLOSED") actions+=`<button class="sm sec" onclick="renameEvent('${ev.id}','${ev.name.replace(/'/g,"")}')">Rename</button>`;
+    return `<tr><td><span class="badge">${ev.code}</span></td><td>${ev.name}</td>
+      <td><span class="badge ${ev.status}">${ev.status}</span></td><td class="row">${actions}</td></tr>`;
+  }).join("");
+  box.innerHTML = `<table><thead><tr><th>Code</th><th>Name</th><th>Status</th><th>Actions</th></tr></thead><tbody>${rows}</tbody></table>`;
+  // keep the "assign to event" dropdown in sync with the current events
+  const sel = document.getElementById("assignEvent");
+  sel.innerHTML = '<option value="">Select event…</option>' +
+    r.data.map(ev=>`<option value="${ev.id}">${ev.code} — ${ev.name} (${ev.status})</option>`).join("");
+}
+
+async function loadBas(){
+  const r = await req("GET","/api/admin/users?role=BA");
+  const sel = document.getElementById("assignBa");
+  if(!r.ok){ sel.innerHTML='<option>error loading BAs</option>'; return; }
+  sel.innerHTML = '<option value="">Select BA…</option>' +
+    r.data.map(u=>`<option value="${u.id}">${u.fullName} (${u.email})</option>`).join("");
+}
+
+async function assignBa(){
+  const userId=document.getElementById("assignBa").value, eventId=document.getElementById("assignEvent").value;
+  const msg=document.getElementById("assignMsg");
+  if(!userId||!eventId){ msg.className="err"; msg.textContent="Pick a BA and an event."; return; }
+  const r = await req("POST","/api/admin/assignments",{ userId, eventId });
+  if(!r.ok){ msg.className="err"; msg.textContent="❌ "+r.status+" "+(r.data?.message||""); return; }
+  const baText = document.querySelector(`#assignBa option[value="${userId}"]`).textContent;
+  msg.className="ok"; msg.textContent=`✅ Assigned ${baText} → ${r.data.code}. (A BA's previous active assignment is replaced.)`;
+}
+async function createEvent(){
+  const code=document.getElementById("newCode").value.trim(), name=document.getElementById("newName").value.trim();
+  if(!code||!name) return alert("Enter code and name");
+  const r = await req("POST","/api/admin/events",{ code, name });
+  if(!r.ok) return alert("❌ "+r.status+" "+(r.data?.message||""));
+  document.getElementById("newCode").value=""; document.getElementById("newName").value=""; loadEvents();
+}
+async function setStatus(id, status){
+  const r = await req("PATCH","/api/admin/events/"+id+"/status",{ status });
+  if(!r.ok) return alert("❌ "+r.status+" "+(r.data?.message||""));
+  loadEvents();
+}
+async function renameEvent(id, current){
+  const name = prompt("New name:", current); if(!name) return;
+  const r = await req("PUT","/api/admin/events/"+id,{ name });
+  if(!r.ok) return alert("❌ "+r.status+" "+(r.data?.message||""));
+  loadEvents();
+}
+
+// ---------- BA ----------
+async function loadBaEvents(){
+  const r = await req("GET","/api/me/events");
+  const box = document.getElementById("baEventsBox");
+  if(!r.ok){ box.innerHTML='<span class="err">'+r.status+' '+(r.data?.message||'')+'</span>'; return; }
+  if(!r.data.length){ box.innerHTML='<span class="who">No events assigned. Sign in as Admin to assign one.</span>'; return; }
+  box.innerHTML = r.data.map(ev=>`<div class="row" style="margin:.3rem 0">
+      <span class="badge">${ev.code}</span> <span>${ev.name}</span>
+      <span class="badge ${ev.status}">${ev.status}</span>
+      <button class="sm" onclick="syncSnap('${ev.id}','${ev.code}')">Sync snapshot</button>
+      <button class="sm sec" onclick="syncSnap('${ev.id}','${ev.code}',true)">Sync again (version)</button>
+    </div>`).join("");
+}
+async function syncSnap(id, code, useVersion){
+  const out = document.getElementById("snapOut");
+  const q = (useVersion && lastVersion[id]) ? ("?version="+encodeURIComponent(lastVersion[id])) : "";
+  const r = await req("GET","/api/me/events/"+id+"/snapshot"+q);
+  if(!r.ok){ out.className="err"; out.textContent="❌ "+r.status+"\n"+JSON.stringify(r.data,null,2); return; }
+  if(r.data.changed===false){ out.className="ok"; out.textContent="✓ "+code+" unchanged (version "+r.data.version+") — no re-download needed."; return; }
+  lastVersion[id]=r.data.version;
+  out.className="ok";
+  out.textContent="✓ "+code+" snapshot downloaded\n\nversion: "+r.data.version
+    +"\nproducts: "+r.data.products.length+"  stock: "+r.data.stock.length
+    +"  members: "+r.data.members.length+"  promotions: "+r.data.promotions.length
+    +"\n(those lists fill in EPIC-03/04/06)\n\nNow click \"Sync again (version)\" to see changed:false.";
+}
+</script>
+</body>
+</html>
