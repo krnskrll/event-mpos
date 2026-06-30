@@ -36,8 +36,10 @@ class SecurityConfig(
             .sessionManagement { it.sessionCreationPolicy(SessionCreationPolicy.STATELESS) }
             .authorizeHttpRequests { auth ->
                 auth
-                    // Public: login + refresh + health
+                    // Public: login + refresh + health + the WebSocket handshake (STOMP CONNECT
+                    // carries order data only within the warehouse context)
                     .requestMatchers("/api/auth/login", "/api/auth/refresh").permitAll()
+                    .requestMatchers("/ws/**", "/ws-native/**").permitAll()
                     .requestMatchers(HttpMethod.GET, "/actuator/health", "/api/health").permitAll()
                     // Admin-only: user management + BA assignment
                     .requestMatchers("/api/admin/**").hasRole("ADMIN")

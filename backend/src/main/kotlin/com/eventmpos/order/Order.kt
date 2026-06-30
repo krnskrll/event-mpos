@@ -15,7 +15,16 @@ import java.time.Instant
 import java.util.UUID
 
 /** Order lifecycle (warehouse drives NEW→…→COLLECTED in EPIC-09). Orders start NEW. */
-enum class OrderStatus { NEW, PACKING, READY, COLLECTED }
+enum class OrderStatus {
+    NEW, PACKING, READY, COLLECTED,
+    ;
+
+    /** The next status forward, or null if already COLLECTED. */
+    fun next(): OrderStatus? = entries.getOrNull(ordinal + 1)
+
+    /** Warehouse advances strictly forward, one step at a time. */
+    fun canAdvanceTo(target: OrderStatus): Boolean = target == next()
+}
 
 /**
  * A confirmed order. Created only on server submit, atomically with stock decrement + promotion

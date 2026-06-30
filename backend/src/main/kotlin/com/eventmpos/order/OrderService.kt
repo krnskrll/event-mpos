@@ -8,6 +8,8 @@ import com.eventmpos.promotion.CartLine
 import com.eventmpos.promotion.PromotionEngine
 import com.eventmpos.promotion.PromotionRepository
 import com.eventmpos.stock.StockService
+import com.eventmpos.user.UserRepository
+import org.springframework.context.ApplicationEventPublisher
 import org.springframework.dao.DataIntegrityViolationException
 import org.springframework.http.HttpStatus
 import org.springframework.stereotype.Service
@@ -27,6 +29,8 @@ class OrderService(
     private val promotionRepository: PromotionRepository,
     private val eventRepository: EventRepository,
     private val stockService: StockService,
+    private val userRepository: UserRepository,
+    private val events: ApplicationEventPublisher,
 ) {
     private val dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC)
 
@@ -98,7 +102,42 @@ class OrderService(
             orderRepository.findByIdempotencyKey(req.idempotencyKey)
                 ?.let { return toConfirmation(it, duplicate = true) } ?: throw e
         }
+        // Broadcast to the warehouse board AFTER this transaction commits.
+        events.publishEvent(OrderChangedEvent(eventId, toWarehouseView(saved)))
         return toConfirmation(saved, duplicate = false)
+    }
+
+    // ---- warehouse board (EPIC-09) ----
+
+    fun warehouseOrders(eventId: UUID, status: OrderStatus?): List<WarehouseOrderView> =
+        orderRepository.findAllByEventIdOrderByCreatedAtDesc(eventId)
+            .filter { status == null || it.status == status }
+            .map { toWarehouseView(it) }
+
+    /** Advance an order one step (NEW→PACKING→READY→COLLECTED). Broadcasts the change. */
+    @Transactional
+    fun advanceStatus(orderId: UUID, target: OrderStatus): WarehouseOrderView {
+        val order = orderRepository.findById(orderId).orElseThrow {
+            ApiException(HttpStatus.NOT_FOUND, "Order not found")
+        }
+        if (!order.status.canAdvanceTo(target)) {
+            throw ApiException(HttpStatus.CONFLICT, "Cannot move order from ${order.status} to $target")
+        }
+        order.status = target
+        val saved = orderRepository.save(order)
+        val view = toWarehouseView(saved)
+        events.publishEvent(OrderChangedEvent(order.eventId, view))
+        return view
+    }
+
+    private fun toWarehouseView(o: Order): WarehouseOrderView {
+        val baName = userRepository.findById(o.baUserId).map { it.fullName }.orElse("BA")
+        return WarehouseOrderView(
+            id = o.id, orderNumber = o.orderNumber, orderNumberDisplay = "#${"%03d".format(o.orderNumber)}",
+            referenceId = o.referenceId, customerName = o.customerName, baName = baName,
+            items = o.items.map { WarehouseItem(it.name, it.sku, it.qty) },
+            status = o.status, total = o.total, createdAt = o.createdAt,
+        )
     }
 
     fun history(eventId: UUID, baUserId: UUID): List<OrderSummary> =

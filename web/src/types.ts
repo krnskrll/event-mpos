@@ -104,6 +104,27 @@ export interface StockLevelRow {
   lowStock: boolean;
 }
 
+export type OrderStatus = "NEW" | "PACKING" | "READY" | "COLLECTED";
+
+export interface WarehouseItem {
+  name: string;
+  sku: string;
+  qty: number;
+}
+
+export interface WarehouseOrderView {
+  id: string;
+  orderNumber: number;
+  orderNumberDisplay: string;
+  referenceId: string;
+  customerName: string;
+  baName: string;
+  items: WarehouseItem[];
+  status: OrderStatus;
+  total: number;
+  createdAt: string;
+}
+
 export type PromotionType = "PERCENTAGE" | "FIXED" | "BUNDLE";
 export type PromotionScope = "ALL" | "SPECIFIC";
 

@@ -11,6 +11,12 @@ export default defineConfig({
         target: "http://localhost:8080",
         changeOrigin: true,
       },
+      // SockJS/STOMP endpoint for the real-time warehouse board (needs websocket upgrade)
+      "/ws": {
+        target: "http://localhost:8080",
+        changeOrigin: true,
+        ws: true,
+      },
     },
   },
 });

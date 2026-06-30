@@ -73,6 +73,11 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   `ReceiptFormatter`, **auto-print on confirm** (status checked first), receipts stored in Room for
   **reprint without network**, and a receipt screen + retry on printer failure (order unaffected).
   See [docs/EPIC-08-verification.md](docs/EPIC-08-verification.md).
+- **EPIC-09 — Warehouse Order Dashboard**: ✅ implemented. Real-time order board over **WebSocket/
+  STOMP** (broadcast `AFTER_COMMIT` to `/topic/events/{id}/orders`), with status advance
+  NEW→PACKING→READY→COLLECTED (validated), status filter, **new-order beep + flash**, **polling
+  fallback** when the socket drops, and a remaining-stock panel. See
+  [docs/EPIC-09-verification.md](docs/EPIC-09-verification.md).
 
 ## How to Use the Prompts
 
