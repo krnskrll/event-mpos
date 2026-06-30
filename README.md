@@ -68,6 +68,11 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   `SELECT … FOR UPDATE` + idempotency key) in one transaction; **WorkManager** offline retry with
   Pending/Confirmed/Failed status; order history. Receipt-ready confirmation payload for EPIC-08.
   See [docs/EPIC-07-verification.md](docs/EPIC-07-verification.md).
+- **EPIC-08 — Receipt Generation & Thermal Print**: ✅ implemented. `PrinterPort` abstraction
+  (FakePrinterPort for emulator/logcat; documented Sunmi InnerPrinter AIDL impl), a unit-tested 58mm
+  `ReceiptFormatter`, **auto-print on confirm** (status checked first), receipts stored in Room for
+  **reprint without network**, and a receipt screen + retry on printer failure (order unaffected).
+  See [docs/EPIC-08-verification.md](docs/EPIC-08-verification.md).
 
 ## How to Use the Prompts
 

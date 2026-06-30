@@ -13,6 +13,7 @@ import com.eventmpos.mpos.ui.home.HomeScreen
 import com.eventmpos.mpos.ui.login.LoginScreen
 import com.eventmpos.mpos.ui.orders.OrdersScreen
 import com.eventmpos.mpos.ui.promotions.PromotionsScreen
+import com.eventmpos.mpos.ui.receipt.ReceiptScreen
 
 object Routes {
     const val LOGIN = "login"
@@ -22,10 +23,12 @@ object Routes {
     const val PROMOTIONS = "promotions/{eventId}"
     const val CART = "cart/{eventId}"
     const val ORDERS = "orders/{eventId}"
+    const val RECEIPT = "receipt/{orderKey}"
     fun catalogue(eventId: String) = "catalogue/$eventId"
     fun promotions(eventId: String) = "promotions/$eventId"
     fun cart(eventId: String) = "cart/$eventId"
     fun orders(eventId: String) = "orders/$eventId"
+    fun receipt(orderKey: String) = "receipt/$orderKey"
 }
 
 @Composable
@@ -70,6 +73,14 @@ fun AppNavHost(startLoggedIn: Boolean) {
                 onIdentifyCustomer = { navController.navigate(Routes.CUSTOMER) },
             )
         }
-        composable(Routes.ORDERS, arguments = eventArg) { OrdersScreen() }
+        composable(Routes.ORDERS, arguments = eventArg) {
+            OrdersScreen(onOpenReceipt = { navController.navigate(Routes.receipt(it)) })
+        }
+        composable(
+            Routes.RECEIPT,
+            arguments = listOf(navArgument("orderKey") { type = NavType.StringType }),
+        ) {
+            ReceiptScreen()
+        }
     }
 }

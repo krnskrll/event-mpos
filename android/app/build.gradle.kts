@@ -20,6 +20,8 @@ android {
         // Base URL of the backend. 10.0.2.2 is the host machine as seen from the Android emulator.
         // Override per build/flavor for physical Sunmi devices on the venue network.
         buildConfigField("String", "API_BASE_URL", "\"http://10.0.2.2:8080/\"")
+        // Brand name printed on receipts (per-deployment).
+        buildConfigField("String", "BRAND_NAME", "\"Lumière Beauty\"")
     }
 
     buildTypes {

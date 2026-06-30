@@ -6,9 +6,9 @@ import androidx.room.RoomDatabase
 @Database(
     entities = [
         EventSnapshotEntity::class, ProductEntity::class, MemberEntity::class,
-        PromotionEntity::class, PendingOrderEntity::class,
+        PromotionEntity::class, PendingOrderEntity::class, ReceiptEntity::class,
     ],
-    version = 6,
+    version = 7,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -17,4 +17,5 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun memberDao(): MemberDao
     abstract fun promotionDao(): PromotionDao
     abstract fun pendingOrderDao(): PendingOrderDao
+    abstract fun receiptDao(): ReceiptDao
 }

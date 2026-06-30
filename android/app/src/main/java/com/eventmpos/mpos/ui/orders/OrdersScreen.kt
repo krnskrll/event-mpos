@@ -23,7 +23,10 @@ import com.eventmpos.mpos.domain.order.OrderState
 
 /** BA order history for the event session, including not-yet-confirmed (Pending) submissions. */
 @Composable
-fun OrdersScreen(viewModel: OrdersViewModel = hiltViewModel()) {
+fun OrdersScreen(
+    onOpenReceipt: (String) -> Unit,
+    viewModel: OrdersViewModel = hiltViewModel(),
+) {
     val orders by viewModel.orders.collectAsStateWithLifecycle()
 
     Column(modifier = Modifier.fillMaxSize().padding(16.dp)) {
@@ -32,14 +35,14 @@ fun OrdersScreen(viewModel: OrdersViewModel = hiltViewModel()) {
             Text("No orders yet for this event.", color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 12.dp))
         } else {
             LazyColumn(modifier = Modifier.fillMaxSize().padding(top = 8.dp)) {
-                items(orders, key = { it.idempotencyKey }) { OrderRow(it) }
+                items(orders, key = { it.idempotencyKey }) { OrderRow(it, onOpenReceipt) }
             }
         }
     }
 }
 
 @Composable
-private fun OrderRow(order: OrderRecord) {
+private fun OrderRow(order: OrderRecord, onOpenReceipt: (String) -> Unit) {
     Card(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
         Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) {
@@ -55,7 +58,14 @@ private fun OrderRow(order: OrderRecord) {
                 order.total?.let { Text("RM ${"%.2f".format(it)}", style = MaterialTheme.typography.bodySmall) }
                 order.error?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
             }
-            StatusChip(order.state)
+            Column(horizontalAlignment = androidx.compose.ui.Alignment.End) {
+                StatusChip(order.state)
+                if (order.state == OrderState.CONFIRMED) {
+                    androidx.compose.material3.TextButton(onClick = { onOpenReceipt(order.idempotencyKey) }) {
+                        Text("Receipt / Reprint")
+                    }
+                }
+            }
         }
     }
 }
