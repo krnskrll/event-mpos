@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>event-mpos · EPIC-06 tester</title>
+<style>
+  :root { --bg:#0f1115; --panel:#1a1d23; --border:#2a2f37; --text:#e7e9ee; --muted:#9aa3b2; --accent:#e0457b; --ok:#22c55e; --err:#ef4444; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); padding:1.2rem; }
+  .wrap { max-width:840px; margin:0 auto; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1rem; }
+  h1 { font-size:1.2rem; margin:0 0 .2rem; } h2 { font-size:1rem; margin:0 0 .6rem; }
+  p.sub { color:var(--muted); margin:.1rem 0 .6rem; font-size:.85rem; }
+  label { font-size:.74rem; color:var(--muted); }
+  input,select { padding:.4rem .5rem; margin:.15rem 0 .4rem; background:#0f1115; border:1px solid var(--border); border-radius:8px; color:var(--text); }
+  select,input.full { width:100%; }
+  button { cursor:pointer; border:none; border-radius:8px; padding:.45rem .8rem; background:var(--accent); color:#fff; font-weight:600; font-size:.85rem; }
+  button.sec { background:transparent; border:1px solid var(--border); color:var(--text); font-weight:500; }
+  .chips button { background:transparent; border:1px solid var(--border); color:var(--text); font-weight:500; }
+  .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  .grid3 { display:grid; grid-template-columns:1fr 1fr 1fr; gap:.5rem; }
+  table { width:100%; border-collapse:collapse; font-size:.83rem; margin-top:.5rem; }
+  th,td { text-align:left; padding:.4rem .35rem; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); }
+  .badge { font-size:.7rem; padding:.1rem .45rem; border-radius:999px; border:1px solid var(--border); color:var(--muted); }
+  pre { background:#0b0d11; border:1px solid var(--border); border-radius:8px; padding:.7rem; font-size:.82rem; }
+  .ok { color:var(--ok); } .err { color:var(--err); } .who { font-size:.8rem; color:var(--muted); }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card"><h1>event-mpos — EPIC-06 tester</h1><p class="sub">Event promotions (admin) + authoritative cart quote (BA). Live backend on :8080.</p></div>
+
+  <div class="card" id="loginCard">
+    <h2>1. Sign in</h2>
+    <div class="row chips" style="margin-bottom:.5rem">
+      <button onclick="fill('admin@eventmpos.local','Admin123!')">Admin</button>
+      <button onclick="fill('ba@eventmpos.local','Ba123456!')">BA</button>
+    </div>
+    <div class="row"><input id="email" value="admin@eventmpos.local" style="flex:2"><input id="password" value="Admin123!" style="flex:1"><button onclick="login()">Sign in</button></div>
+    <div id="loginMsg" class="who"></div>
+  </div>
+
+  <div class="card hidden" id="adminCard">
+    <h2>2. Admin · Promotions</h2>
+    <select id="adminEvent" onchange="loadPromos()"><option value="">Select event…</option></select>
+    <div class="grid3" style="margin-top:.4rem">
+      <input id="pName" placeholder="Name" class="full">
+      <select id="pType" onchange="onType()"><option value="PERCENTAGE">Percentage</option><option value="FIXED">Fixed RM</option><option value="BUNDLE">Bundle</option></select>
+      <input id="pValue" placeholder="value (% or RM)" type="number">
+    </div>
+    <div class="grid3">
+      <select id="pScope"><option value="ALL">All products</option><option value="SPECIFIC">Specific</option></select>
+      <input id="pMinQty" placeholder="min qty / bundle size" type="number">
+      <input id="pMinSub" placeholder="min subtotal RM" type="number">
+    </div>
+    <div id="pProductsWrap" class="hidden"><label>Products (for SPECIFIC / BUNDLE)</label><select id="pProducts" multiple style="height:90px"></select></div>
+    <button onclick="createPromo()">Add promotion</button>
+    <div id="adminMsg" class="who"></div>
+    <div id="promoBox"></div>
+  </div>
+
+  <div class="card hidden" id="baCard">
+    <h2>2. BA · Cart quote (server-authoritative)</h2>
+    <p class="sub">Set quantities, then Quote — the server auto-applies the single best promotion.</p>
+    <div id="cartBox"></div>
+    <button onclick="quote()" style="margin-top:.5rem">Quote cart</button>
+    <pre id="quoteOut">Quote appears here.</pre>
+  </div>
+</div>
+
+<script>
+const API="http://localhost:8080";
+let token=null, role=null, events=[], products=[], baEventId=null;
+function fill(e,p){ email.value=e; password.value=p; }
+async function req(m,p,b){ const o={method:m,headers:{}}; if(token)o.headers.Authorization="Bearer "+token; if(b){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(b);} const r=await fetch(API+p,o); let d=null; try{d=await r.json();}catch(_){} return {ok:r.ok,status:r.status,data:d}; }
+async function login(){
+  const r=await req("POST","/api/auth/login",{email:email.value,password:password.value});
+  if(!r.ok){loginMsg.className="err";loginMsg.textContent="❌ "+(r.data?.message||r.status);return;}
+  token=r.data.accessToken; role=r.data.user.role;
+  loginMsg.className="ok"; loginMsg.textContent="✅ "+r.data.user.fullName+" ("+role+")";
+  adminCard.classList.toggle("hidden",role!=="ADMIN");
+  baCard.classList.toggle("hidden",role!=="BA");
+  if(role==="ADMIN"){ const e=await req("GET","/api/admin/events"); events=e.data; adminEvent.innerHTML='<option value="">Select event…</option>'+events.map(x=>`<option value="${x.id}">${x.code} — ${x.name}</option>`).join(""); const p=await req("GET","/api/admin/products"); products=p.data; pProducts.innerHTML=products.map(x=>`<option value="${x.id}">${x.sku} — ${x.name}</option>`).join(""); }
+  if(role==="BA"){ const ev=await req("GET","/api/me/event"); baEventId=ev.data.id; const snap=await req("GET","/api/me/events/"+baEventId+"/snapshot"); products=snap.data.products; renderCart(); }
+}
+function onType(){ pProductsWrap.classList.toggle("hidden", !(pType.value==="BUNDLE"||pScope.value==="SPECIFIC")); }
+pScope&&(pScope.onchange=onType);
+async function loadPromos(){
+  const id=adminEvent.value; if(!id){promoBox.innerHTML="";return;}
+  const r=await req("GET","/api/admin/events/"+id+"/promotions");
+  promoBox.innerHTML='<table><thead><tr><th>Name</th><th>Type</th><th>Active</th><th></th></tr></thead><tbody>'+
+    r.data.map(p=>`<tr><td>${p.name}</td><td><span class="badge">${p.type}</span></td><td>${p.active?"✓":"—"}</td>
+      <td class="row"><button class="sec" onclick='toggle(${JSON.stringify(p)})'>${p.active?"Disable":"Enable"}</button>
+      <button class="sec" onclick="delPromo('${p.id}')">Delete</button></td></tr>`).join("")+'</tbody></table>';
+}
+async function createPromo(){
+  const id=adminEvent.value; if(!id)return alert("pick an event");
+  const type=pType.value;
+  const body={name:pName.value,type,scope:pScope.value,
+    productIds:(type==="BUNDLE"||pScope.value==="SPECIFIC")?Array.from(pProducts.selectedOptions,o=>o.value):[],
+    minQty:pMinQty.value?Number(pMinQty.value):null, minSubtotal:pMinSub.value?Number(pMinSub.value):null};
+  if(type==="PERCENTAGE")body.percentOff=Number(pValue.value); else body.amountOff=Number(pValue.value);
+  const r=await req("POST","/api/admin/events/"+id+"/promotions",body);
+  if(!r.ok){adminMsg.className="err";adminMsg.textContent="❌ "+(r.data?.message||r.status);return;}
+  adminMsg.className="ok"; adminMsg.textContent="✅ created"; pName.value=pValue.value=pMinQty.value=pMinSub.value=""; loadPromos();
+}
+async function toggle(p){ await req("PUT","/api/admin/promotions/"+p.id,{...p,active:!p.active}); loadPromos(); }
+async function delPromo(id){ await req("DELETE","/api/admin/promotions/"+id); loadPromos(); }
+function renderCart(){
+  cartBox.innerHTML='<table><thead><tr><th>Product</th><th>Price</th><th>Qty</th></tr></thead><tbody>'+
+    products.map(p=>`<tr><td>${p.name}</td><td>RM${p.price.toFixed(2)}</td><td><input type="number" min="0" value="0" id="q_${p.id}" style="width:70px"></td></tr>`).join("")+'</tbody></table>';
+}
+async function quote(){
+  const lines=products.map(p=>({productId:p.id,qty:Number(document.getElementById("q_"+p.id).value||0)})).filter(l=>l.qty>0);
+  const r=await req("POST","/api/me/events/"+baEventId+"/promotions/quote",{lines});
+  if(!r.ok){quoteOut.className="err";quoteOut.textContent="❌ "+(r.data?.message||r.status);return;}
+  const d=r.data; quoteOut.className="ok";
+  quoteOut.textContent=`Subtotal: RM${d.subtotal}\nPromotion: ${d.appliedPromotionName||"(none)"}\nDiscount: -RM${d.discount}\nTotal:    RM${d.total}`;
+}
+</script>
+</body>
+</html>

@@ -59,6 +59,10 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   low-stock/sold-out flags (polling), and an **atomic, oversell-proof decrement** (PostgreSQL
   `SELECT … FOR UPDATE` + `@Version`) proven by a 300-thread concurrency test. See
   [docs/EPIC-05-verification.md](docs/EPIC-05-verification.md).
+- **EPIC-06 — Promotions**: ✅ implemented. Event-scoped promotions (percentage / fixed / bundle)
+  that auto-apply, a **shared rule engine** (server-authoritative + mirrored client preview, pinned
+  by a unit test), promotions in the snapshot, admin CRUD, and an authoritative cart **quote**
+  endpoint that picks the single best promotion. See [docs/EPIC-06-verification.md](docs/EPIC-06-verification.md).
 
 ## How to Use the Prompts
 

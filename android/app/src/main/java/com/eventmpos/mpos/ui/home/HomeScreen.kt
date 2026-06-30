@@ -38,6 +38,7 @@ fun HomeScreen(
     onLoggedOut: () -> Unit,
     onBrowseProducts: (String) -> Unit,
     onIdentifyCustomer: () -> Unit,
+    onViewPromotions: (String) -> Unit,
     viewModel: HomeViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -83,6 +84,7 @@ fun HomeScreen(
                 onBack = viewModel::backToList,
                 onBrowseProducts = onBrowseProducts,
                 onIdentifyCustomer = onIdentifyCustomer,
+                onViewPromotions = onViewPromotions,
             )
         }
 
@@ -125,6 +127,7 @@ private fun SelectedEvent(
     onBack: () -> Unit,
     onBrowseProducts: (String) -> Unit,
     onIdentifyCustomer: () -> Unit,
+    onViewPromotions: (String) -> Unit,
 ) {
     Text("Your event", style = MaterialTheme.typography.headlineSmall)
     Card(modifier = Modifier.fillMaxWidth().padding(top = 16.dp)) {
@@ -156,6 +159,12 @@ private fun SelectedEvent(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
                 ) {
                     Text("Identify customer")
+                }
+                OutlinedButton(
+                    onClick = { onViewPromotions(event.id) },
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                ) {
+                    Text("View promotions")
                 }
             }
         }

@@ -10,13 +10,16 @@ import com.eventmpos.mpos.ui.catalogue.CatalogueScreen
 import com.eventmpos.mpos.ui.customer.CustomerScreen
 import com.eventmpos.mpos.ui.home.HomeScreen
 import com.eventmpos.mpos.ui.login.LoginScreen
+import com.eventmpos.mpos.ui.promotions.PromotionsScreen
 
 object Routes {
     const val LOGIN = "login"
     const val HOME = "home"
     const val CATALOGUE = "catalogue/{eventId}"
     const val CUSTOMER = "customer"
+    const val PROMOTIONS = "promotions/{eventId}"
     fun catalogue(eventId: String) = "catalogue/$eventId"
+    fun promotions(eventId: String) = "promotions/$eventId"
 }
 
 @Composable
@@ -45,6 +48,7 @@ fun AppNavHost(startLoggedIn: Boolean) {
                 },
                 onBrowseProducts = { eventId -> navController.navigate(Routes.catalogue(eventId)) },
                 onIdentifyCustomer = { navController.navigate(Routes.CUSTOMER) },
+                onViewPromotions = { eventId -> navController.navigate(Routes.promotions(eventId)) },
             )
         }
         composable(
@@ -55,6 +59,12 @@ fun AppNavHost(startLoggedIn: Boolean) {
         }
         composable(Routes.CUSTOMER) {
             CustomerScreen()
+        }
+        composable(
+            Routes.PROMOTIONS,
+            arguments = listOf(navArgument("eventId") { type = NavType.StringType }),
+        ) {
+            PromotionsScreen()
         }
     }
 }

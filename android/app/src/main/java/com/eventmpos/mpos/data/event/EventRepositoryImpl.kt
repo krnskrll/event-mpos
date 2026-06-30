@@ -8,6 +8,8 @@ import com.eventmpos.mpos.data.local.MemberDao
 import com.eventmpos.mpos.data.local.MemberEntity
 import com.eventmpos.mpos.data.local.ProductDao
 import com.eventmpos.mpos.data.local.ProductEntity
+import com.eventmpos.mpos.data.local.PromotionDao
+import com.eventmpos.mpos.data.local.PromotionEntity
 import com.eventmpos.mpos.domain.auth.AssignedEvent
 import com.eventmpos.mpos.domain.event.EventRepository
 import com.eventmpos.mpos.domain.event.SyncResult
@@ -27,6 +29,7 @@ class EventRepositoryImpl @Inject constructor(
     private val dao: EventSnapshotDao,
     private val productDao: ProductDao,
     private val memberDao: MemberDao,
+    private val promotionDao: PromotionDao,
     private val json: Json,
 ) : EventRepository {
 
@@ -82,6 +85,17 @@ class EventRepositoryImpl @Inject constructor(
                 // Member directory is global; refresh the device cache for offline QR identification.
                 memberDao.replaceAll(
                     envelope.members.map { m -> MemberEntity(qrCode = m.qrCode, name = m.name, tier = m.tier) },
+                )
+                promotionDao.replaceForEvent(
+                    eventId,
+                    envelope.promotions.map { p ->
+                        PromotionEntity(
+                            rowKey = "$eventId:${p.id}", eventId = eventId, id = p.id, name = p.name,
+                            type = p.type, percentOff = p.percentOff, amountOff = p.amountOff, scope = p.scope,
+                            productIds = p.productIds.joinToString(","), minQty = p.minQty,
+                            minSubtotal = p.minSubtotal, startsAt = p.startsAt, endsAt = p.endsAt,
+                        )
+                    },
                 )
                 SyncResult.Ready(version = envelope.version, unchanged = false)
             } catch (e: HttpException) {

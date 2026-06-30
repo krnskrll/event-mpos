@@ -11,6 +11,9 @@ import com.eventmpos.member.MemberService
 import com.eventmpos.member.MemberSnapshotDto
 import com.eventmpos.product.ProductResponse
 import com.eventmpos.product.ProductService
+import com.eventmpos.promotion.PromotionService
+import com.eventmpos.promotion.QuoteRequest
+import com.eventmpos.promotion.QuoteResponse
 import com.eventmpos.stock.BaStockLevel
 import com.eventmpos.stock.StockService
 import com.eventmpos.user.Role
@@ -18,6 +21,8 @@ import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PathVariable
+import org.springframework.web.bind.annotation.PostMapping
+import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
 import org.springframework.web.bind.annotation.RestController
@@ -41,6 +46,7 @@ class MeController(
     private val productService: ProductService,
     private val memberService: MemberService,
     private val stockService: StockService,
+    private val promotionService: PromotionService,
 ) {
 
     @GetMapping
@@ -118,6 +124,22 @@ class MeController(
         requireBa(principal)
         eventService.requireAssigned(principal.userId, eventId)
         return stockService.baLevelsForEvent(eventId)
+    }
+
+    /**
+     * Authoritative cart quote: the server picks + applies the single best promotion (same engine
+     * the device previews with). EPIC-07's order submit reuses this so the charged discount is
+     * server-decided, not client-supplied.
+     */
+    @PostMapping("/events/{eventId}/promotions/quote")
+    fun quote(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable eventId: UUID,
+        @RequestBody request: QuoteRequest,
+    ): QuoteResponse {
+        requireBa(principal)
+        eventService.requireAssigned(principal.userId, eventId)
+        return promotionService.quote(eventId, request.lines)
     }
 
     /** Online QR fallback when a scanned member isn't in the device cache. 404 if unknown/inactive. */

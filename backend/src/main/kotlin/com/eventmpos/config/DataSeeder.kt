@@ -41,6 +41,7 @@ class DataSeeder {
         productService: com.eventmpos.product.ProductService,
         memberSyncService: com.eventmpos.member.sync.MemberSyncService,
         stockService: com.eventmpos.stock.StockService,
+        promotionService: com.eventmpos.promotion.PromotionService,
     ) = ApplicationRunner {
         if (users.count() > 0L) {
             log.info("Seed skipped — users already exist")
@@ -71,6 +72,33 @@ class DataSeeder {
             // allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning
             val qty = if (p.sku == "SKU-1004") 8 else minOf(p.warehouseStock, 60)
             stockService.forceAllocate(event.id, p.id, qty)
+        }
+
+        // Seed a few event-scoped promotions for EV01 (so the cart/quote has something to apply).
+        val lipstick = productService.list().firstOrNull { it.sku == "SKU-1002" }
+        promotionService.create(
+            event.id,
+            com.eventmpos.promotion.PromotionRequest(
+                name = "10% off everything", type = com.eventmpos.promotion.PromotionType.PERCENTAGE,
+                percentOff = java.math.BigDecimal("10"), priority = 1,
+            ),
+        )
+        promotionService.create(
+            event.id,
+            com.eventmpos.promotion.PromotionRequest(
+                name = "RM20 off when you spend RM200", type = com.eventmpos.promotion.PromotionType.FIXED,
+                amountOff = java.math.BigDecimal("20"), minSubtotal = java.math.BigDecimal("200"), priority = 2,
+            ),
+        )
+        if (lipstick != null) {
+            promotionService.create(
+                event.id,
+                com.eventmpos.promotion.PromotionRequest(
+                    name = "Lipstick bundle: buy 3, RM30 off", type = com.eventmpos.promotion.PromotionType.BUNDLE,
+                    amountOff = java.math.BigDecimal("30"), scope = com.eventmpos.promotion.PromotionScope.SPECIFIC,
+                    productIds = listOf(java.util.UUID.fromString(lipstick.id.toString())), minQty = 3, priority = 3,
+                ),
+            )
         }
 
         // Pull the member directory from the (mock) external member system.

@@ -11,12 +11,15 @@ import com.eventmpos.mpos.data.local.AppDatabase
 import com.eventmpos.mpos.data.local.EventSnapshotDao
 import com.eventmpos.mpos.data.local.MemberDao
 import com.eventmpos.mpos.data.local.ProductDao
+import com.eventmpos.mpos.data.local.PromotionDao
 import com.eventmpos.mpos.data.member.MemberRepositoryImpl
 import com.eventmpos.mpos.data.product.ProductRepositoryImpl
+import com.eventmpos.mpos.data.promotion.PromotionRepositoryImpl
 import com.eventmpos.mpos.domain.auth.AuthRepository
 import com.eventmpos.mpos.domain.event.EventRepository
 import com.eventmpos.mpos.domain.member.MemberRepository
 import com.eventmpos.mpos.domain.product.ProductRepository
+import com.eventmpos.mpos.domain.promotion.PromotionRepository
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -49,6 +52,9 @@ object AppProvidesModule {
 
     @Provides
     fun provideMemberDao(db: AppDatabase): MemberDao = db.memberDao()
+
+    @Provides
+    fun providePromotionDao(db: AppDatabase): PromotionDao = db.promotionDao()
 }
 
 @Module
@@ -70,6 +76,10 @@ abstract class AppBindsModule {
     @Binds
     @Singleton
     abstract fun bindMemberRepository(impl: MemberRepositoryImpl): MemberRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindPromotionRepository(impl: PromotionRepositoryImpl): PromotionRepository
 
     @Binds
     @Singleton

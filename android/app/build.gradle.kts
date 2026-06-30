@@ -32,6 +32,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // java.time (Instant) on minSdk 24 — used by the shared promotion engine
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions {
         jvmTarget = "17"
@@ -85,6 +87,9 @@ dependencies {
 
     // Image loading with disk cache (product images pre-fetched during event sync)
     implementation("io.coil-kt:coil-compose:2.6.0")
+
+    // Desugaring so java.time works on minSdk 24
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     testImplementation("junit:junit:4.13.2")
 }

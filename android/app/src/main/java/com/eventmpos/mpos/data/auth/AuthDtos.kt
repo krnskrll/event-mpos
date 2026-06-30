@@ -80,12 +80,28 @@ data class MemberLookupDto(
 )
 
 @Serializable
+data class PromotionDto(
+    val id: String,
+    val name: String,
+    val type: String,
+    val percentOff: Double? = null,
+    val amountOff: Double? = null,
+    val scope: String = "ALL",
+    val productIds: List<String> = emptyList(),
+    val minQty: Int? = null,
+    val minSubtotal: Double? = null,
+    val startsAt: String? = null,
+    val endsAt: String? = null,
+)
+
+@Serializable
 data class SnapshotEnvelopeDto(
     val version: String,
     val changed: Boolean? = null,
     val event: EventResponseDto? = null,
     val products: List<ProductDto> = emptyList(),
     val members: List<MemberDto> = emptyList(),
+    val promotions: List<PromotionDto> = emptyList(),
 )
 
 fun UserSummaryDto.toDomain() = AuthUser(id, email, fullName, Role.valueOf(role))

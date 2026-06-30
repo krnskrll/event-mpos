@@ -103,3 +103,23 @@ export interface StockLevelRow {
   remaining: number;
   lowStock: boolean;
 }
+
+export type PromotionType = "PERCENTAGE" | "FIXED" | "BUNDLE";
+export type PromotionScope = "ALL" | "SPECIFIC";
+
+export interface PromotionResponse {
+  id: string;
+  eventId: string;
+  name: string;
+  type: PromotionType;
+  percentOff: number | null;
+  amountOff: number | null;
+  scope: PromotionScope;
+  productIds: string[];
+  minQty: number | null;
+  minSubtotal: number | null;
+  startsAt: string | null;
+  endsAt: string | null;
+  active: boolean;
+  priority: number;
+}

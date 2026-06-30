@@ -26,6 +26,9 @@ Useful for a quick smoke test or a demo when only the backend is running.
    - **Stock allocation + remaining (EPIC-05):** http://localhost:5500/epic5-tester.html
      Admin: allocate stock per event (locked unless DRAFT).
      Warehouse: live remaining-stock table (auto-refreshing) with LOW / SOLD-OUT flags.
+   - **Promotions (EPIC-06):** http://localhost:5500/epic6-tester.html
+     Admin: create/disable/delete event promotions (percentage / fixed / bundle).
+     BA: build a cart and Quote it — the server auto-applies the single best promotion.
 
 Seeded dev logins: `admin@eventmpos.local` / `Admin123!`, `ba@eventmpos.local` / `Ba123456!`,
 `wh@eventmpos.local` / `Wh123456!`.

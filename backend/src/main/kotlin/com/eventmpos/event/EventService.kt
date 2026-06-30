@@ -3,6 +3,7 @@ package com.eventmpos.event
 import com.eventmpos.common.ApiException
 import com.eventmpos.member.MemberService
 import com.eventmpos.product.ProductService
+import com.eventmpos.promotion.PromotionService
 import com.eventmpos.stock.StockService
 import com.eventmpos.user.Role
 import com.eventmpos.user.UserRepository
@@ -21,6 +22,7 @@ class EventService(
     private val productService: ProductService,
     private val memberService: MemberService,
     private val stockService: StockService,
+    private val promotionService: PromotionService,
 ) {
 
     fun listEvents(): List<EventResponse> = eventRepository.findAll().map { it.toResponse() }
@@ -112,6 +114,7 @@ class EventService(
             products = products,
             members = members,
             memberCount = members.size,
+            promotions = promotionService.snapshotPromotions(eventId),
         )
     }
 
@@ -151,6 +154,8 @@ class EventService(
             memberService.fingerprint(),
             // allocation CONFIG (not soldQty) — re-sync when admin changes allocations, not on every sale
             stockService.allocationFingerprint(event.id),
+            // promotion config — re-sync devices when promotions change
+            promotionService.fingerprint(event.id),
         ).joinToString("|")
         val digest = MessageDigest.getInstance("SHA-256").digest(material.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }.take(16)
