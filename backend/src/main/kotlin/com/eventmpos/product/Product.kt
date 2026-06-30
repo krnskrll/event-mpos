@@ -42,6 +42,13 @@ class Product(
     @Column(name = "image_url")
     var imageUrl: String? = null,
 
+    /**
+     * Total quantity on hand in the warehouse, synced from ERP. Admins allocate portions of this to
+     * events. After allocation the platform — not ERP — owns the per-event count (see EventStockAllocation).
+     */
+    @Column(name = "warehouse_stock", nullable = false)
+    var warehouseStock: Int = 0,
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     var source: ProductSource = ProductSource.MANUAL,

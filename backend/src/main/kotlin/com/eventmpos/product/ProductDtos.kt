@@ -19,6 +19,7 @@ data class ProductResponse(
     val imageUrl: String?,
     val source: ProductSource,
     val active: Boolean,
+    val warehouseStock: Int,
     val barcodes: List<BarcodeDto>,
     val updatedAt: Instant,
 )
@@ -66,6 +67,8 @@ data class ProductSnapshotDto(
     val price: BigDecimal,
     val imageUrl: String?,
     val barcodes: List<String>,
+    /** Remaining event stock at snapshot time; the device polls /stock for live updates. */
+    val remainingStock: Int = 0,
 )
 
 fun Product.toResponse() = ProductResponse(
@@ -77,6 +80,7 @@ fun Product.toResponse() = ProductResponse(
     imageUrl = imageUrl,
     source = source,
     active = active,
+    warehouseStock = warehouseStock,
     barcodes = barcodes.map { BarcodeDto(it.barcode, it.label) },
     updatedAt = updatedAt,
 )

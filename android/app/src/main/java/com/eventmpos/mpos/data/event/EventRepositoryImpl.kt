@@ -75,6 +75,7 @@ class EventRepositoryImpl @Inject constructor(
                             price = p.price,
                             imageUrl = p.imageUrl,
                             barcodes = p.barcodes.joinToString("\n"),
+                            remainingStock = p.remainingStock,
                         )
                     },
                 )

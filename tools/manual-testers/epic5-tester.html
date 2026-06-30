@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>event-mpos · EPIC-05 tester</title>
+<style>
+  :root { --bg:#0f1115; --panel:#1a1d23; --border:#2a2f37; --text:#e7e9ee; --muted:#9aa3b2; --accent:#e0457b; --ok:#22c55e; --err:#ef4444; --warn:#e0b341; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); padding:1.2rem; }
+  .wrap { max-width:820px; margin:0 auto; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1rem; }
+  h1 { font-size:1.2rem; margin:0 0 .2rem; } h2 { font-size:1rem; margin:0 0 .6rem; }
+  p.sub { color:var(--muted); margin:.1rem 0 .6rem; font-size:.85rem; }
+  input,select { padding:.45rem .55rem; margin:.2rem 0 .5rem; background:#0f1115; border:1px solid var(--border); border-radius:8px; color:var(--text); }
+  select { width:100%; }
+  button { cursor:pointer; border:none; border-radius:8px; padding:.45rem .8rem; background:var(--accent); color:#fff; font-weight:600; font-size:.85rem; }
+  .chips button { background:transparent; border:1px solid var(--border); color:var(--text); font-weight:500; }
+  .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  table { width:100%; border-collapse:collapse; font-size:.83rem; margin-top:.5rem; }
+  th,td { text-align:left; padding:.4rem .35rem; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); }
+  .badge { font-size:.7rem; padding:.1rem .45rem; border-radius:999px; border:1px solid var(--border); color:var(--muted); }
+  .ok { color:var(--ok); } .err { color:var(--err); } .warn { color:var(--warn); } .who { font-size:.8rem; color:var(--muted); }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>event-mpos — EPIC-05 tester</h1>
+    <p class="sub">Stock allocation (admin) + live remaining stock (warehouse). Live backend on :8080.</p>
+  </div>
+
+  <div class="card" id="loginCard">
+    <h2>1. Sign in</h2>
+    <div class="row chips" style="margin-bottom:.5rem">
+      <button onclick="fill('admin@eventmpos.local','Admin123!')">Admin</button>
+      <button onclick="fill('wh@eventmpos.local','Wh123456!')">Warehouse</button>
+    </div>
+    <div class="row">
+      <input id="email" value="admin@eventmpos.local" style="flex:2" />
+      <input id="password" value="Admin123!" style="flex:1" />
+      <button onclick="login()">Sign in</button>
+    </div>
+    <div id="loginMsg" class="who"></div>
+  </div>
+
+  <div class="card hidden" id="adminCard">
+    <h2>2. Admin · Allocate stock to an event</h2>
+    <p class="sub">Editable only while the event is DRAFT. Create one to try it:</p>
+    <div class="row" style="margin-bottom:.5rem">
+      <input id="newCode" placeholder="EVxx" style="width:90px" />
+      <input id="newName" placeholder="Event name" style="flex:1" />
+      <button onclick="createDraft()">Create DRAFT event</button>
+    </div>
+    <select id="adminEvent" onchange="loadAlloc()"><option value="">Select event…</option></select>
+    <div id="lockMsg" class="who"></div>
+    <div id="allocBox"></div>
+  </div>
+
+  <div class="card hidden" id="whCard">
+    <h2>2. Warehouse · Live remaining stock</h2>
+    <select id="whEvent" onchange="startPoll()"><option value="">Select event…</option></select>
+    <div id="whUpdated" class="who"></div>
+    <div id="whBox"></div>
+  </div>
+</div>
+
+<script>
+const API="http://localhost:8080";
+let token=null, role=null, events=[], pollTimer=null;
+function fill(e,p){ email.value=e; password.value=p; }
+async function req(method,path,body){ const o={method,headers:{}}; if(token)o.headers.Authorization="Bearer "+token; if(body){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(body);} const r=await fetch(API+path,o); let d=null; try{d=await r.json();}catch(_){} return {ok:r.ok,status:r.status,data:d}; }
+async function login(){
+  const r=await req("POST","/api/auth/login",{email:email.value,password:password.value});
+  const m=loginMsg;
+  if(!r.ok){m.className="err";m.textContent="❌ "+r.status+" "+(r.data?.message||"");return;}
+  token=r.data.accessToken; role=r.data.user.role;
+  m.className="ok"; m.textContent="✅ "+r.data.user.fullName+" ("+role+")";
+  adminCard.classList.toggle("hidden", role!=="ADMIN");
+  whCard.classList.toggle("hidden", role!=="WAREHOUSE" && role!=="ADMIN");
+  loadEvents();
+}
+async function loadEvents(){
+  // admin uses /api/admin/events; warehouse uses /api/warehouse/events
+  const path = role==="ADMIN" ? "/api/admin/events" : "/api/warehouse/events";
+  const r=await req("GET",path); events=r.ok?r.data:[];
+  const opts='<option value="">Select event…</option>'+events.map(e=>`<option value="${e.id}">${e.code} — ${e.name} (${e.status})</option>`).join("");
+  if(!adminCard.classList.contains("hidden")) adminEvent.innerHTML=opts;
+  if(!whCard.classList.contains("hidden")) whEvent.innerHTML=opts;
+}
+async function createDraft(){
+  const r=await req("POST","/api/admin/events",{code:newCode.value.trim(),name:newName.value.trim()});
+  if(!r.ok)return alert("❌ "+(r.data?.message||r.status));
+  newCode.value=newName.value=""; await loadEvents();
+}
+async function loadAlloc(){
+  const id=adminEvent.value; if(!id){allocBox.innerHTML="";lockMsg.textContent="";return;}
+  const ev=events.find(e=>e.id===id); const locked=ev && ev.status!=="DRAFT";
+  lockMsg.innerHTML = locked ? `🔒 ${ev.status} — allocations locked.` : "";
+  const r=await req("GET","/api/admin/events/"+id+"/stock");
+  allocBox.innerHTML='<table><thead><tr><th>SKU</th><th>Product</th><th>Warehouse</th><th>Allocated</th><th>Sold</th><th>Remaining</th></tr></thead><tbody>'+
+    r.data.map(x=>`<tr><td><span class="badge">${x.sku}</span></td><td>${x.name}</td><td class="who">${x.warehouseStock}</td>
+      <td><input type="number" value="${x.allocatedQty}" min="${x.soldQty}" max="${x.warehouseStock}" ${locked?"disabled":""} style="width:80px"
+        onblur="setAlloc('${id}','${x.productId}',this.value,${x.allocatedQty})"></td>
+      <td>${x.soldQty}</td><td><b>${x.remaining}</b></td></tr>`).join("")+'</tbody></table>';
+}
+async function setAlloc(eventId,productId,val,prev){
+  if(Number(val)===prev)return;
+  const r=await req("PUT","/api/admin/events/"+eventId+"/stock/"+productId,{allocatedQty:Number(val)});
+  if(!r.ok)alert("❌ "+(r.data?.message||r.status));
+  loadAlloc();
+}
+function startPoll(){
+  if(pollTimer)clearInterval(pollTimer);
+  const id=whEvent.value; if(!id){whBox.innerHTML="";whUpdated.textContent="";return;}
+  const load=async()=>{
+    const r=await req("GET","/api/warehouse/events/"+id+"/stock");
+    if(!r.ok){whBox.innerHTML='<span class="err">'+r.status+'</span>';return;}
+    whUpdated.textContent="last updated "+new Date().toLocaleTimeString();
+    whBox.innerHTML='<table><thead><tr><th>SKU</th><th>Product</th><th>Allocated</th><th>Sold</th><th>Remaining</th></tr></thead><tbody>'+
+      (r.data.length?r.data.map(x=>`<tr><td><span class="badge">${x.sku}</span></td><td>${x.name}</td><td>${x.allocatedQty}</td><td>${x.soldQty}</td>
+        <td class="${x.remaining===0?'err':x.lowStock?'warn':''}"><b>${x.remaining}</b>${x.remaining===0?' · SOLD OUT':x.lowStock?' · LOW':''}</td></tr>`).join("")
+        :'<tr><td colspan="5" class="who">No stock allocated.</td></tr>')+'</tbody></table>';
+  };
+  load(); pollTimer=setInterval(load,4000);
+}
+</script>
+</body>
+</html>

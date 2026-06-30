@@ -40,6 +40,7 @@ class DataSeeder {
         erpSyncService: com.eventmpos.product.erp.ErpSyncService,
         productService: com.eventmpos.product.ProductService,
         memberSyncService: com.eventmpos.member.sync.MemberSyncService,
+        stockService: com.eventmpos.stock.StockService,
     ) = ApplicationRunner {
         if (users.count() > 0L) {
             log.info("Seed skipped — users already exist")
@@ -65,7 +66,12 @@ class DataSeeder {
         // Pull the initial product catalogue from the (mock) ERP and make it all available for EV01,
         // so the BA's event snapshot has real products to browse/scan out of the box.
         val sync = erpSyncService.sync()
-        productService.list().forEach { productService.setAvailability(event.id, it.id, true) }
+        productService.list().forEach { p ->
+            productService.setAvailability(event.id, p.id, true)
+            // allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning
+            val qty = if (p.sku == "SKU-1004") 8 else minOf(p.warehouseStock, 60)
+            stockService.forceAllocate(event.id, p.id, qty)
+        }
 
         // Pull the member directory from the (mock) external member system.
         val memberSync = memberSyncService.sync()

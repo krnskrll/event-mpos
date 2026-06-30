@@ -11,7 +11,7 @@ import java.math.BigDecimal
  * File-import ERP source. Reads a CSV export (the most common ERP file format; an Excel/xlsx reader
  * could be dropped in the same way without touching anything else).
  *
- * Expected columns: sku,name,brand,price,imageUrl,barcodes
+ * Expected columns: sku,name,brand,price,imageUrl,stock,barcodes
  * where `barcodes` is "code|label;code|label" (label optional). Configure the location with
  * `app.erp.file-path` (a Spring resource: classpath:..., file:..., etc.).
  */
@@ -34,14 +34,15 @@ class FileErpProductSource(
         // skip header row
         return lines.drop(1).map { line ->
             val cols = line.split(",").map { it.trim() }
-            require(cols.size >= 6) { "Malformed CSV row (need 6 columns): $line" }
+            require(cols.size >= 7) { "Malformed CSV row (need 7 columns): $line" }
             ErpProduct(
                 sku = cols[0],
                 name = cols[1],
                 brand = cols[2].ifBlank { null },
                 price = cols[3].toBigDecimalOrNull() ?: BigDecimal.ZERO,
                 imageUrl = cols[4].ifBlank { null },
-                barcodes = parseBarcodes(cols[5]),
+                stockQuantity = cols[5].toIntOrNull() ?: 0,
+                barcodes = parseBarcodes(cols[6]),
             )
         }
     }

@@ -11,8 +11,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -53,6 +55,13 @@ class CatalogueViewModel @Inject constructor(
         // Hardware scans (Sunmi) flow in here; resolve each against the local catalogue.
         viewModelScope.launch {
             scanner.scans.collect { onBarcode(it) }
+        }
+        // Periodically refresh live remaining stock from the server (near real-time on-device).
+        viewModelScope.launch {
+            while (isActive) {
+                productRepository.refreshStock(eventId)
+                delay(10_000)
+            }
         }
     }
 

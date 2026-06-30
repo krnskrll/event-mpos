@@ -82,6 +82,16 @@ fun CatalogueScreen(viewModel: CatalogueViewModel = hiltViewModel()) {
 }
 
 @Composable
+private fun StockLabel(product: Product) {
+    val (text, color) = when {
+        product.outOfStock -> "Sold out" to MaterialTheme.colorScheme.error
+        product.lowStock -> "Low stock · ${product.remainingStock} left" to MaterialTheme.colorScheme.error
+        else -> "${product.remainingStock} in stock" to MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Text(text, style = MaterialTheme.typography.bodySmall, color = color, modifier = Modifier.padding(top = 2.dp))
+}
+
+@Composable
 private fun ProductCard(product: Product) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column {
@@ -97,6 +107,7 @@ private fun ProductCard(product: Product) {
                     Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 Text("RM ${"%.2f".format(product.price)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
+                StockLabel(product)
             }
         }
     }

@@ -46,6 +46,7 @@ class ErpSyncService(
                         brand = erp.brand,
                         price = erp.price,
                         imageUrl = erp.imageUrl,
+                        warehouseStock = erp.stockQuantity,
                         source = ProductSource.ERP,
                     )
                     p.replaceBarcodes(erp.barcodes)
@@ -56,6 +57,7 @@ class ErpSyncService(
                     existing.brand = erp.brand
                     existing.price = erp.price
                     existing.imageUrl = erp.imageUrl
+                    existing.warehouseStock = erp.stockQuantity
                     existing.source = ProductSource.ERP
                     existing.updatedAt = Instant.now()
                     val incoming = erp.barcodes.map { it.first }.toSet()

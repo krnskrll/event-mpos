@@ -30,4 +30,7 @@ interface AuthApi {
 
     @GET("api/me/members/by-qr/{qrCode}")
     suspend fun getMemberByQr(@Path("qrCode") qrCode: String): MemberLookupDto
+
+    @GET("api/me/events/{eventId}/stock")
+    suspend fun getStockLevels(@Path("eventId") eventId: String): List<StockLevelDto>
 }

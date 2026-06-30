@@ -54,6 +54,11 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   (mock/file/REST) with scheduled + on-demand sync and region filtering, members carried in the
   event snapshot, indexed QR lookup, and an Android customer-identify flow (offline Room cache →
   online fallback → manual name). See [docs/EPIC-04-verification.md](docs/EPIC-04-verification.md).
+- **EPIC-05 — Warehouse Allocation & Stock**: ✅ implemented. Warehouse stock synced from ERP,
+  admin per-event allocation (locked once ACTIVE), warehouse + Android remaining-stock views with
+  low-stock/sold-out flags (polling), and an **atomic, oversell-proof decrement** (PostgreSQL
+  `SELECT … FOR UPDATE` + `@Version`) proven by a 300-thread concurrency test. See
+  [docs/EPIC-05-verification.md](docs/EPIC-05-verification.md).
 
 ## How to Use the Prompts
 

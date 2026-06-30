@@ -11,6 +11,8 @@ import com.eventmpos.member.MemberService
 import com.eventmpos.member.MemberSnapshotDto
 import com.eventmpos.product.ProductResponse
 import com.eventmpos.product.ProductService
+import com.eventmpos.stock.BaStockLevel
+import com.eventmpos.stock.StockService
 import com.eventmpos.user.Role
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
@@ -38,6 +40,7 @@ class MeController(
     private val eventService: EventService,
     private val productService: ProductService,
     private val memberService: MemberService,
+    private val stockService: StockService,
 ) {
 
     @GetMapping
@@ -101,6 +104,20 @@ class MeController(
     fun members(@AuthenticationPrincipal principal: AuthPrincipal): List<MemberSnapshotDto> {
         requireBa(principal)
         return memberService.activeSnapshotMembers()
+    }
+
+    /**
+     * Live remaining stock per product for the BA's event. The Android app polls this periodically
+     * (stock changes faster than the version-gated snapshot, so it's served separately).
+     */
+    @GetMapping("/events/{eventId}/stock")
+    fun stock(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable eventId: UUID,
+    ): List<BaStockLevel> {
+        requireBa(principal)
+        eventService.requireAssigned(principal.userId, eventId)
+        return stockService.baLevelsForEvent(eventId)
     }
 
     /** Online QR fallback when a scanned member isn't in the device cache. 404 if unknown/inactive. */

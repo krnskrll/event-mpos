@@ -27,6 +27,10 @@ interface ProductDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(items: List<ProductEntity>)
 
+    /** Update just the live remaining stock for a product (from the periodic /stock poll). */
+    @Query("UPDATE product SET remainingStock = :remaining WHERE eventId = :eventId AND id = :productId")
+    suspend fun updateRemaining(eventId: String, productId: String, remaining: Int)
+
     @Query("DELETE FROM product WHERE eventId = :eventId")
     suspend fun clearEvent(eventId: String)
 

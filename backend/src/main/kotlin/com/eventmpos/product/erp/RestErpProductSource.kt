@@ -32,6 +32,7 @@ class RestErpProductSource(
                 brand = it.brand,
                 price = it.price ?: BigDecimal.ZERO,
                 imageUrl = it.imageUrl,
+                stockQuantity = it.stockQuantity ?: 0,
                 barcodes = it.barcodes.map { b -> b.code to b.label },
             )
         }
@@ -43,6 +44,7 @@ class RestErpProductSource(
         val brand: String? = null,
         val price: BigDecimal? = null,
         val imageUrl: String? = null,
+        val stockQuantity: Int? = null,
         val barcodes: List<BarcodeJson> = emptyList(),
     )
 

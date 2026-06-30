@@ -13,6 +13,8 @@ data class ErpProduct(
     val brand: String?,
     val price: BigDecimal,
     val imageUrl: String?,
+    /** Quantity on hand in the warehouse per the ERP. */
+    val stockQuantity: Int,
     /** barcode value -> optional variant label */
     val barcodes: List<Pair<String, String?>>,
 )

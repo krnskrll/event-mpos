@@ -83,3 +83,23 @@ export interface MemberSyncStatus {
   source: string | null;
   message: string | null;
 }
+
+export interface AllocationRow {
+  productId: string;
+  sku: string;
+  name: string;
+  warehouseStock: number;
+  allocatedQty: number;
+  soldQty: number;
+  remaining: number;
+}
+
+export interface StockLevelRow {
+  productId: string;
+  sku: string;
+  name: string;
+  allocatedQty: number;
+  soldQty: number;
+  remaining: number;
+  lowStock: boolean;
+}

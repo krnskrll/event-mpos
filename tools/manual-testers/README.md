@@ -23,6 +23,9 @@ Useful for a quick smoke test or a demo when only the backend is running.
    - **Members + QR identification (EPIC-04):** http://localhost:5500/epic4-tester.html
      Admin: member sync + status + directory.
      BA: identify a customer by **QR** (online lookup), with a manual-name fallback when not found.
+   - **Stock allocation + remaining (EPIC-05):** http://localhost:5500/epic5-tester.html
+     Admin: allocate stock per event (locked unless DRAFT).
+     Warehouse: live remaining-stock table (auto-refreshing) with LOW / SOLD-OUT flags.
 
 Seeded dev logins: `admin@eventmpos.local` / `Admin123!`, `ba@eventmpos.local` / `Ba123456!`,
 `wh@eventmpos.local` / `Wh123456!`.

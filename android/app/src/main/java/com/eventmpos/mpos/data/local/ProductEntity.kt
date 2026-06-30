@@ -23,4 +23,5 @@ data class ProductEntity(
     val price: Double,
     val imageUrl: String?,
     val barcodes: String,
+    val remainingStock: Int,
 )

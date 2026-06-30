@@ -3,6 +3,7 @@ package com.eventmpos.event
 import com.eventmpos.common.ApiException
 import com.eventmpos.member.MemberService
 import com.eventmpos.product.ProductService
+import com.eventmpos.stock.StockService
 import com.eventmpos.user.Role
 import com.eventmpos.user.UserRepository
 import org.springframework.http.HttpStatus
@@ -19,6 +20,7 @@ class EventService(
     private val userRepository: UserRepository,
     private val productService: ProductService,
     private val memberService: MemberService,
+    private val stockService: StockService,
 ) {
 
     fun listEvents(): List<EventResponse> = eventRepository.findAll().map { it.toResponse() }
@@ -101,10 +103,13 @@ class EventService(
         val event = findOrThrow(eventId)
         requireActive(event)
         val members = memberService.activeSnapshotMembers()
+        // enrich each available product with its current remaining event stock
+        val products = productService.availableSnapshotProducts(eventId)
+            .map { it.copy(remainingStock = stockService.remaining(eventId, it.id)) }
         return EventSnapshot(
             event = event.toResponse(),
             version = versionOf(event),
-            products = productService.availableSnapshotProducts(eventId),
+            products = products,
             members = members,
             memberCount = members.size,
         )
@@ -144,6 +149,8 @@ class EventService(
             productService.availabilityFingerprint(event.id),
             // member directory — so member changes also re-sync the device cache
             memberService.fingerprint(),
+            // allocation CONFIG (not soldQty) — re-sync when admin changes allocations, not on every sale
+            stockService.allocationFingerprint(event.id),
         ).joinToString("|")
         val digest = MessageDigest.getInstance("SHA-256").digest(material.toByteArray())
         return digest.joinToString("") { "%02x".format(it) }.take(16)
