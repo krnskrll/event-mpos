@@ -9,6 +9,10 @@ import com.eventmpos.event.SnapshotStatus
 import com.eventmpos.member.MemberResponse
 import com.eventmpos.member.MemberService
 import com.eventmpos.member.MemberSnapshotDto
+import com.eventmpos.order.OrderConfirmation
+import com.eventmpos.order.OrderService
+import com.eventmpos.order.OrderSummary
+import com.eventmpos.order.SubmitOrderRequest
 import com.eventmpos.product.ProductResponse
 import com.eventmpos.product.ProductService
 import com.eventmpos.promotion.PromotionService
@@ -17,6 +21,7 @@ import com.eventmpos.promotion.QuoteResponse
 import com.eventmpos.stock.BaStockLevel
 import com.eventmpos.stock.StockService
 import com.eventmpos.user.Role
+import jakarta.validation.Valid
 import org.springframework.http.HttpStatus
 import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
@@ -47,6 +52,7 @@ class MeController(
     private val memberService: MemberService,
     private val stockService: StockService,
     private val promotionService: PromotionService,
+    private val orderService: OrderService,
 ) {
 
     @GetMapping
@@ -140,6 +146,39 @@ class MeController(
         requireBa(principal)
         eventService.requireAssigned(principal.userId, eventId)
         return promotionService.quote(eventId, request.lines)
+    }
+
+    /** Submit a cart → create the order atomically (stock + promo + number). Idempotent per key. */
+    @PostMapping("/events/{eventId}/orders")
+    fun submitOrder(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable eventId: UUID,
+        @Valid @RequestBody request: SubmitOrderRequest,
+    ): OrderConfirmation {
+        requireBa(principal)
+        eventService.requireAssigned(principal.userId, eventId)
+        return orderService.submit(eventId, principal.userId, request)
+    }
+
+    /** This BA's order history for the event session. */
+    @GetMapping("/events/{eventId}/orders")
+    fun orderHistory(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable eventId: UUID,
+    ): List<OrderSummary> {
+        requireBa(principal)
+        eventService.requireAssigned(principal.userId, eventId)
+        return orderService.history(eventId, principal.userId)
+    }
+
+    /** Full order detail / re-print payload. */
+    @GetMapping("/orders/{orderId}")
+    fun order(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable orderId: UUID,
+    ): OrderConfirmation {
+        requireBa(principal)
+        return orderService.get(orderId)
     }
 
     /** Online QR fallback when a scanned member isn't in the device cache. 404 if unknown/inactive. */

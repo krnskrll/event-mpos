@@ -6,10 +6,12 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.eventmpos.mpos.ui.cart.CartScreen
 import com.eventmpos.mpos.ui.catalogue.CatalogueScreen
 import com.eventmpos.mpos.ui.customer.CustomerScreen
 import com.eventmpos.mpos.ui.home.HomeScreen
 import com.eventmpos.mpos.ui.login.LoginScreen
+import com.eventmpos.mpos.ui.orders.OrdersScreen
 import com.eventmpos.mpos.ui.promotions.PromotionsScreen
 
 object Routes {
@@ -18,13 +20,18 @@ object Routes {
     const val CATALOGUE = "catalogue/{eventId}"
     const val CUSTOMER = "customer"
     const val PROMOTIONS = "promotions/{eventId}"
+    const val CART = "cart/{eventId}"
+    const val ORDERS = "orders/{eventId}"
     fun catalogue(eventId: String) = "catalogue/$eventId"
     fun promotions(eventId: String) = "promotions/$eventId"
+    fun cart(eventId: String) = "cart/$eventId"
+    fun orders(eventId: String) = "orders/$eventId"
 }
 
 @Composable
 fun AppNavHost(startLoggedIn: Boolean) {
     val navController = rememberNavController()
+    val eventArg = listOf(navArgument("eventId") { type = NavType.StringType })
 
     NavHost(
         navController = navController,
@@ -33,38 +40,36 @@ fun AppNavHost(startLoggedIn: Boolean) {
         composable(Routes.LOGIN) {
             LoginScreen(
                 onLoggedIn = {
-                    navController.navigate(Routes.HOME) {
-                        popUpTo(Routes.LOGIN) { inclusive = true }
-                    }
+                    navController.navigate(Routes.HOME) { popUpTo(Routes.LOGIN) { inclusive = true } }
                 },
             )
         }
         composable(Routes.HOME) {
             HomeScreen(
                 onLoggedOut = {
-                    navController.navigate(Routes.LOGIN) {
-                        popUpTo(Routes.HOME) { inclusive = true }
-                    }
+                    navController.navigate(Routes.LOGIN) { popUpTo(Routes.HOME) { inclusive = true } }
                 },
-                onBrowseProducts = { eventId -> navController.navigate(Routes.catalogue(eventId)) },
+                onBrowseProducts = { navController.navigate(Routes.catalogue(it)) },
                 onIdentifyCustomer = { navController.navigate(Routes.CUSTOMER) },
-                onViewPromotions = { eventId -> navController.navigate(Routes.promotions(eventId)) },
+                onViewPromotions = { navController.navigate(Routes.promotions(it)) },
+                onViewOrders = { navController.navigate(Routes.orders(it)) },
             )
         }
-        composable(
-            Routes.CATALOGUE,
-            arguments = listOf(navArgument("eventId") { type = NavType.StringType }),
-        ) {
-            CatalogueScreen()
+        composable(Routes.CATALOGUE, arguments = eventArg) { entry ->
+            val eventId = entry.arguments?.getString("eventId").orEmpty()
+            CatalogueScreen(onViewCart = { navController.navigate(Routes.cart(eventId)) })
         }
-        composable(Routes.CUSTOMER) {
-            CustomerScreen()
+        composable(Routes.CUSTOMER) { CustomerScreen() }
+        composable(Routes.PROMOTIONS, arguments = eventArg) { PromotionsScreen() }
+        composable(Routes.CART, arguments = eventArg) { entry ->
+            val eventId = entry.arguments?.getString("eventId").orEmpty()
+            CartScreen(
+                onConfirmed = {
+                    navController.navigate(Routes.orders(eventId)) { popUpTo(Routes.HOME) }
+                },
+                onIdentifyCustomer = { navController.navigate(Routes.CUSTOMER) },
+            )
         }
-        composable(
-            Routes.PROMOTIONS,
-            arguments = listOf(navArgument("eventId") { type = NavType.StringType }),
-        ) {
-            PromotionsScreen()
-        }
+        composable(Routes.ORDERS, arguments = eventArg) { OrdersScreen() }
     }
 }

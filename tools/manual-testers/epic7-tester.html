@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>event-mpos · EPIC-07 tester</title>
+<style>
+  :root { --bg:#0f1115; --panel:#1a1d23; --border:#2a2f37; --text:#e7e9ee; --muted:#9aa3b2; --accent:#e0457b; --ok:#22c55e; --err:#ef4444; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); padding:1.2rem; }
+  .wrap { max-width:820px; margin:0 auto; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1.1rem 1.2rem; margin-bottom:1rem; }
+  h1 { font-size:1.2rem; margin:0 0 .2rem; } h2 { font-size:1rem; margin:0 0 .6rem; }
+  p.sub { color:var(--muted); margin:.1rem 0 .6rem; font-size:.85rem; }
+  label { font-size:.74rem; color:var(--muted); }
+  input { padding:.4rem .5rem; margin:.15rem 0 .4rem; background:#0f1115; border:1px solid var(--border); border-radius:8px; color:var(--text); }
+  input.full { width:100%; }
+  button { cursor:pointer; border:none; border-radius:8px; padding:.45rem .8rem; background:var(--accent); color:#fff; font-weight:600; font-size:.85rem; }
+  button.sec { background:transparent; border:1px solid var(--border); color:var(--text); font-weight:500; }
+  .chips button { background:transparent; border:1px solid var(--border); color:var(--text); font-weight:500; }
+  .row { display:flex; gap:.5rem; flex-wrap:wrap; align-items:center; }
+  table { width:100%; border-collapse:collapse; font-size:.83rem; margin-top:.5rem; }
+  th,td { text-align:left; padding:.4rem .35rem; border-bottom:1px solid var(--border); }
+  th { color:var(--muted); }
+  .badge { font-size:.7rem; padding:.1rem .45rem; border-radius:999px; border:1px solid var(--border); color:var(--muted); }
+  pre { background:#0b0d11; border:1px solid var(--border); border-radius:8px; padding:.7rem; font-size:.82rem; white-space:pre-wrap; }
+  .ok { color:var(--ok); } .err { color:var(--err); } .who { font-size:.8rem; color:var(--muted); }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card"><h1>event-mpos — EPIC-07 tester</h1><p class="sub">Build a cart, submit an order (atomic), and prove idempotency. Live backend on :8080.</p></div>
+
+  <div class="card" id="loginCard">
+    <h2>1. Sign in (BA)</h2>
+    <div class="row"><input id="email" value="ba@eventmpos.local" style="flex:2"><input id="password" value="Ba123456!" style="flex:1"><button onclick="login()">Sign in</button></div>
+    <div id="loginMsg" class="who"></div>
+  </div>
+
+  <div class="card hidden" id="cartCard">
+    <h2>2. Cart</h2>
+    <div id="cartBox"></div>
+    <div class="row" style="margin-top:.6rem">
+      <input id="custName" placeholder="Customer name" value="Aisha Rahman">
+      <input id="custQr" placeholder="QR (optional)" value="MBR-00001">
+    </div>
+    <div class="row">
+      <label style="align-self:center">Idempotency key:</label>
+      <input id="idem" class="full" style="flex:1">
+      <button class="sec" onclick="newKey()">New key</button>
+    </div>
+    <div class="row">
+      <button onclick="submitOrder()">Submit order</button>
+      <button class="sec" onclick="submitOrder()">Submit again (same key → idempotent)</button>
+      <button class="sec" onclick="loadHistory()">Refresh history</button>
+    </div>
+    <pre id="out">Order result appears here.</pre>
+  </div>
+
+  <div class="card hidden" id="histCard"><h2>3. Order history</h2><div id="histBox"></div></div>
+</div>
+
+<script>
+const API="http://localhost:8080";
+let token=null, eventId=null, products=[];
+function newKey(){ idem.value = "web-" + Math.random().toString(36).slice(2,10); }
+async function req(m,p,b){ const o={method:m,headers:{}}; if(token)o.headers.Authorization="Bearer "+token; if(b){o.headers["Content-Type"]="application/json";o.body=JSON.stringify(b);} const r=await fetch(API+p,o); let d=null; try{d=await r.json();}catch(_){} return {ok:r.ok,status:r.status,data:d}; }
+async function login(){
+  const r=await req("POST","/api/auth/login",{email:email.value,password:password.value});
+  if(!r.ok){loginMsg.className="err";loginMsg.textContent="❌ "+(r.data?.message||r.status);return;}
+  token=r.data.accessToken; loginMsg.className="ok"; loginMsg.textContent="✅ "+r.data.user.fullName;
+  const ev=await req("GET","/api/me/event"); eventId=ev.data.id;
+  const snap=await req("GET","/api/me/events/"+eventId+"/snapshot"); products=snap.data.products;
+  cartCard.classList.remove("hidden"); histCard.classList.remove("hidden");
+  newKey(); renderCart(); loadHistory();
+}
+function renderCart(){
+  cartBox.innerHTML='<table><thead><tr><th>Product</th><th>Price</th><th>Stock</th><th>Qty</th></tr></thead><tbody>'+
+    products.map(p=>`<tr><td>${p.name}</td><td>RM${p.price.toFixed(2)}</td><td class="who">${p.remainingStock}</td>
+      <td><input type="number" min="0" value="0" id="q_${p.id}" style="width:70px"></td></tr>`).join("")+'</tbody></table>';
+}
+async function submitOrder(){
+  const lines=products.map(p=>({productId:p.id,qty:Number(document.getElementById("q_"+p.id).value||0)})).filter(l=>l.qty>0);
+  if(!lines.length){out.className="err";out.textContent="Set a quantity first.";return;}
+  const body={idempotencyKey:idem.value,customer:{name:custName.value,qrCode:custQr.value||null},lines};
+  const r=await req("POST","/api/me/events/"+eventId+"/orders",body);
+  if(!r.ok){out.className="err";out.textContent="❌ "+r.status+"\n"+JSON.stringify(r.data,null,2);return;}
+  const d=r.data; out.className="ok";
+  out.textContent=`${d.duplicate?"↩ DUPLICATE (idempotent) — same order returned":"✅ Order created"}\n`+
+    `Order ${d.orderNumberDisplay}   ${d.referenceId}\nStatus ${d.status}   Customer ${d.customerName}\n`+
+    `Subtotal RM${d.subtotal}  Discount -RM${d.discount} (${d.promotionName||"none"})  Total RM${d.total}\n`+
+    `Items: ${d.items.map(i=>i.name+" x"+i.qty).join(", ")}\n${d.cashierNote}`;
+  loadHistory();
+}
+async function loadHistory(){
+  const r=await req("GET","/api/me/events/"+eventId+"/orders");
+  histBox.innerHTML='<table><thead><tr><th>#</th><th>Ref</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th></tr></thead><tbody>'+
+    r.data.map(o=>`<tr><td><b>${o.orderNumberDisplay}</b></td><td class="who">${o.referenceId}</td><td>${o.customerName}</td><td>${o.itemCount}</td><td>RM${o.total.toFixed(2)}</td><td><span class="badge">${o.status}</span></td></tr>`).join("")+'</tbody></table>';
+}
+</script>
+</body>
+</html>

@@ -2,6 +2,7 @@ package com.eventmpos.mpos.di
 
 import android.content.Context
 import androidx.room.Room
+import androidx.work.WorkManager
 import com.eventmpos.mpos.core.scanner.ManualScannerPort
 import com.eventmpos.mpos.core.scanner.ScannerPort
 import com.eventmpos.mpos.core.secure.SecureTokenStorage
@@ -10,14 +11,17 @@ import com.eventmpos.mpos.data.event.EventRepositoryImpl
 import com.eventmpos.mpos.data.local.AppDatabase
 import com.eventmpos.mpos.data.local.EventSnapshotDao
 import com.eventmpos.mpos.data.local.MemberDao
+import com.eventmpos.mpos.data.local.PendingOrderDao
 import com.eventmpos.mpos.data.local.ProductDao
 import com.eventmpos.mpos.data.local.PromotionDao
 import com.eventmpos.mpos.data.member.MemberRepositoryImpl
+import com.eventmpos.mpos.data.order.OrderRepositoryImpl
 import com.eventmpos.mpos.data.product.ProductRepositoryImpl
 import com.eventmpos.mpos.data.promotion.PromotionRepositoryImpl
 import com.eventmpos.mpos.domain.auth.AuthRepository
 import com.eventmpos.mpos.domain.event.EventRepository
 import com.eventmpos.mpos.domain.member.MemberRepository
+import com.eventmpos.mpos.domain.order.OrderRepository
 import com.eventmpos.mpos.domain.product.ProductRepository
 import com.eventmpos.mpos.domain.promotion.PromotionRepository
 import dagger.Binds
@@ -55,6 +59,14 @@ object AppProvidesModule {
 
     @Provides
     fun providePromotionDao(db: AppDatabase): PromotionDao = db.promotionDao()
+
+    @Provides
+    fun providePendingOrderDao(db: AppDatabase): PendingOrderDao = db.pendingOrderDao()
+
+    @Provides
+    @Singleton
+    fun provideWorkManager(@ApplicationContext context: Context): WorkManager =
+        WorkManager.getInstance(context)
 }
 
 @Module
@@ -80,6 +92,10 @@ abstract class AppBindsModule {
     @Binds
     @Singleton
     abstract fun bindPromotionRepository(impl: PromotionRepositoryImpl): PromotionRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindOrderRepository(impl: OrderRepositoryImpl): OrderRepository
 
     @Binds
     @Singleton

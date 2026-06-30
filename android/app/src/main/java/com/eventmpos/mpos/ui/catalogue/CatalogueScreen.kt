@@ -34,10 +34,14 @@ import com.eventmpos.mpos.domain.product.Product
  * typed barcode) resolves to a product via the ScannerPort. Adding to a cart arrives in EPIC-07.
  */
 @Composable
-fun CatalogueScreen(viewModel: CatalogueViewModel = hiltViewModel()) {
+fun CatalogueScreen(
+    onViewCart: (String) -> Unit,
+    viewModel: CatalogueViewModel = hiltViewModel(),
+) {
     val products by viewModel.products.collectAsStateWithLifecycle()
     val query by viewModel.searchQuery.collectAsStateWithLifecycle()
     val scan by viewModel.scan.collectAsStateWithLifecycle()
+    val cartCount by viewModel.cartCount.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(scan) {
@@ -51,7 +55,15 @@ fun CatalogueScreen(viewModel: CatalogueViewModel = hiltViewModel()) {
 
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(modifier = Modifier.fillMaxSize().padding(padding).padding(12.dp)) {
-            Text("Product catalogue", style = MaterialTheme.typography.titleLarge)
+            androidx.compose.foundation.layout.Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = androidx.compose.foundation.layout.Arrangement.SpaceBetween,
+            ) {
+                Text("Product catalogue", style = MaterialTheme.typography.titleLarge)
+                androidx.compose.material3.Button(onClick = { onViewCart(viewModel.eventId) }) {
+                    Text("View cart ($cartCount)")
+                }
+            }
 
             OutlinedTextField(
                 value = query,
@@ -74,7 +86,9 @@ fun CatalogueScreen(viewModel: CatalogueViewModel = hiltViewModel()) {
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxSize(),
                 ) {
-                    items(products, key = { it.id }) { product -> ProductCard(product) }
+                    items(products, key = { it.id }) { product ->
+                        ProductCard(product, onAdd = { viewModel.addToCart(product) })
+                    }
                 }
             }
         }
@@ -92,7 +106,7 @@ private fun StockLabel(product: Product) {
 }
 
 @Composable
-private fun ProductCard(product: Product) {
+private fun ProductCard(product: Product, onAdd: () -> Unit) {
     Card(modifier = Modifier.fillMaxWidth()) {
         Column {
             AsyncImage(
@@ -108,6 +122,13 @@ private fun ProductCard(product: Product) {
                 }
                 Text("RM ${"%.2f".format(product.price)}", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 4.dp))
                 StockLabel(product)
+                androidx.compose.material3.Button(
+                    onClick = onAdd,
+                    enabled = !product.outOfStock,
+                    modifier = Modifier.fillMaxWidth().padding(top = 6.dp),
+                ) {
+                    Text(if (product.outOfStock) "Sold out" else "Add")
+                }
             }
         }
     }

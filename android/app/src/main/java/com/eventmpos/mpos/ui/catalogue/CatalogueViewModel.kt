@@ -4,15 +4,17 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eventmpos.mpos.core.scanner.ScannerPort
+import com.eventmpos.mpos.data.cart.CartStore
 import com.eventmpos.mpos.domain.product.Product
 import com.eventmpos.mpos.domain.product.ProductRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -29,15 +31,22 @@ class CatalogueViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val productRepository: ProductRepository,
     private val scanner: ScannerPort,
+    private val cartStore: CartStore,
 ) : ViewModel() {
 
-    private val eventId: String = checkNotNull(savedStateHandle["eventId"])
+    val eventId: String = checkNotNull(savedStateHandle["eventId"])
 
     private val query = MutableStateFlow("")
     val searchQuery: StateFlow<String> = query.asStateFlow()
 
     private val _scan = MutableStateFlow<ScanFeedback?>(null)
     val scan: StateFlow<ScanFeedback?> = _scan.asStateFlow()
+
+    /** Total item count in the cart, for the "View cart (N)" affordance. */
+    val cartCount: StateFlow<Int> =
+        cartStore.items
+            .map { items -> items.values.sum() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     /** Products for this event from Room, filtered by the search query. Offline-friendly. */
     val products: StateFlow<List<Product>> =
@@ -52,11 +61,7 @@ class CatalogueViewModel @Inject constructor(
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
-        // Hardware scans (Sunmi) flow in here; resolve each against the local catalogue.
-        viewModelScope.launch {
-            scanner.scans.collect { onBarcode(it) }
-        }
-        // Periodically refresh live remaining stock from the server (near real-time on-device).
+        viewModelScope.launch { scanner.scans.collect { onBarcode(it) } }
         viewModelScope.launch {
             while (isActive) {
                 productRepository.refreshStock(eventId)
@@ -67,7 +72,10 @@ class CatalogueViewModel @Inject constructor(
 
     fun onSearch(value: String) { query.value = value }
 
-    /** Manual/typed barcode entry — routed through the same scanner port as hardware scans. */
+    fun addToCart(product: Product) {
+        if (!product.outOfStock) cartStore.add(product.id)
+    }
+
     fun submitManualBarcode(code: String) {
         if (code.isNotBlank()) viewModelScope.launch { scanner.emitManual(code) }
     }
@@ -76,6 +84,7 @@ class CatalogueViewModel @Inject constructor(
 
     private suspend fun onBarcode(code: String) {
         val product = productRepository.findByBarcode(eventId, code)
+        if (product != null && !product.outOfStock) cartStore.add(product.id)
         _scan.value = if (product != null) ScanFeedback.Found(product) else ScanFeedback.NotFound(code)
     }
 }

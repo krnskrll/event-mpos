@@ -1,5 +1,8 @@
 package com.eventmpos.mpos.data.auth
 
+import com.eventmpos.mpos.data.order.OrderConfirmationDto
+import com.eventmpos.mpos.data.order.OrderSummaryDto
+import com.eventmpos.mpos.data.order.SubmitOrderRequestDto
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -33,4 +36,13 @@ interface AuthApi {
 
     @GET("api/me/events/{eventId}/stock")
     suspend fun getStockLevels(@Path("eventId") eventId: String): List<StockLevelDto>
+
+    @POST("api/me/events/{eventId}/orders")
+    suspend fun submitOrder(
+        @Path("eventId") eventId: String,
+        @Body body: SubmitOrderRequestDto,
+    ): OrderConfirmationDto
+
+    @GET("api/me/events/{eventId}/orders")
+    suspend fun getOrderHistory(@Path("eventId") eventId: String): List<OrderSummaryDto>
 }

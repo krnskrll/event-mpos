@@ -63,6 +63,11 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   that auto-apply, a **shared rule engine** (server-authoritative + mirrored client preview, pinned
   by a unit test), promotions in the snapshot, admin CRUD, and an authoritative cart **quote**
   endpoint that picks the single best promotion. See [docs/EPIC-06-verification.md](docs/EPIC-06-verification.md).
+- **EPIC-07 — Cart & Order Creation**: ✅ implemented. Local cart with live promo preview + customer
+  requirement; **atomic order submit** (stock decrement + promotion + race-safe daily order number
+  `SELECT … FOR UPDATE` + idempotency key) in one transaction; **WorkManager** offline retry with
+  Pending/Confirmed/Failed status; order history. Receipt-ready confirmation payload for EPIC-08.
+  See [docs/EPIC-07-verification.md](docs/EPIC-07-verification.md).
 
 ## How to Use the Prompts
 

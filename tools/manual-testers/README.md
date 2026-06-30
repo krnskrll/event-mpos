@@ -29,6 +29,9 @@ Useful for a quick smoke test or a demo when only the backend is running.
    - **Promotions (EPIC-06):** http://localhost:5500/epic6-tester.html
      Admin: create/disable/delete event promotions (percentage / fixed / bundle).
      BA: build a cart and Quote it — the server auto-applies the single best promotion.
+   - **Cart & orders (EPIC-07):** http://localhost:5500/epic7-tester.html
+     BA: build a cart, submit an order (atomic: stock + promo + daily number), prove idempotency
+     by submitting twice with the same key, and view order history.
 
 Seeded dev logins: `admin@eventmpos.local` / `Admin123!`, `ba@eventmpos.local` / `Ba123456!`,
 `wh@eventmpos.local` / `Wh123456!`.
