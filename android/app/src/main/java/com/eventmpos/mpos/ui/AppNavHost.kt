@@ -13,6 +13,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.eventmpos.mpos.ui.cart.CartScreen
+import com.eventmpos.mpos.ui.catalogue.BarcodeScanScreen
 import com.eventmpos.mpos.ui.catalogue.CatalogueScreen
 import com.eventmpos.mpos.ui.catalogue.ProductDetailScreen
 import com.eventmpos.mpos.ui.customer.CustomerScreen
@@ -33,6 +34,7 @@ object Routes {
     const val ORDERS = "orders"
     const val PRODUCT_DETAIL = "product-detail/{productId}"
     const val CUSTOMER = "customer"
+    const val SCAN_BARCODE = "scan-barcode"
     const val RECEIPT = "receipt/{orderKey}"
     fun productDetail(id: String) = "product-detail/$id"
     fun receipt(orderKey: String) = "receipt/$orderKey"
@@ -83,6 +85,7 @@ fun AppNavHost(startLoggedIn: Boolean) {
                 CatalogueScreen(
                     onProductSelect = { nav.navigate(Routes.productDetail(it)) },
                     onCustomerScan = { nav.navigate(Routes.CUSTOMER) },
+                    onScanBarcode = { nav.navigate(Routes.SCAN_BARCODE) },
                 )
             }
             composable(Routes.CART) {
@@ -99,6 +102,9 @@ fun AppNavHost(startLoggedIn: Boolean) {
             }
             composable(Routes.CUSTOMER) {
                 CustomerScreen(onBack = { nav.popBackStack() }, onDone = { nav.popBackStack() })
+            }
+            composable(Routes.SCAN_BARCODE) {
+                BarcodeScanScreen(onClose = { nav.popBackStack() }, onViewCart = { toTab(Routes.CART) })
             }
             composable(Routes.RECEIPT, arguments = listOf(navArgument("orderKey") { type = NavType.StringType })) {
                 ReceiptScreen(

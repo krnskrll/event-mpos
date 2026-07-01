@@ -96,6 +96,15 @@ dependencies {
     // Image loading with disk cache (product images pre-fetched during event sync)
     implementation("io.coil-kt:coil-compose:2.6.0")
 
+    // Camera-based scanning (barcode + member QR) — works on the emulator webcam and any phone.
+    // On a Sunmi device the hardware laser scanner (SunmiScannerPort/AIDL) is bound instead.
+    implementation("androidx.camera:camera-core:1.3.4")
+    implementation("androidx.camera:camera-camera2:1.3.4")
+    implementation("androidx.camera:camera-lifecycle:1.3.4")
+    implementation("androidx.camera:camera-view:1.3.4")
+    // Bundled ML Kit barcode model (no Play Services dependency at runtime)
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
     // Desugaring so java.time works on minSdk 24
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 

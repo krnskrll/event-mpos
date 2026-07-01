@@ -11,6 +11,10 @@ import kotlinx.coroutines.flow.Flow
  * The real implementation (SunmiScannerPort) binds the Sunmi Scanner AIDL service and emits decoded
  * values on [scans]; it is added when building on-device against the Sunmi SDK. The default build
  * uses [ManualScannerPort] so the app runs on any emulator.
+ *
+ * On non-Sunmi devices (and the emulator) the camera is the scan source: the scan screens run a
+ * CameraX + ML Kit preview (see CameraScanner) and feed decoded values in via [emitManual], so the
+ * exact same pipeline handles hardware-laser scans, camera scans, and typed entry identically.
  */
 interface ScannerPort {
     /** Stream of decoded barcode strings as they are scanned. */

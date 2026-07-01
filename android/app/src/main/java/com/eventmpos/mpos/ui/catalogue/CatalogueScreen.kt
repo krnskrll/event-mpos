@@ -19,12 +19,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -49,7 +47,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.eventmpos.mpos.domain.product.Product
-import com.eventmpos.mpos.ui.components.BrandButton
 import com.eventmpos.mpos.ui.components.Pill
 import com.eventmpos.mpos.ui.theme.Brand
 
@@ -58,6 +55,7 @@ import com.eventmpos.mpos.ui.theme.Brand
 fun CatalogueScreen(
     onProductSelect: (String) -> Unit,
     onCustomerScan: () -> Unit,
+    onScanBarcode: () -> Unit,
     viewModel: CatalogueViewModel = hiltViewModel(),
 ) {
     val products by viewModel.products.collectAsStateWithLifecycle()
@@ -67,7 +65,6 @@ fun CatalogueScreen(
     val customer by viewModel.customer.collectAsStateWithLifecycle()
     val scan by viewModel.scan.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
-    var showScan by remember { mutableStateOf(false) }
 
     LaunchedEffect(scan) {
         when (val s = scan) {
@@ -99,7 +96,7 @@ fun CatalogueScreen(
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f),
                 )
-                IconBox(bg = Brand.Navy, icon = Icons.Outlined.QrCodeScanner, onClick = { showScan = true })
+                IconBox(bg = Brand.Navy, icon = Icons.Outlined.QrCodeScanner, onClick = onScanBarcode)
                 IconBox(
                     bg = if (customer != null) Brand.TealSoft else Brand.CardBorder,
                     icon = Icons.Outlined.QrCode2,
@@ -144,22 +141,6 @@ fun CatalogueScreen(
                 items(products, key = { it.id }) { p -> ProductCard(p) { onProductSelect(p.id) } }
             }
             SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter))
-        }
-    }
-
-    if (showScan) {
-        BasicAlertDialog(onDismissRequest = { showScan = false }) {
-            Column(Modifier.clip(RoundedCornerShape(16.dp)).background(Color.White).padding(20.dp)) {
-                Text("Scan / enter barcode", color = Brand.Heading, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                var code by remember { mutableStateOf("") }
-                OutlinedTextField(
-                    value = code, onValueChange = { code = it }, singleLine = true,
-                    placeholder = { Text("e.g. 8990001001") },
-                    keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
-                )
-                BrandButton("Add to cart", onClick = { viewModel.submitManualBarcode(code); showScan = false }, color = Brand.Teal, modifier = Modifier.fillMaxWidth())
-            }
         }
     }
 }

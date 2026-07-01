@@ -3,6 +3,10 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Camera is used for barcode + member-QR scanning. Optional so the app still installs on
+         hardware-scanner-only devices (e.g. Sunmi) that have no general camera. -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
         android:name=".MposApplication"
