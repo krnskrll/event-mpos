@@ -1,9 +1,9 @@
 package com.eventmpos.mpos.ui.cart
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eventmpos.mpos.data.cart.CartStore
+import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.member.SelectedCustomer
 import com.eventmpos.mpos.domain.order.OrderRepository
 import com.eventmpos.mpos.domain.product.Product
@@ -40,14 +40,14 @@ data class CartUiState(
 
 @HiltViewModel
 class CartViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
     private val cartStore: CartStore,
     private val productRepository: ProductRepository,
     private val promotionRepository: PromotionRepository,
     private val orderRepository: OrderRepository,
+    sessionStore: SessionStore,
 ) : ViewModel() {
 
-    private val eventId: String = checkNotNull(savedStateHandle["eventId"])
+    private val eventId: String = sessionStore.eventId.orEmpty()
     private val submitting = MutableStateFlow(false)
     private val submitted = MutableStateFlow(false)
 

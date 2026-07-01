@@ -1,21 +1,25 @@
 package com.eventmpos.mpos.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 
-private val Accent = Color(0xFFE0457B)
+private val LightColors = lightColorScheme(
+    primary = Brand.Navy,
+    onPrimary = androidx.compose.ui.graphics.Color.White,
+    secondary = Brand.Teal,
+    onSecondary = androidx.compose.ui.graphics.Color.White,
+    background = Brand.Bg,
+    onBackground = Brand.Text,
+    surface = Brand.Card,
+    onSurface = Brand.Text,
+    surfaceVariant = Brand.CardBorder,
+    onSurfaceVariant = Brand.TextMuted,
+    error = Brand.Danger,
+)
 
-private val LightColors = lightColorScheme(primary = Accent)
-private val DarkColors = darkColorScheme(primary = Accent)
-
+/** Light-only theme matching the Phase-1 design (navy + teal). */
 @Composable
 fun EventMposTheme(content: @Composable () -> Unit) {
-    MaterialTheme(
-        colorScheme = if (isSystemInDarkTheme()) DarkColors else LightColors,
-        content = content,
-    )
+    MaterialTheme(colorScheme = LightColors, content = content)
 }

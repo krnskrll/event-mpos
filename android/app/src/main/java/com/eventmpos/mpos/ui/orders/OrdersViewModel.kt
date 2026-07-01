@@ -1,8 +1,8 @@
 package com.eventmpos.mpos.ui.orders
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.order.OrderRecord
 import com.eventmpos.mpos.domain.order.OrderRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -13,11 +13,11 @@ import javax.inject.Inject
 
 @HiltViewModel
 class OrdersViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
     orderRepository: OrderRepository,
+    sessionStore: SessionStore,
 ) : ViewModel() {
 
-    private val eventId: String = checkNotNull(savedStateHandle["eventId"])
+    private val eventId: String = sessionStore.eventId.orEmpty()
 
     val orders: StateFlow<List<OrderRecord>> =
         orderRepository.observeOrders(eventId)

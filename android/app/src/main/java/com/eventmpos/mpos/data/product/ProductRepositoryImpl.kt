@@ -24,6 +24,9 @@ class ProductRepositoryImpl @Inject constructor(
     override suspend fun findByBarcode(eventId: String, barcode: String): Product? =
         dao.findByBarcode(eventId, barcode.trim())?.toDomain()
 
+    override suspend fun getProduct(eventId: String, productId: String): Product? =
+        dao.find(eventId, productId)?.toDomain()
+
     override suspend fun refreshStock(eventId: String) {
         withContext(Dispatchers.IO) {
             runCatching {

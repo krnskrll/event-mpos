@@ -24,6 +24,9 @@ interface ProductRepository {
     /** Resolve a scanned barcode to a product within the event, or null if unknown. */
     suspend fun findByBarcode(eventId: String, barcode: String): Product?
 
+    /** A single product by id (for the detail screen), or null. */
+    suspend fun getProduct(eventId: String, productId: String): Product?
+
     /** Poll the server for live remaining stock and update the Room cache. Best-effort (offline = no-op). */
     suspend fun refreshStock(eventId: String)
 }

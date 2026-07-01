@@ -31,3 +31,6 @@ android/captures/
 # Env / secrets
 .env
 *.env.local
+
+# UI design reference (Figma export), not part of the product
+/Mobile POS Phase 1/

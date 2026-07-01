@@ -12,6 +12,9 @@ interface ProductDao {
     @Query("SELECT * FROM product WHERE eventId = :eventId ORDER BY name")
     fun observeForEvent(eventId: String): Flow<List<ProductEntity>>
 
+    @Query("SELECT * FROM product WHERE eventId = :eventId AND id = :productId LIMIT 1")
+    suspend fun find(eventId: String, productId: String): ProductEntity?
+
     @Query("SELECT * FROM product WHERE eventId = :eventId")
     suspend fun forEvent(eventId: String): List<ProductEntity>
 

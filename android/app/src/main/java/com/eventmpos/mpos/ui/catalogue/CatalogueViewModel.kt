@@ -1,10 +1,10 @@
 package com.eventmpos.mpos.ui.catalogue
 
-import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eventmpos.mpos.core.scanner.ScannerPort
 import com.eventmpos.mpos.data.cart.CartStore
+import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.product.Product
 import com.eventmpos.mpos.domain.product.ProductRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,19 +28,33 @@ sealed interface ScanFeedback {
 
 @HiltViewModel
 class CatalogueViewModel @Inject constructor(
-    savedStateHandle: SavedStateHandle,
     private val productRepository: ProductRepository,
     private val scanner: ScannerPort,
     private val cartStore: CartStore,
+    sessionStore: SessionStore,
 ) : ViewModel() {
 
-    val eventId: String = checkNotNull(savedStateHandle["eventId"])
+    val eventId: String = sessionStore.eventId.orEmpty()
+    val eventName: String = sessionStore.event.value?.name ?: "Current event"
 
     private val query = MutableStateFlow("")
     val searchQuery: StateFlow<String> = query.asStateFlow()
 
+    private val _category = MutableStateFlow("All")
+    val category: StateFlow<String> = _category.asStateFlow()
+
     private val _scan = MutableStateFlow<ScanFeedback?>(null)
     val scan: StateFlow<ScanFeedback?> = _scan.asStateFlow()
+
+    /** Active customer linked to the sale (shown in the catalogue header). */
+    val customer: StateFlow<com.eventmpos.mpos.domain.member.SelectedCustomer?> =
+        cartStore.customer.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    /** Category chips = "All" + distinct brands present in the catalogue. */
+    val categories: StateFlow<List<String>> =
+        productRepository.observeProducts(eventId)
+            .map { list -> listOf("All") + list.mapNotNull { it.brand }.distinct().sorted() }
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf("All"))
 
     /** Total item count in the cart, for the "View cart (N)" affordance. */
     val cartCount: StateFlow<Int> =
@@ -50,15 +64,13 @@ class CatalogueViewModel @Inject constructor(
 
     /** Products for this event from Room, filtered by the search query. Offline-friendly. */
     val products: StateFlow<List<Product>> =
-        productRepository.observeProducts(eventId)
-            .combine(query) { list, q ->
-                if (q.isBlank()) list
-                else list.filter {
-                    it.name.contains(q, true) || it.sku.contains(q, true) ||
-                        it.barcodes.any { bc -> bc.contains(q, true) }
-                }
+        combine(productRepository.observeProducts(eventId), query, _category) { list, q, cat ->
+            list.filter { p ->
+                (cat == "All" || p.brand == cat) &&
+                    (q.isBlank() || p.name.contains(q, true) || p.sku.contains(q, true) ||
+                        p.barcodes.any { bc -> bc.contains(q, true) })
             }
-            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
         viewModelScope.launch { scanner.scans.collect { onBarcode(it) } }
@@ -71,6 +83,7 @@ class CatalogueViewModel @Inject constructor(
     }
 
     fun onSearch(value: String) { query.value = value }
+    fun onCategory(value: String) { _category.value = value }
 
     fun addToCart(product: Product) {
         if (!product.outOfStock) cartStore.add(product.id)

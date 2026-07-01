@@ -2,6 +2,7 @@ package com.eventmpos.mpos.ui.login
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.auth.AuthRepository
 import com.eventmpos.mpos.domain.auth.AuthResult
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -23,6 +24,7 @@ data class LoginUiState(
 @HiltViewModel
 class LoginViewModel @Inject constructor(
     private val authRepository: AuthRepository,
+    private val sessionStore: SessionStore,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(LoginUiState())
@@ -42,7 +44,10 @@ class LoginViewModel @Inject constructor(
         val email = current.email.trim().replace(" ", "").lowercase()
         viewModelScope.launch {
             when (val result = authRepository.login(email, current.password)) {
-                is AuthResult.Success -> _state.update { it.copy(loading = false, loggedIn = true) }
+                is AuthResult.Success -> {
+                    sessionStore.setUser(result.data.fullName)
+                    _state.update { it.copy(loading = false, loggedIn = true) }
+                }
                 is AuthResult.Failure -> _state.update { it.copy(loading = false, error = result.message) }
             }
         }
