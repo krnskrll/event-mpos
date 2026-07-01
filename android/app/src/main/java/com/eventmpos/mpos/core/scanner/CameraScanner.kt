@@ -2,6 +2,7 @@ package com.eventmpos.mpos.core.scanner
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.util.Size
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.OptIn
@@ -12,6 +13,7 @@ import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -20,6 +22,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import java.util.concurrent.Executors
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
@@ -46,33 +49,46 @@ fun CameraScanner(
     onDecoded: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val onDecodedState = rememberUpdatedState(onDecoded)
+    // Barcode detection must NOT run on the main thread — a dedicated single worker keeps the
+    // preview smooth (STRATEGY_KEEP_ONLY_LATEST drops stale frames while a detection is in flight).
+    val analysisExecutor = remember { Executors.newSingleThreadExecutor() }
+    val barcodeClient = remember(formats) {
+        BarcodeScanning.getClient(BarcodeScannerOptions.Builder().setBarcodeFormats(formats).build())
+    }
+    val cameraProviderRef = remember { java.util.concurrent.atomic.AtomicReference<ProcessCameraProvider?>() }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            cameraProviderRef.get()?.unbindAll()
+            analysisExecutor.shutdown()
+            barcodeClient.close()
+        }
+    }
 
     AndroidView(
         modifier = modifier,
         factory = { ctx ->
             val previewView = PreviewView(ctx).apply {
                 scaleType = PreviewView.ScaleType.FILL_CENTER
+                implementationMode = PreviewView.ImplementationMode.COMPATIBLE
             }
             val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
             cameraProviderFuture.addListener({
                 val cameraProvider = cameraProviderFuture.get()
+                cameraProviderRef.set(cameraProvider)
 
                 val preview = Preview.Builder().build().also {
                     it.setSurfaceProvider(previewView.surfaceProvider)
                 }
 
-                val scannerOptions = BarcodeScannerOptions.Builder()
-                    .setBarcodeFormats(formats)
-                    .build()
-                val barcodeClient = BarcodeScanning.getClient(scannerOptions)
-
                 val analysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
+                    // Downscale frames fed to ML Kit — plenty for barcode/QR, far cheaper per frame.
+                    .setTargetResolution(Size(1280, 720))
                     .build()
-                analysis.setAnalyzer(ContextCompat.getMainExecutor(ctx)) { imageProxy ->
+                analysis.setAnalyzer(analysisExecutor) { imageProxy ->
                     val mediaImage = imageProxy.image
                     if (mediaImage == null) {
                         imageProxy.close()
