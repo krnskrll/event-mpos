@@ -85,16 +85,17 @@ fun CameraScanner(
 
                 val analysis = ImageAnalysis.Builder()
                     .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST)
-                    // Downscale frames fed to ML Kit — plenty for barcode/QR, far cheaper per frame.
                     .setTargetResolution(Size(1280, 720))
+                    // Convert to RGBA so we decode from a clean Bitmap — the emulated webcam's YUV
+                    // planes are often malformed and ML Kit can't decode them. RGBA sidesteps that.
+                    .setOutputImageFormat(ImageAnalysis.OUTPUT_IMAGE_FORMAT_RGBA_8888)
                     .build()
                 analysis.setAnalyzer(analysisExecutor) { imageProxy ->
-                    val mediaImage = imageProxy.image
-                    if (mediaImage == null) {
-                        imageProxy.close()
-                        return@setAnalyzer
+                    val input = try {
+                        InputImage.fromBitmap(imageProxy.toBitmap(), imageProxy.imageInfo.rotationDegrees)
+                    } catch (_: Exception) {
+                        imageProxy.close(); return@setAnalyzer
                     }
-                    val input = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
                     barcodeClient.process(input)
                         .addOnSuccessListener { barcodes ->
                             barcodes.firstOrNull { !it.rawValue.isNullOrBlank() }?.rawValue?.let { value ->
