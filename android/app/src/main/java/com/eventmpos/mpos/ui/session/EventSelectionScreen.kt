@@ -16,7 +16,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.Place
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -96,8 +100,10 @@ private fun EventCard(event: AssignedEvent, onStart: () -> Unit) {
             if (active) Pill("● ACTIVE", Brand.Ready, Brand.ReadyBg) else Pill(event.status.name, Brand.Packing, Brand.PackingBg)
         }
         Text(event.name, color = Brand.Heading, fontSize = 18.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 10.dp, bottom = 6.dp))
-        Text("🗓  ${event.startDate ?: "—"} → ${event.endDate ?: "—"}", color = Brand.TextMuted, fontSize = 13.sp)
-        Text("📍  ${event.code}", color = Brand.TextMuted, fontSize = 13.sp, modifier = Modifier.padding(top = 2.dp, bottom = 14.dp))
+        MetaRow(Icons.Outlined.CalendarMonth, "${event.startDate ?: "—"} → ${event.endDate ?: "—"}")
+        Spacer(Modifier.size(2.dp))
+        MetaRow(Icons.Outlined.Place, event.code)
+        Spacer(Modifier.size(14.dp))
         BrandButton(
             text = if (active) "Start Session" else "Not active yet",
             onClick = onStart,
@@ -105,6 +111,15 @@ private fun EventCard(event: AssignedEvent, onStart: () -> Unit) {
             color = Brand.Teal,
             modifier = Modifier.fillMaxWidth(),
         )
+    }
+}
+
+@Composable
+private fun MetaRow(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, contentDescription = null, tint = Brand.TextFaint, modifier = Modifier.size(15.dp))
+        Spacer(Modifier.size(6.dp))
+        Text(text, color = Brand.TextMuted, fontSize = 13.sp)
     }
 }
 

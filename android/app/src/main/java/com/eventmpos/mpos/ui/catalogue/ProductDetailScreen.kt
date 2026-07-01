@@ -14,7 +14,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.outlined.ShoppingCart
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -54,9 +59,9 @@ fun ProductDetailScreen(
                 modifier = Modifier.fillMaxWidth().height(280.dp),
             )
             Row(Modifier.fillMaxWidth().padding(top = 40.dp, start = 16.dp, end = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
-                CircleBtn("←", onBack)
+                CircleBtn(Icons.AutoMirrored.Filled.ArrowBack, onBack)
                 Box {
-                    CircleBtn("🛒", onViewCart)
+                    CircleBtn(Icons.Outlined.ShoppingCart, onViewCart)
                     if (cartCount > 0) {
                         Box(Modifier.align(Alignment.TopEnd).size(16.dp).clip(CircleShape).background(Brand.Teal), Alignment.Center) {
                             Text("$cartCount", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Bold)
@@ -110,9 +115,9 @@ fun ProductDetailScreen(
 }
 
 @Composable
-private fun CircleBtn(label: String, onClick: () -> Unit) {
+private fun CircleBtn(icon: ImageVector, onClick: () -> Unit) {
     Box(Modifier.size(36.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.9f)).clickable { onClick() }, Alignment.Center) {
-        Text(label, fontSize = 16.sp, color = Brand.Navy)
+        Icon(icon, contentDescription = null, tint = Brand.Navy, modifier = Modifier.size(18.dp))
     }
 }
 

@@ -10,6 +10,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Spa
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -47,7 +50,7 @@ fun LoginScreen(
         Box(
             modifier = Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)).background(Brand.Navy),
             contentAlignment = Alignment.Center,
-        ) { Text("💄", fontSize = 36.sp) }
+        ) { Icon(Icons.Outlined.Spa, contentDescription = null, tint = Brand.Teal, modifier = Modifier.size(40.dp)) }
         Text("BEAUTY POS", color = Brand.Teal, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 3.sp, modifier = Modifier.padding(top = 14.dp))
 
         Text("Welcome Back", color = Brand.Heading, fontSize = 26.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 24.dp))

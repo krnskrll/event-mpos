@@ -14,6 +14,10 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material.icons.outlined.ShoppingBag
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,7 +70,7 @@ fun HomeScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(Color.White.copy(alpha = 0.15f)), Alignment.Center) {
-                    Text("🛍", fontSize = 20.sp)
+                    Icon(Icons.Outlined.ShoppingBag, contentDescription = null, tint = Color.White, modifier = Modifier.size(22.dp))
                 }
                 Spacer(Modifier.size(16.dp))
                 Column {
@@ -79,7 +83,9 @@ fun HomeScreen(
             // My Orders Today
             SectionCard(modifier = Modifier.clickable { onOrders() }) {
                 Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Brand.ReadyBg), Alignment.Center) { Text("📋", fontSize = 16.sp) }
+                    Box(Modifier.size(36.dp).clip(RoundedCornerShape(10.dp)).background(Brand.ReadyBg), Alignment.Center) {
+                        Icon(Icons.AutoMirrored.Outlined.Assignment, contentDescription = null, tint = Brand.Ready, modifier = Modifier.size(18.dp))
+                    }
                     Spacer(Modifier.size(10.dp))
                     Column(Modifier.weight(1f)) {
                         Text("My Orders Today", color = Brand.Text, fontSize = 14.sp, fontWeight = FontWeight.Bold)

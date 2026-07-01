@@ -15,7 +15,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -78,7 +82,10 @@ fun CartScreen(
         SectionCard(modifier = Modifier.padding(16.dp)) {
             Row(Modifier.fillMaxWidth().clickable { onIdentifyCustomer() }, verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(32.dp).clip(CircleShape).background(if (state.customer != null) Brand.TealSoft else Brand.CardBorder), Alignment.Center) {
-                    Text(if (state.customer != null) "✓" else "👤", color = Brand.Teal, fontSize = 14.sp)
+                    Icon(
+                        if (state.customer != null) Icons.Outlined.Check else Icons.Outlined.PersonOutline,
+                        contentDescription = null, tint = if (state.customer != null) Brand.Teal else Brand.TextMuted, modifier = Modifier.size(18.dp),
+                    )
                 }
                 Spacer(Modifier.size(10.dp))
                 Text(

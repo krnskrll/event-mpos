@@ -20,9 +20,13 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.QrCode2
+import androidx.compose.material.icons.outlined.QrCodeScanner
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.BasicAlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -90,14 +94,15 @@ fun CatalogueScreen(
                     value = query,
                     onValueChange = viewModel::onSearch,
                     placeholder = { Text("Search product…", color = Brand.TextFaint) },
+                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null, tint = Brand.TextFaint) },
                     singleLine = true,
                     shape = RoundedCornerShape(12.dp),
                     modifier = Modifier.weight(1f),
                 )
-                IconBox(bg = Brand.Navy, label = "⌗", onClick = { showScan = true })
+                IconBox(bg = Brand.Navy, icon = Icons.Outlined.QrCodeScanner, onClick = { showScan = true })
                 IconBox(
                     bg = if (customer != null) Brand.TealSoft else Brand.CardBorder,
-                    label = "▣",
+                    icon = Icons.Outlined.QrCode2,
                     tint = if (customer != null) Brand.Teal else Brand.TextMuted,
                     onClick = onCustomerScan,
                 )
@@ -160,9 +165,9 @@ fun CatalogueScreen(
 }
 
 @Composable
-private fun IconBox(bg: Color, label: String, tint: Color = Color.White, onClick: () -> Unit) {
+private fun IconBox(bg: Color, icon: androidx.compose.ui.graphics.vector.ImageVector, tint: Color = Color.White, onClick: () -> Unit) {
     Box(Modifier.size(48.dp).clip(RoundedCornerShape(12.dp)).background(bg).clickable { onClick() }, Alignment.Center) {
-        Text(label, color = tint, fontSize = 18.sp)
+        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(20.dp))
     }
 }
 
