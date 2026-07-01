@@ -125,6 +125,65 @@ export interface WarehouseOrderView {
   createdAt: string;
 }
 
+// ---- EPIC-11: back office admin ----
+
+export type SyncType = "ERP" | "MEMBER";
+
+export interface SyncTypeView {
+  type: SyncType;
+  enabled: boolean;
+  cron: string;
+  updatedAt: string;
+  lastSyncAt: string | null;
+  lastResult: string | null;
+  count: number;
+  source: string | null;
+  message: string | null;
+}
+
+export interface SyncOverview {
+  erp: SyncTypeView;
+  member: SyncTypeView;
+}
+
+export interface ProductReportRow {
+  productId: string;
+  sku: string;
+  name: string;
+  unitsSold: number;
+  revenue: number;
+  allocated: number;
+  sold: number;
+  remaining: number;
+}
+
+export interface EndOfEventReport {
+  eventId: string;
+  eventCode: string;
+  eventName: string;
+  status: EventStatus;
+  generatedAt: string;
+  totalOrders: number;
+  totalItems: number;
+  totalRevenue: number;
+  totalDiscount: number;
+  products: ProductReportRow[];
+}
+
+export type AuditAction = "ORDER_CREATED" | "STATUS_CHANGED";
+
+export interface AuditEntry {
+  id: string;
+  orderId: string;
+  orderReference: string;
+  action: AuditAction;
+  actorName: string;
+  fromStatus: string | null;
+  toStatus: string | null;
+  detail: string | null;
+  at: string;
+}
+
 export type PromotionType = "PERCENTAGE" | "FIXED" | "BUNDLE";
 export type PromotionScope = "ALL" | "SPECIFIC";
 

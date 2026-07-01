@@ -8,6 +8,7 @@ import com.eventmpos.event.EventService
 import com.eventmpos.event.UpdateEventRequest
 import com.eventmpos.user.CreateUserRequest
 import com.eventmpos.user.Role
+import com.eventmpos.user.UpdateUserRequest
 import com.eventmpos.user.UserResponse
 import com.eventmpos.user.UserService
 import jakarta.validation.Valid
@@ -45,6 +46,13 @@ class AdminController(
     @ResponseStatus(HttpStatus.CREATED)
     fun createUser(@Valid @RequestBody request: CreateUserRequest): UserResponse =
         userService.createUser(request)
+
+    /** Edit a user: rename, change role, or activate/deactivate (partial — only sent fields apply). */
+    @PatchMapping("/users/{id}")
+    fun updateUser(
+        @PathVariable id: UUID,
+        @Valid @RequestBody request: UpdateUserRequest,
+    ): UserResponse = userService.updateUser(id, request)
 
     // ---- Event management (minimal for EPIC-01; expanded in EPIC-02) ----
 

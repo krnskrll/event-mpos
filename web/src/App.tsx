@@ -6,6 +6,7 @@ import AdminDashboard from "./pages/AdminDashboard";
 import ProductsPage from "./pages/ProductsPage";
 import MembersPage from "./pages/MembersPage";
 import PromotionsPage from "./pages/PromotionsPage";
+import ReportsPage from "./pages/ReportsPage";
 import WarehousePage from "./pages/WarehousePage";
 import BaPage from "./pages/BaPage";
 
@@ -45,6 +46,14 @@ export default function App() {
         element={
           <ProtectedRoute allow={["ADMIN"]}>
             <PromotionsPage />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/admin/reports"
+        element={
+          <ProtectedRoute allow={["ADMIN"]}>
+            <ReportsPage />
           </ProtectedRoute>
         }
       />

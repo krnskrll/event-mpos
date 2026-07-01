@@ -14,6 +14,13 @@ data class CreateUserRequest(
     @field:NotNull val role: Role,
 )
 
+/** Partial update — only non-null fields are applied (edit name, change role, activate/deactivate). */
+data class UpdateUserRequest(
+    val fullName: String? = null,
+    val role: Role? = null,
+    val active: Boolean? = null,
+)
+
 data class UserResponse(
     val id: UUID,
     val email: String,

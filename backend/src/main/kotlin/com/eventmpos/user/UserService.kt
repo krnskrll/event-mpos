@@ -41,4 +41,16 @@ class UserService(
         user.active = active
         return userRepository.save(user).toResponse()
     }
+
+    /** Partial update of a user's name / role / active flag (admin-only). */
+    @Transactional
+    fun updateUser(userId: UUID, request: UpdateUserRequest): UserResponse {
+        val user = userRepository.findById(userId).orElseThrow {
+            ApiException(HttpStatus.NOT_FOUND, "User not found")
+        }
+        request.fullName?.let { user.fullName = it.trim() }
+        request.role?.let { user.role = it }
+        request.active?.let { user.active = it }
+        return userRepository.save(user).toResponse()
+    }
 }

@@ -23,6 +23,7 @@ export default function Layout({ title, children }: { title: string; children: R
               <Link to="/admin/products">Products</Link>
               <Link to="/admin/members">Members</Link>
               <Link to="/admin/promotions">Promotions</Link>
+              <Link to="/admin/reports">Reports &amp; Sync</Link>
             </nav>
           )}
         </div>

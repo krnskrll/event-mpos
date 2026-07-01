@@ -1,6 +1,8 @@
 package com.eventmpos.order
 
+import com.eventmpos.auth.AuthPrincipal
 import jakarta.validation.Valid
+import org.springframework.security.core.annotation.AuthenticationPrincipal
 import org.springframework.web.bind.annotation.GetMapping
 import org.springframework.web.bind.annotation.PatchMapping
 import org.springframework.web.bind.annotation.PathVariable
@@ -30,5 +32,6 @@ class WarehouseOrderController(
     fun advance(
         @PathVariable orderId: UUID,
         @Valid @RequestBody request: AdvanceStatusRequest,
-    ): WarehouseOrderView = orderService.advanceStatus(orderId, request.status)
+        @AuthenticationPrincipal principal: AuthPrincipal,
+    ): WarehouseOrderView = orderService.advanceStatus(orderId, request.status, principal.userId)
 }

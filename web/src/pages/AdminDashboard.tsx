@@ -39,7 +39,7 @@ export default function AdminDashboard() {
       <AssignBaCard users={users} events={events} onDone={reload} />
 
       <div style={{ height: 20 }} />
-      <UsersTable users={users} />
+      <UsersTable users={users} onDone={reload} />
       <div style={{ height: 20 }} />
       <EventsTable events={events} onDone={reload} />
     </Layout>
@@ -226,20 +226,60 @@ function AssignBaCard({
   );
 }
 
-function UsersTable({ users }: { users: UserResponse[] }) {
+function UsersTable({ users, onDone }: { users: UserResponse[]; onDone: () => void }) {
+  const [error, setError] = useState<string | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  async function patch(id: string, body: Record<string, unknown>) {
+    setError(null);
+    setBusyId(id);
+    try {
+      await api.patch(`/api/admin/users/${id}`, body);
+      onDone();
+    } catch (err) {
+      setError(errMsg(err));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className="card">
       <h2>Users ({users.length})</h2>
+      {error && <div className="error">{error}</div>}
       <table>
         <thead>
-          <tr><th>Name</th><th>Email</th><th>Role</th></tr>
+          <tr><th>Name</th><th>Email</th><th>Role</th><th>Status</th><th>Actions</th></tr>
         </thead>
         <tbody>
           {users.map((u) => (
-            <tr key={u.id}>
+            <tr key={u.id} style={{ opacity: u.active ? 1 : 0.55 }}>
               <td>{u.fullName}</td>
               <td className="muted">{u.email}</td>
-              <td><span className="badge">{u.role}</span></td>
+              <td>
+                <select
+                  value={u.role}
+                  disabled={busyId === u.id}
+                  onChange={(e) => patch(u.id, { role: e.target.value })}
+                  style={{ margin: 0 }}
+                >
+                  {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                </select>
+              </td>
+              <td>
+                <span className="badge" style={{ color: u.active ? "#22c55e" : "#ef4444", borderColor: u.active ? "#22c55e" : "#ef4444" }}>
+                  {u.active ? "ACTIVE" : "INACTIVE"}
+                </span>
+              </td>
+              <td>
+                <button
+                  className="secondary"
+                  disabled={busyId === u.id}
+                  onClick={() => patch(u.id, { active: !u.active })}
+                >
+                  {u.active ? "Deactivate" : "Reactivate"}
+                </button>
+              </td>
             </tr>
           ))}
         </tbody>

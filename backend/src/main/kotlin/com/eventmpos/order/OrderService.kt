@@ -30,6 +30,7 @@ class OrderService(
     private val eventRepository: EventRepository,
     private val stockService: StockService,
     private val userRepository: UserRepository,
+    private val auditService: com.eventmpos.audit.AuditService,
     private val events: ApplicationEventPublisher,
 ) {
     private val dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC)
@@ -102,6 +103,8 @@ class OrderService(
             orderRepository.findByIdempotencyKey(req.idempotencyKey)
                 ?.let { return toConfirmation(it, duplicate = true) } ?: throw e
         }
+        // Append-only audit: who created this order, when (part of the same atomic transaction).
+        auditService.recordOrderCreated(eventId, saved.id, saved.referenceId, baUserId)
         // Broadcast to the warehouse board AFTER this transaction commits.
         events.publishEvent(OrderChangedEvent(eventId, toWarehouseView(saved)))
         return toConfirmation(saved, duplicate = false)
@@ -114,17 +117,19 @@ class OrderService(
             .filter { status == null || it.status == status }
             .map { toWarehouseView(it) }
 
-    /** Advance an order one step (NEW→PACKING→READY→COLLECTED). Broadcasts the change. */
+    /** Advance an order one step (NEW→PACKING→READY→COLLECTED). Broadcasts + audits the change. */
     @Transactional
-    fun advanceStatus(orderId: UUID, target: OrderStatus): WarehouseOrderView {
+    fun advanceStatus(orderId: UUID, target: OrderStatus, actorUserId: UUID? = null): WarehouseOrderView {
         val order = orderRepository.findById(orderId).orElseThrow {
             ApiException(HttpStatus.NOT_FOUND, "Order not found")
         }
         if (!order.status.canAdvanceTo(target)) {
             throw ApiException(HttpStatus.CONFLICT, "Cannot move order from ${order.status} to $target")
         }
+        val from = order.status
         order.status = target
         val saved = orderRepository.save(order)
+        auditService.recordStatusChange(order.eventId, order.id, order.referenceId, from.name, target.name, actorUserId)
         val view = toWarehouseView(saved)
         events.publishEvent(OrderChangedEvent(order.eventId, view))
         return view
