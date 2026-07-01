@@ -2,6 +2,7 @@ package com.eventmpos.mpos.ui.session
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.core.sync.SyncCoordinator
 import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.event.EventRepository
 import com.eventmpos.mpos.domain.event.SyncResult
@@ -26,6 +27,7 @@ data class SyncUiState(
 class SyncViewModel @Inject constructor(
     private val eventRepository: EventRepository,
     private val sessionStore: SessionStore,
+    private val syncCoordinator: SyncCoordinator,
 ) : ViewModel() {
 
     val eventName: String get() = sessionStore.event.value?.name ?: "your event"
@@ -56,8 +58,12 @@ class SyncViewModel @Inject constructor(
                 delay(perStep)
             }
             when (val result = sync.await()) {
-                is SyncResult.Ready, is SyncResult.NotActive ->
+                is SyncResult.Ready, is SyncResult.NotActive -> {
+                    // Data is on the device and the session is live — start background sync
+                    // (60s stock refresh + reconnect-driven retry-queue flush).
+                    eventId?.let { syncCoordinator.start(it) }
                     _state.update { it.copy(progress = 1f, done = true) }
+                }
                 is SyncResult.Failed ->
                     _state.update { it.copy(error = result.message) }
             }

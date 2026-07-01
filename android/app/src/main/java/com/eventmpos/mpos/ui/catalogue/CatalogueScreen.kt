@@ -19,6 +19,10 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.material.pullrefresh.PullRefreshIndicator
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.QrCode2
 import androidx.compose.material.icons.outlined.QrCodeScanner
@@ -50,7 +54,7 @@ import com.eventmpos.mpos.domain.product.Product
 import com.eventmpos.mpos.ui.components.Pill
 import com.eventmpos.mpos.ui.theme.Brand
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun CatalogueScreen(
     onProductSelect: (String) -> Unit,
@@ -64,6 +68,9 @@ fun CatalogueScreen(
     val category by viewModel.category.collectAsStateWithLifecycle()
     val customer by viewModel.customer.collectAsStateWithLifecycle()
     val scan by viewModel.scan.collectAsStateWithLifecycle()
+    val isOnline by viewModel.isOnline.collectAsStateWithLifecycle()
+    val refreshing by viewModel.refreshing.collectAsStateWithLifecycle()
+    val pullState = rememberPullRefreshState(refreshing = refreshing, onRefresh = { viewModel.refresh() })
     val snackbar = remember { SnackbarHostState() }
 
     LaunchedEffect(scan) {
@@ -83,7 +90,11 @@ fun CatalogueScreen(
                     Text("Current Event", color = Brand.TextFaint, fontSize = 11.sp)
                     Text(viewModel.eventName, color = Brand.Heading, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                 }
-                Text("● Synced", color = Brand.Teal, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                Text(
+                    if (isOnline) "● Synced" else "● Offline",
+                    color = if (isOnline) Brand.Teal else Brand.Warn,
+                    fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                )
             }
             Spacer(Modifier.size(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -130,7 +141,7 @@ fun CatalogueScreen(
             }
         }
 
-        Box(Modifier.fillMaxSize()) {
+        Box(Modifier.fillMaxSize().pullRefresh(pullState)) {
             LazyVerticalGrid(
                 columns = GridCells.Fixed(2),
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
@@ -140,6 +151,7 @@ fun CatalogueScreen(
             ) {
                 items(products, key = { it.id }) { p -> ProductCard(p) { onProductSelect(p.id) } }
             }
+            PullRefreshIndicator(refreshing, pullState, Modifier.align(Alignment.TopCenter))
             SnackbarHost(snackbar, modifier = Modifier.align(Alignment.BottomCenter))
         }
     }

@@ -2,13 +2,14 @@ package com.eventmpos.mpos.ui.catalogue
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.core.connectivity.ConnectivityObserver
 import com.eventmpos.mpos.core.scanner.ScannerPort
 import com.eventmpos.mpos.data.cart.CartStore
 import com.eventmpos.mpos.data.session.SessionStore
+import com.eventmpos.mpos.domain.event.EventRepository
 import com.eventmpos.mpos.domain.product.Product
 import com.eventmpos.mpos.domain.product.ProductRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -16,7 +17,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -29,13 +29,22 @@ sealed interface ScanFeedback {
 @HiltViewModel
 class CatalogueViewModel @Inject constructor(
     private val productRepository: ProductRepository,
+    private val eventRepository: EventRepository,
     private val scanner: ScannerPort,
     private val cartStore: CartStore,
+    connectivityObserver: ConnectivityObserver,
     sessionStore: SessionStore,
 ) : ViewModel() {
 
     val eventId: String = sessionStore.eventId.orEmpty()
     val eventName: String = sessionStore.event.value?.name ?: "Current event"
+
+    /** Live connectivity for the header indicator (Synced vs Offline). */
+    val isOnline: StateFlow<Boolean> = connectivityObserver.isOnline
+
+    /** True while a manual pull-to-refresh (full re-sync) is running. */
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
 
     private val query = MutableStateFlow("")
     val searchQuery: StateFlow<String> = query.asStateFlow()
@@ -73,17 +82,26 @@ class CatalogueViewModel @Inject constructor(
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     init {
+        // Hardware-scanner emissions still resolve here; periodic stock refresh now runs in the
+        // app-scoped SyncCoordinator (every 60s) so it survives leaving this screen.
         viewModelScope.launch { scanner.scans.collect { onBarcode(it) } }
-        viewModelScope.launch {
-            while (isActive) {
-                productRepository.refreshStock(eventId)
-                delay(10_000)
-            }
-        }
     }
 
     fun onSearch(value: String) { query.value = value }
     fun onCategory(value: String) { _category.value = value }
+
+    /** Pull-to-refresh: full event re-sync (products/members/promotions) + fresh stock. */
+    fun refresh() {
+        if (_refreshing.value) return
+        _refreshing.value = true
+        viewModelScope.launch {
+            runCatching {
+                eventRepository.syncSnapshot(eventId)
+                productRepository.refreshStock(eventId)
+            }
+            _refreshing.value = false
+        }
+    }
 
     fun addToCart(product: Product) {
         if (!product.outOfStock) cartStore.add(product.id)

@@ -22,4 +22,7 @@ interface OrderRepository {
 
     /** Submitted orders for the event (pending + confirmed + failed), newest first. */
     fun observeOrders(eventId: String): Flow<List<OrderRecord>>
+
+    /** Re-kick the submission worker (e.g. on reconnect) so PENDING orders drain in FIFO order. */
+    fun retryPending()
 }

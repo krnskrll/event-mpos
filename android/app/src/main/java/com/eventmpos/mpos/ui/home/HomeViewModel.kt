@@ -2,6 +2,7 @@ package com.eventmpos.mpos.ui.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.core.sync.SyncCoordinator
 import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.auth.AssignedEvent
 import com.eventmpos.mpos.domain.auth.AuthRepository
@@ -31,6 +32,7 @@ class HomeViewModel @Inject constructor(
     orderRepository: OrderRepository,
     private val authRepository: AuthRepository,
     private val sessionStore: SessionStore,
+    private val syncCoordinator: SyncCoordinator,
 ) : ViewModel() {
 
     val userName: String get() = sessionStore.userName.ifBlank { "Beauty Advisor" }
@@ -54,6 +56,7 @@ class HomeViewModel @Inject constructor(
 
     fun logout() {
         viewModelScope.launch {
+            syncCoordinator.stop()
             authRepository.logout()
             sessionStore.clear()
             _loggedOut.value = true

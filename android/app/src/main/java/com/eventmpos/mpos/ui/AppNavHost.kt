@@ -48,6 +48,8 @@ fun AppNavHost(startLoggedIn: Boolean) {
     val route = backStack?.destination?.route
     val cartBadge: CartBadgeViewModel = hiltViewModel()
     val cartCount by cartBadge.count.collectAsStateWithLifecycle()
+    val connectivity: com.eventmpos.mpos.ui.components.ConnectivityViewModel = hiltViewModel()
+    val isOnline by connectivity.isOnline.collectAsStateWithLifecycle()
 
     // A returning BA goes to event selection (re-pick + re-sync); fresh launch → login.
     val start = if (startLoggedIn) Routes.EVENT_SELECTION else Routes.LOGIN
@@ -61,7 +63,9 @@ fun AppNavHost(startLoggedIn: Boolean) {
     Scaffold(
         bottomBar = { if (route in Routes.TABS) BottomBar(route, cartCount, ::toTab) },
     ) { padding ->
-        NavHost(navController = nav, startDestination = start, modifier = androidx.compose.ui.Modifier.padding(padding)) {
+      androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(padding)) {
+        com.eventmpos.mpos.ui.components.OfflineBanner(isOnline)
+        NavHost(navController = nav, startDestination = start, modifier = androidx.compose.ui.Modifier.weight(1f)) {
             composable(Routes.LOGIN) {
                 LoginScreen(onLoggedIn = { nav.navigate(Routes.EVENT_SELECTION) { popUpTo(Routes.LOGIN) { inclusive = true } } })
             }
@@ -113,5 +117,6 @@ fun AppNavHost(startLoggedIn: Boolean) {
                 )
             }
         }
+      }
     }
 }

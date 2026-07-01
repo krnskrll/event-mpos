@@ -70,6 +70,8 @@ class OrderRepositoryImpl @Inject constructor(
             }
         }
 
+    override fun retryPending() = enqueue()
+
     private fun enqueue() {
         val request = OneTimeWorkRequestBuilder<SubmitOrderWorker>()
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())

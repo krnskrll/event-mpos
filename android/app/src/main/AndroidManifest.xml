@@ -3,6 +3,9 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- Notify the BA when a queued (offline) order finally submits. Optional on Android 13+. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <!-- Camera is used for barcode + member-QR scanning. Optional so the app still installs on
          hardware-scanner-only devices (e.g. Sunmi) that have no general camera. -->
     <uses-permission android:name="android.permission.CAMERA" />

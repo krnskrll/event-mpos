@@ -65,6 +65,9 @@ dependencies {
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
+    // Classic material — provides the pull-to-refresh primitives (rememberPullRefreshState) that
+    // aren't in this material3 version yet.
+    implementation("androidx.compose.material:material")
     implementation("androidx.navigation:navigation-compose:2.7.7")
     debugImplementation("androidx.compose.ui:ui-tooling")
 

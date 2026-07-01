@@ -2,6 +2,7 @@ package com.eventmpos.mpos.ui.session
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.core.sync.SyncCoordinator
 import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.auth.AssignedEvent
 import com.eventmpos.mpos.domain.auth.AuthRepository
@@ -26,6 +27,7 @@ class EventSelectionViewModel @Inject constructor(
     private val eventRepository: EventRepository,
     private val authRepository: AuthRepository,
     private val sessionStore: SessionStore,
+    private val syncCoordinator: SyncCoordinator,
 ) : ViewModel() {
 
     val userName: String get() = sessionStore.userName.ifBlank { "Beauty Advisor" }
@@ -48,6 +50,7 @@ class EventSelectionViewModel @Inject constructor(
 
     fun logout(onDone: () -> Unit) {
         viewModelScope.launch {
+            syncCoordinator.stop()
             authRepository.logout()
             sessionStore.clear()
             onDone()
