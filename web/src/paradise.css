@@ -1,0 +1,62 @@
+/* Paradise Design System — design tokens (Paragon theme).
+   Import this before any other stylesheet. All tokens are CSS custom properties. */
+:root {
+  /* Brand colors */
+  --pdx-primary:        #2563EB;
+  --pdx-primary-light:  #EFF6FF;
+  --pdx-primary-dark:   #1D4ED8;
+
+  /* Semantic colors */
+  --pdx-success:        #059669;
+  --pdx-success-light:  #D1FAE5;
+  --pdx-warning:        #D97706;
+  --pdx-warning-light:  #FEF3C7;
+  --pdx-danger:         #DC2626;
+  --pdx-danger-light:   #FEE2E2;
+  --pdx-info:           #0284C7;
+  --pdx-info-light:     #E0F2FE;
+
+  /* Grays — Slate scale */
+  --pdx-grey-50:        #F8FAFC;
+  --pdx-grey-100:       #F1F5F9;
+  --pdx-grey-200:       #E2E8F0;
+  --pdx-grey-300:       #CBD5E1;
+  --pdx-grey-400:       #94A3B8;
+  --pdx-grey-500:       #64748B;
+  --pdx-grey-700:       #334155;
+  --pdx-grey-900:       #0F172A;
+
+  /* Typography */
+  --pdx-font:     'Lato', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --pdx-font-xs:  10px;
+  --pdx-font-sm:  12px;
+  --pdx-font-md:  14px;
+  --pdx-font-lg:  16px;
+  --pdx-font-xl:  18px;
+
+  /* Spacing */
+  --pdx-space-1:  4px;
+  --pdx-space-2:  8px;
+  --pdx-space-3:  12px;
+  --pdx-space-4:  16px;
+  --pdx-space-5:  20px;
+  --pdx-space-6:  24px;
+
+  /* Border radius */
+  --pdx-radius-sm:   4px;
+  --pdx-radius-md:   8px;
+  --pdx-radius-lg:   12px;
+  --pdx-radius-full: 9999px;
+
+  /* Shadows */
+  --pdx-shadow-sm: 0 1px 3px rgba(0,0,0,0.08);
+  --pdx-shadow-md: 0 4px 12px rgba(0,0,0,0.10);
+  --pdx-shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
+
+  /* Transition */
+  --pdx-transition: 150ms ease;
+
+  /* Sidebar (dark surface) */
+  --pdx-sidebar-bg:   #0F172A;
+  --pdx-sidebar-item: #CBD5E1;
+}

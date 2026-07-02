@@ -1,8 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AxiosError } from "axios";
 import Layout from "./Layout";
 import { api } from "../api/client";
 import type { EventResponse, EventStatus, Role, UserResponse } from "../types";
+import { Icon } from "./icons";
 
 const ROLES: Role[] = ["ADMIN", "BA", "WAREHOUSE"];
 
@@ -28,8 +29,23 @@ export default function AdminDashboard() {
     reload();
   }, []);
 
+  const activeEvents = events.filter((e) => e.status === "ACTIVE").length;
+  const baCount = users.filter((u) => u.role === "BA").length;
+
   return (
-    <Layout title="Admin">
+    <Layout title="Dashboard">
+      <div className="page-head">
+        <h2 style={{ marginBottom: 0 }}>Overview</h2>
+        <p className="muted">Users, events, and BA assignments at a glance.</p>
+      </div>
+
+      <div className="metric-grid">
+        <StatCard icon={Icon.users} label="Total users" value={users.length} />
+        <StatCard icon={Icon.users} label="Beauty Advisors" value={baCount} />
+        <StatCard icon={Icon.calendar} label="Events" value={events.length} />
+        <StatCard icon={Icon.chart} label="Active events" value={activeEvents} />
+      </div>
+
       <div className="grid-2">
         <CreateUserCard onDone={reload} />
         <CreateEventCard onDone={reload} />
@@ -43,6 +59,18 @@ export default function AdminDashboard() {
       <div style={{ height: 20 }} />
       <EventsTable events={events} onDone={reload} />
     </Layout>
+  );
+}
+
+function StatCard({ icon, label, value }: { icon: ReactNode; label: string; value: number }) {
+  return (
+    <div className="pdx-metric">
+      <div className="pdx-metric__icon">{icon}</div>
+      <div>
+        <div className="pdx-metric__label">{label}</div>
+        <div className="pdx-metric__value">{value}</div>
+      </div>
+    </div>
   );
 }
 

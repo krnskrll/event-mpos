@@ -30,8 +30,13 @@ export default function LoginPage() {
   return (
     <div className="center">
       <form className="card login-card" onSubmit={onSubmit}>
-        <h1>event-mpos</h1>
-        <p className="muted" style={{ marginTop: 4 }}>Warehouse &amp; Admin dashboard</p>
+        <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+          <span className="app-sidebar__logo">e</span>
+          <div>
+            <h1>event-mpos</h1>
+            <p className="muted" style={{ margin: 0, fontSize: "var(--pdx-font-sm)" }}>Warehouse &amp; Admin dashboard</p>
+          </div>
+        </div>
 
         <label htmlFor="email">Email</label>
         <input
