@@ -42,6 +42,8 @@ class DataSeeder {
         memberSyncService: com.eventmpos.member.sync.MemberSyncService,
         stockService: com.eventmpos.stock.StockService,
         promotionService: com.eventmpos.promotion.PromotionService,
+        products: com.eventmpos.product.ProductRepository,
+        variants: com.eventmpos.product.ProductVariantRepository,
     ) = ApplicationRunner {
         if (users.count() > 0L) {
             log.info("Seed skipped — users already exist")
@@ -74,6 +76,18 @@ class DataSeeder {
             stockService.forceAllocate(event.id, p.id, qty)
         }
 
+        // Give the lipstick a few shade variants (one with a price override) to exercise variants.
+        products.findBySku("SKU-1002")?.let { lip ->
+            variants.save(com.eventmpos.product.ProductVariant(product = lip, name = "Rose", sku = "SKU-1002-ROSE"))
+            variants.save(com.eventmpos.product.ProductVariant(product = lip, name = "Coral", sku = "SKU-1002-CORAL"))
+            variants.save(
+                com.eventmpos.product.ProductVariant(
+                    product = lip, name = "Plum (limited)", sku = "SKU-1002-PLUM",
+                    priceOverride = java.math.BigDecimal("89000"),
+                ),
+            )
+        }
+
         // Seed a few event-scoped promotions for EV01 (so the cart/quote has something to apply).
         val lipstick = productService.list().firstOrNull { it.sku == "SKU-1002" }
         promotionService.create(
@@ -86,16 +100,16 @@ class DataSeeder {
         promotionService.create(
             event.id,
             com.eventmpos.promotion.PromotionRequest(
-                name = "Rp20 off when you spend Rp200", type = com.eventmpos.promotion.PromotionType.FIXED,
-                amountOff = java.math.BigDecimal("20"), minSubtotal = java.math.BigDecimal("200"), priority = 2,
+                name = "Rp20.000 off when you spend Rp200.000", type = com.eventmpos.promotion.PromotionType.FIXED,
+                amountOff = java.math.BigDecimal("20000"), minSubtotal = java.math.BigDecimal("200000"), priority = 2,
             ),
         )
         if (lipstick != null) {
             promotionService.create(
                 event.id,
                 com.eventmpos.promotion.PromotionRequest(
-                    name = "Lipstick bundle: buy 3, Rp30 off", type = com.eventmpos.promotion.PromotionType.BUNDLE,
-                    amountOff = java.math.BigDecimal("30"), scope = com.eventmpos.promotion.PromotionScope.SPECIFIC,
+                    name = "Lipstick bundle: buy 3, Rp30.000 off", type = com.eventmpos.promotion.PromotionType.BUNDLE,
+                    amountOff = java.math.BigDecimal("30000"), scope = com.eventmpos.promotion.PromotionScope.SPECIFIC,
                     productIds = listOf(java.util.UUID.fromString(lipstick.id.toString())), minQty = 3, priority = 3,
                 ),
             )

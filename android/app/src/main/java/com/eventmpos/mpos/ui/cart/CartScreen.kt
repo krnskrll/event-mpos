@@ -35,8 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.eventmpos.mpos.ui.components.BrandButton
+import com.eventmpos.mpos.ui.components.ProductImage
 import com.eventmpos.mpos.ui.components.SectionCard
 import com.eventmpos.mpos.ui.theme.Brand
 
@@ -60,21 +60,21 @@ fun CartScreen(
             }
         } else {
         LazyColumn(Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
-            items(state.lines, key = { it.product.id }) { line ->
+            items(state.lines, key = { it.key }) { line ->
                 SectionCard(modifier = Modifier.padding(bottom = 10.dp), padding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(
-                            model = line.product.imageUrl, contentDescription = line.product.name, contentScale = ContentScale.Crop,
+                        ProductImage(
+                            imageUrl = line.product.imageUrl, contentDescription = line.product.name,
                             modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)),
                         )
                         Spacer(Modifier.size(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(line.product.name, color = Brand.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                            Text(line.displayName, color = Brand.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
                             Text(rupiah(line.lineTotal), color = Brand.Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
-                        StepBtn("−") { viewModel.decrement(line.product.id) }
+                        StepBtn("−") { viewModel.decrement(line.key) }
                         Text("${line.qty}", modifier = Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold)
-                        StepBtn("+") { viewModel.increment(line.product.id) }
+                        StepBtn("+") { viewModel.increment(line.key) }
                     }
                 }
             }

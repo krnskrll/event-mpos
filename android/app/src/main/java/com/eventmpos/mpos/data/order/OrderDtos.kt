@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 data class CustomerInfoDto(val name: String, val qrCode: String? = null, val tier: String? = null)
 
 @Serializable
-data class OrderLineDto(val productId: String, val qty: Int)
+data class OrderLineDto(val productId: String, val qty: Int, val variantId: String? = null)
 
 @Serializable
 data class SubmitOrderRequestDto(

@@ -65,8 +65,14 @@ class OrderService(
             val p = productRepository.findById(line.productId).orElseThrow {
                 ApiException(HttpStatus.BAD_REQUEST, "Unknown product ${line.productId}")
             }
-            cartLines += CartLine(p.id, p.price, line.qty)
-            DraftItem(p.id, p.sku, p.name, p.price, line.qty, p.price.multiply(BigDecimal(line.qty)))
+            // Resolve the chosen variant (if any): must belong to this product and be active.
+            val variant = line.variantId?.let { vid ->
+                p.variants.firstOrNull { it.id == vid && it.active }
+                    ?: throw ApiException(HttpStatus.BAD_REQUEST, "Unknown variant $vid for product ${p.sku}")
+            }
+            val unitPrice = variant?.effectivePrice() ?: p.price
+            cartLines += CartLine(p.id, unitPrice, line.qty)
+            DraftItem(p.id, variant?.id, variant?.name, p.sku, p.name, unitPrice, line.qty, unitPrice.multiply(BigDecimal(line.qty)))
         }
 
         // 3) atomically decrement allocated stock (holds row locks until this tx commits)
@@ -94,7 +100,8 @@ class OrderService(
             promotionId = applied?.promotion?.id, promotionName = applied?.promotion?.name,
         )
         draftItems.forEach { d ->
-            order.items += OrderItem(order = order, productId = d.productId, sku = d.sku, name = d.name,
+            order.items += OrderItem(order = order, productId = d.productId, variantId = d.variantId,
+                variantName = d.variantName, sku = d.sku, name = d.name,
                 unitPrice = d.unitPrice, qty = d.qty, lineTotal = d.lineTotal)
         }
         val saved = try {
@@ -174,7 +181,7 @@ class OrderService(
             referenceId = o.referenceId, status = o.status,
             eventCode = event?.code ?: "", eventName = event?.name ?: "",
             customerName = o.customerName, customerTier = o.customerTier,
-            items = o.items.map { OrderItemView(it.productId, it.sku, it.name, it.unitPrice, it.qty, it.lineTotal) },
+            items = o.items.map { OrderItemView(it.productId, it.sku, it.name, it.unitPrice, it.qty, it.lineTotal, it.variantName) },
             subtotal = o.subtotal, discount = o.discount, total = o.total, promotionName = o.promotionName,
             createdAt = o.createdAt,
             cashierNote = "Please proceed to the cashier to complete payment.",
@@ -183,7 +190,7 @@ class OrderService(
     }
 
     private data class DraftItem(
-        val productId: UUID, val sku: String, val name: String,
+        val productId: UUID, val variantId: UUID?, val variantName: String?, val sku: String, val name: String,
         val unitPrice: BigDecimal, val qty: Int, val lineTotal: BigDecimal,
     )
 }

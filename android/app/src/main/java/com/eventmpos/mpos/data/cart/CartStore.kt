@@ -13,24 +13,36 @@ import javax.inject.Singleton
  * productId→qty and the selected customer for the current sale. Survives navigation but not process
  * death — a deliberate "draft to resume" is persisted separately (see CartRepository.saveDraft).
  */
+/** Encodes a cart line's product + optional variant into a single map key: "productId|variantId". */
+object CartKey {
+    fun of(productId: String, variantId: String?): String = productId + "|" + (variantId ?: "")
+    fun productId(key: String): String = key.substringBefore("|")
+    fun variantId(key: String): String? = key.substringAfter("|", "").ifEmpty { null }
+}
+
 @Singleton
 class CartStore @Inject constructor() {
+    // Keyed by CartKey (product + optional variant) so different shades of a product are separate lines.
     private val _items = MutableStateFlow<Map<String, Int>>(emptyMap())
     val items: StateFlow<Map<String, Int>> = _items.asStateFlow()
 
     private val _customer = MutableStateFlow<SelectedCustomer?>(null)
     val customer: StateFlow<SelectedCustomer?> = _customer.asStateFlow()
 
-    fun add(productId: String, delta: Int = 1) = _items.update { current ->
-        val next = (current[productId] ?: 0) + delta
-        if (next <= 0) current - productId else current + (productId to next)
+    /** Add a base product (no variant). Existing catalogue/scan callers use this. */
+    fun add(productId: String, delta: Int = 1) = adjust(CartKey.of(productId, null), delta)
+
+    /** Add a specific variant (from the product detail picker). */
+    fun addVariant(productId: String, variantId: String?, delta: Int = 1) =
+        adjust(CartKey.of(productId, variantId), delta)
+
+    /** Adjust a cart line by its encoded key (used by the cart's +/− steppers). */
+    fun adjust(cartKey: String, delta: Int) = _items.update { current ->
+        val next = (current[cartKey] ?: 0) + delta
+        if (next <= 0) current - cartKey else current + (cartKey to next)
     }
 
-    fun setQty(productId: String, qty: Int) = _items.update { current ->
-        if (qty <= 0) current - productId else current + (productId to qty)
-    }
-
-    fun remove(productId: String) = _items.update { it - productId }
+    fun remove(cartKey: String) = _items.update { it - cartKey }
 
     fun setCustomer(c: SelectedCustomer?) { _customer.value = c }
 

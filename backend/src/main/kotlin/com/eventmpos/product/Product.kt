@@ -60,6 +60,10 @@ class Product(
     @OneToMany(mappedBy = "product", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
     var barcodes: MutableList<ProductBarcode> = mutableListOf(),
 
+    /** Sellable variations (shades/sizes). Empty = the product is sold as-is. */
+    @OneToMany(mappedBy = "product", cascade = [CascadeType.ALL], orphanRemoval = true, fetch = FetchType.EAGER)
+    var variants: MutableList<ProductVariant> = mutableListOf(),
+
     @Column(name = "created_at", nullable = false)
     val createdAt: Instant = Instant.now(),
 

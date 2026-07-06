@@ -54,6 +54,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import coil.compose.AsyncImage
 import com.eventmpos.mpos.domain.product.Product
 import com.eventmpos.mpos.ui.components.Pill
+import com.eventmpos.mpos.ui.components.ProductImage
 import com.eventmpos.mpos.ui.theme.Brand
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
@@ -174,8 +175,8 @@ private fun ProductCard(product: Product, onClick: () -> Unit) {
             .let { if (product.outOfStock) it.then(Modifier.background(Color.White.copy(alpha = 0.4f))) else it },
     ) {
         Box {
-            AsyncImage(
-                model = product.imageUrl, contentDescription = product.name, contentScale = ContentScale.Crop,
+            ProductImage(
+                imageUrl = product.imageUrl, contentDescription = product.name,
                 modifier = Modifier.fillMaxWidth().aspectRatio(1f).clip(RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp)),
             )
             val (txt, c, bg) = when {

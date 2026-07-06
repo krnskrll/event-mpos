@@ -2,11 +2,13 @@ package com.eventmpos.mpos.ui.cart
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.data.cart.CartKey
 import com.eventmpos.mpos.data.cart.CartStore
 import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.member.SelectedCustomer
 import com.eventmpos.mpos.domain.order.OrderRepository
 import com.eventmpos.mpos.domain.product.Product
+import com.eventmpos.mpos.domain.product.ProductVariant
 import com.eventmpos.mpos.domain.product.ProductRepository
 import com.eventmpos.mpos.domain.promotion.CartLine
 import com.eventmpos.mpos.domain.promotion.PromotionEngine
@@ -23,8 +25,15 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import javax.inject.Inject
 
-data class CartLineItem(val product: Product, val qty: Int) {
-    val lineTotal: Double get() = product.price * qty
+data class CartLineItem(
+    val key: String,
+    val product: Product,
+    val variant: ProductVariant?,
+    val qty: Int,
+) {
+    val unitPrice: Double get() = variant?.price ?: product.price
+    val displayName: String get() = variant?.let { "${product.name} — ${it.name}" } ?: product.name
+    val lineTotal: Double get() = unitPrice * qty
 }
 
 data class CartUiState(
@@ -60,10 +69,14 @@ class CartViewModel @Inject constructor(
             submitting,
         ) { items, products, promos, customer, isSubmitting ->
             val byId = products.associateBy { it.id }
-            val lines = items.mapNotNull { (id, qty) -> byId[id]?.let { CartLineItem(it, qty) } }
-            val subtotal = lines.fold(BigDecimal.ZERO) { acc, l -> acc + BigDecimal(l.product.price).multiply(BigDecimal(l.qty)) }
+            val lines = items.mapNotNull { (key, qty) ->
+                val p = byId[CartKey.productId(key)] ?: return@mapNotNull null
+                val variant = CartKey.variantId(key)?.let { vid -> p.variants.firstOrNull { it.id == vid } }
+                CartLineItem(key, p, variant, qty)
+            }
+            val subtotal = lines.fold(BigDecimal.ZERO) { acc, l -> acc + BigDecimal(l.unitPrice).multiply(BigDecimal(l.qty)) }
             // local promo preview (server confirms authoritatively at submit)
-            val cartLines = lines.map { CartLine(it.product.id, it.product.price, it.qty) }
+            val cartLines = lines.map { CartLine(it.product.id, it.unitPrice, it.qty) }
             val applied = PromotionEngine.bestPromotion(cartLines, promos, System.currentTimeMillis())
             val discount = applied?.discount ?: 0.0
             val total = (subtotal.toDouble() - discount).coerceAtLeast(0.0)
@@ -79,9 +92,9 @@ class CartViewModel @Inject constructor(
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CartUiState())
 
-    fun increment(productId: String) = cartStore.add(productId, 1)
-    fun decrement(productId: String) = cartStore.add(productId, -1)
-    fun remove(productId: String) = cartStore.remove(productId)
+    fun increment(cartKey: String) = cartStore.adjust(cartKey, 1)
+    fun decrement(cartKey: String) = cartStore.adjust(cartKey, -1)
+    fun remove(cartKey: String) = cartStore.remove(cartKey)
 
     val canConfirm: Boolean
         get() = !cartStore.isEmpty() && cartStore.customer.value != null

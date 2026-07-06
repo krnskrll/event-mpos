@@ -82,6 +82,10 @@ class EventRepositoryImpl @Inject constructor(
                             imageUrl = p.imageUrl,
                             barcodes = p.barcodes.joinToString("\n"),
                             remainingStock = p.remainingStock,
+                            variantsJson = json.encodeToString(
+                                kotlinx.serialization.builtins.ListSerializer(com.eventmpos.mpos.data.auth.VariantDto.serializer()),
+                                p.variants,
+                            ),
                         )
                     },
                 )

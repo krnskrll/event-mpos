@@ -6,6 +6,7 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
+import com.eventmpos.mpos.data.cart.CartKey
 import com.eventmpos.mpos.data.cart.CartStore
 import com.eventmpos.mpos.data.local.PendingOrderDao
 import com.eventmpos.mpos.data.local.PendingOrderEntity
@@ -36,7 +37,7 @@ class OrderRepositoryImpl @Inject constructor(
         require(items.isNotEmpty()) { "Cart is empty" }
 
         val key = UUID.randomUUID().toString()
-        val lines = items.map { (productId, qty) -> OrderLineDto(productId, qty) }
+        val lines = items.map { (cartKey, qty) -> OrderLineDto(CartKey.productId(cartKey), qty, CartKey.variantId(cartKey)) }
         dao.upsert(
             PendingOrderEntity(
                 idempotencyKey = key,
