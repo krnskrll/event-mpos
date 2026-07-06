@@ -26,4 +26,7 @@ interface EventRepository {
 
     /** The version of the snapshot currently cached on the device, or null if never synced. */
     suspend fun cachedVersion(eventId: String): String?
+
+    /** The server's current snapshot hash (lightweight freshness check), or null if unreachable. */
+    suspend fun snapshotHash(eventId: String): String?
 }

@@ -4,6 +4,7 @@ import com.eventmpos.mpos.BuildConfig
 import com.eventmpos.mpos.core.printer.PrintResult
 import com.eventmpos.mpos.core.printer.PrinterPort
 import com.eventmpos.mpos.core.printer.PrinterStatus
+import com.eventmpos.mpos.data.auth.AuthApi
 import com.eventmpos.mpos.data.local.ReceiptDao
 import com.eventmpos.mpos.data.local.ReceiptEntity
 import com.eventmpos.mpos.data.order.OrderConfirmationDto
@@ -27,6 +28,7 @@ import javax.inject.Singleton
 class ReceiptManager @Inject constructor(
     private val dao: ReceiptDao,
     private val printer: PrinterPort,
+    private val api: AuthApi,
 ) : ReceiptRepository {
 
     private val timeFmt = DateTimeFormatter.ofPattern("dd/MM HH:mm").withZone(ZoneId.systemDefault())
@@ -53,10 +55,12 @@ class ReceiptManager @Inject constructor(
             ReceiptEntity(
                 orderKey = orderKey, eventId = eventId, orderNumberDisplay = c.orderNumberDisplay,
                 receiptText = lines.joinToString("\n"), printedOk = false,
-                createdAtEpochMs = System.currentTimeMillis(),
+                createdAtEpochMs = System.currentTimeMillis(), backendOrderId = c.id,
             ),
         )
-        return printStored(orderKey, lines)
+        val result = printStored(orderKey, lines)
+        logReceiptToServer(c.id) // fire-and-forget audit; never blocks the print flow
+        return result
     }
 
     override suspend fun get(orderKey: String): StoredReceipt? =
@@ -64,7 +68,14 @@ class ReceiptManager @Inject constructor(
 
     override suspend fun reprint(orderKey: String): PrintResult {
         val stored = dao.get(orderKey) ?: return PrintResult.Failure(PrinterStatus.ERROR, "No stored receipt")
-        return printStored(orderKey, stored.receiptText.split("\n"))
+        val result = printStored(orderKey, stored.receiptText.split("\n"))
+        stored.backendOrderId?.let { logReceiptToServer(it) } // bumps the server reprint counter
+        return result
+    }
+
+    /** Best-effort: tell the backend a receipt was printed. Offline/failure is fine — never throws. */
+    private suspend fun logReceiptToServer(backendOrderId: String) {
+        runCatching { api.logReceipt(backendOrderId) }
     }
 
     private suspend fun printStored(orderKey: String, lines: List<String>): PrintResult {

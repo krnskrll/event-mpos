@@ -8,7 +8,7 @@ import androidx.room.RoomDatabase
         EventSnapshotEntity::class, ProductEntity::class, MemberEntity::class,
         PromotionEntity::class, PendingOrderEntity::class, ReceiptEntity::class,
     ],
-    version = 7,
+    version = 8,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {

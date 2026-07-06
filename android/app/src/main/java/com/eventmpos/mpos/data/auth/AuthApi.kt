@@ -31,6 +31,9 @@ interface AuthApi {
         @Query("version") version: String?,
     ): SnapshotEnvelopeDto
 
+    @GET("api/me/events/{eventId}/snapshot/hash")
+    suspend fun getSnapshotHash(@Path("eventId") eventId: String): SnapshotHashDto
+
     @GET("api/me/members/by-qr/{qrCode}")
     suspend fun getMemberByQr(@Path("qrCode") qrCode: String): MemberLookupDto
 
@@ -45,4 +48,8 @@ interface AuthApi {
 
     @GET("api/me/events/{eventId}/orders")
     suspend fun getOrderHistory(@Path("eventId") eventId: String): List<OrderSummaryDto>
+
+    /** Fire-and-forget: log that a receipt was printed/reprinted for an order (backend audit). */
+    @POST("api/me/orders/{orderId}/receipts")
+    suspend fun logReceipt(@Path("orderId") orderId: String)
 }

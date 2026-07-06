@@ -41,6 +41,9 @@ class EventRepositoryImpl @Inject constructor(
     override suspend fun cachedVersion(eventId: String): String? =
         withContext(Dispatchers.IO) { dao.versionOf(eventId) }
 
+    override suspend fun snapshotHash(eventId: String): String? =
+        withContext(Dispatchers.IO) { runCatching { api.getSnapshotHash(eventId).snapshotHash }.getOrNull() }
+
     override suspend fun syncSnapshot(eventId: String): SyncResult =
         withContext(Dispatchers.IO) {
             try {

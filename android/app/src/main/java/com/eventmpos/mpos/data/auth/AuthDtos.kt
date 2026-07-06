@@ -104,6 +104,12 @@ data class SnapshotEnvelopeDto(
     val promotions: List<PromotionDto> = emptyList(),
 )
 
+@Serializable
+data class SnapshotHashDto(
+    val snapshotHash: String,
+    val checkedAt: String? = null,
+)
+
 fun UserSummaryDto.toDomain() = AuthUser(id, email, fullName, Role.valueOf(role))
 
 fun EventResponseDto.toDomain() = AssignedEvent(

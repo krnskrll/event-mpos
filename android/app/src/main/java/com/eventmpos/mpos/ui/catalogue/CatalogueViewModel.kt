@@ -96,7 +96,11 @@ class CatalogueViewModel @Inject constructor(
         _refreshing.value = true
         viewModelScope.launch {
             runCatching {
-                eventRepository.syncSnapshot(eventId)
+                // Cheap freshness check first: only pull the full snapshot if the server hash moved.
+                val remoteHash = eventRepository.snapshotHash(eventId)
+                if (remoteHash == null || remoteHash != eventRepository.cachedVersion(eventId)) {
+                    eventRepository.syncSnapshot(eventId)
+                }
                 productRepository.refreshStock(eventId)
             }
             _refreshing.value = false

@@ -15,4 +15,6 @@ data class ReceiptEntity(
     val receiptText: String,        // newline-joined 58mm lines
     val printedOk: Boolean,
     val createdAtEpochMs: Long,
+    /** Backend order UUID — used to log print/reprint events to the server audit. */
+    val backendOrderId: String? = null,
 )
