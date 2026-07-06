@@ -17,6 +17,10 @@ interface ProductBarcodeRepository : JpaRepository<ProductBarcode, UUID> {
     fun existsByBarcode(barcode: String): Boolean
 }
 
+interface ProductVariantRepository : JpaRepository<ProductVariant, UUID> {
+    fun findBySku(sku: String): ProductVariant?
+}
+
 interface EventProductRepository : JpaRepository<EventProduct, UUID> {
     fun findByEventIdAndProductId(eventId: UUID, productId: UUID): EventProduct?
     fun findAllByEventId(eventId: UUID): List<EventProduct>

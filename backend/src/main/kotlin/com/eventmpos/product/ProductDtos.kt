@@ -10,6 +10,15 @@ import java.util.UUID
 
 data class BarcodeDto(val barcode: String, val label: String?)
 
+/** A variant as seen by admin/web — carries its effective (charged) price. */
+data class VariantDto(
+    val id: UUID,
+    val name: String,
+    val sku: String,
+    val price: BigDecimal,
+    val active: Boolean,
+)
+
 data class ProductResponse(
     val id: UUID,
     val sku: String,
@@ -21,6 +30,7 @@ data class ProductResponse(
     val active: Boolean,
     val warehouseStock: Int,
     val barcodes: List<BarcodeDto>,
+    val variants: List<VariantDto>,
     val updatedAt: Instant,
 )
 
@@ -58,6 +68,13 @@ data class SetAvailabilityRequest(
     @field:NotNull val available: Boolean,
 )
 
+/** Compact variant shape for the device snapshot. */
+data class VariantSnapshotDto(
+    val id: UUID,
+    val name: String,
+    val price: BigDecimal,
+)
+
 /** Compact product shape carried in the event snapshot to the Android device. */
 data class ProductSnapshotDto(
     val id: UUID,
@@ -67,6 +84,7 @@ data class ProductSnapshotDto(
     val price: BigDecimal,
     val imageUrl: String?,
     val barcodes: List<String>,
+    val variants: List<VariantSnapshotDto> = emptyList(),
     /** Remaining event stock at snapshot time; the device polls /stock for live updates. */
     val remainingStock: Int = 0,
 )
@@ -82,6 +100,7 @@ fun Product.toResponse() = ProductResponse(
     active = active,
     warehouseStock = warehouseStock,
     barcodes = barcodes.map { BarcodeDto(it.barcode, it.label) },
+    variants = variants.map { VariantDto(it.id, it.name, it.sku, it.effectivePrice(), it.active) },
     updatedAt = updatedAt,
 )
 
@@ -93,4 +112,5 @@ fun Product.toSnapshotDto() = ProductSnapshotDto(
     price = price,
     imageUrl = imageUrl,
     barcodes = barcodes.map { it.barcode },
+    variants = variants.filter { it.active }.map { VariantSnapshotDto(it.id, it.name, it.effectivePrice()) },
 )

@@ -28,6 +28,13 @@ class OrderItem(
     @Column(name = "product_id", nullable = false)
     val productId: UUID,
 
+    /** Chosen variant (shade/size), if any — snapshotted at purchase time. */
+    @Column(name = "variant_id")
+    val variantId: UUID? = null,
+
+    @Column(name = "variant_name")
+    val variantName: String? = null,
+
     @Column(nullable = false)
     val sku: String,
 

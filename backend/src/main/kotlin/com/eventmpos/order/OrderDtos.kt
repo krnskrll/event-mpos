@@ -17,6 +17,8 @@ data class CustomerInfo(
 data class OrderLineRequest(
     @field:NotNull val productId: UUID,
     val qty: Int,
+    /** Optional chosen variant (shade/size). Null = the base product. */
+    val variantId: UUID? = null,
 )
 
 data class SubmitOrderRequest(
@@ -33,6 +35,7 @@ data class OrderItemView(
     val unitPrice: BigDecimal,
     val qty: Int,
     val lineTotal: BigDecimal,
+    val variantName: String? = null,
 )
 
 /**

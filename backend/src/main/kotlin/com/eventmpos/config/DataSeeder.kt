@@ -42,6 +42,8 @@ class DataSeeder {
         memberSyncService: com.eventmpos.member.sync.MemberSyncService,
         stockService: com.eventmpos.stock.StockService,
         promotionService: com.eventmpos.promotion.PromotionService,
+        products: com.eventmpos.product.ProductRepository,
+        variants: com.eventmpos.product.ProductVariantRepository,
     ) = ApplicationRunner {
         if (users.count() > 0L) {
             log.info("Seed skipped — users already exist")
@@ -72,6 +74,18 @@ class DataSeeder {
             // allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning
             val qty = if (p.sku == "SKU-1004") 8 else minOf(p.warehouseStock, 60)
             stockService.forceAllocate(event.id, p.id, qty)
+        }
+
+        // Give the lipstick a few shade variants (one with a price override) to exercise variants.
+        products.findBySku("SKU-1002")?.let { lip ->
+            variants.save(com.eventmpos.product.ProductVariant(product = lip, name = "Rose", sku = "SKU-1002-ROSE"))
+            variants.save(com.eventmpos.product.ProductVariant(product = lip, name = "Coral", sku = "SKU-1002-CORAL"))
+            variants.save(
+                com.eventmpos.product.ProductVariant(
+                    product = lip, name = "Plum (limited)", sku = "SKU-1002-PLUM",
+                    priceOverride = java.math.BigDecimal("89.00"),
+                ),
+            )
         }
 
         // Seed a few event-scoped promotions for EV01 (so the cart/quote has something to apply).
