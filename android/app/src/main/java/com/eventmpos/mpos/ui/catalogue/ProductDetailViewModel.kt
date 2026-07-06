@@ -39,8 +39,9 @@ class ProductDetailViewModel @Inject constructor(
         viewModelScope.launch { _product.value = productRepository.getProduct(eventId, productId) }
     }
 
-    fun addToCart(qty: Int) {
+    /** Add [qty] of this product (optionally a chosen [variantId]) to the cart. */
+    fun addToCart(qty: Int, variantId: String?) {
         val p = _product.value ?: return
-        if (!p.outOfStock && qty > 0) cartStore.add(p.id, qty)
+        if (!p.outOfStock && qty > 0) cartStore.addVariant(p.id, variantId, qty)
     }
 }

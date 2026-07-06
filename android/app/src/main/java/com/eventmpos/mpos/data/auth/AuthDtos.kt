@@ -53,7 +53,15 @@ data class ProductDto(
     val price: Double = 0.0,
     val imageUrl: String? = null,
     val barcodes: List<String> = emptyList(),
+    val variants: List<VariantDto> = emptyList(),
     val remainingStock: Int = 0,
+)
+
+@Serializable
+data class VariantDto(
+    val id: String,
+    val name: String,
+    val price: Double = 0.0,
 )
 
 /** Live stock level for the periodic /stock poll. */

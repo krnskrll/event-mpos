@@ -24,4 +24,6 @@ data class ProductEntity(
     val imageUrl: String?,
     val barcodes: String,
     val remainingStock: Int,
+    /** Variants serialized as JSON (id,name,price). "[]" when the product has none. */
+    val variantsJson: String = "[]",
 )

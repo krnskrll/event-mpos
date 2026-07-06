@@ -60,7 +60,7 @@ fun CartScreen(
             }
         } else {
         LazyColumn(Modifier.weight(1f), contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
-            items(state.lines, key = { it.product.id }) { line ->
+            items(state.lines, key = { it.key }) { line ->
                 SectionCard(modifier = Modifier.padding(bottom = 10.dp), padding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         ProductImage(
@@ -69,12 +69,12 @@ fun CartScreen(
                         )
                         Spacer(Modifier.size(10.dp))
                         Column(Modifier.weight(1f)) {
-                            Text(line.product.name, color = Brand.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+                            Text(line.displayName, color = Brand.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
                             Text(rupiah(line.lineTotal), color = Brand.Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
-                        StepBtn("−") { viewModel.decrement(line.product.id) }
+                        StepBtn("−") { viewModel.decrement(line.key) }
                         Text("${line.qty}", modifier = Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold)
-                        StepBtn("+") { viewModel.increment(line.product.id) }
+                        StepBtn("+") { viewModel.increment(line.key) }
                     }
                 }
             }

@@ -30,7 +30,9 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.ShoppingCart
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -48,6 +50,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.eventmpos.mpos.domain.product.Product
+import com.eventmpos.mpos.domain.product.ProductVariant
 import com.eventmpos.mpos.ui.components.ProductImage
 import com.eventmpos.mpos.ui.theme.Brand
 
@@ -62,8 +65,12 @@ fun ProductDetailScreen(
     var qty by remember { mutableIntStateOf(1) }
     var added by remember { mutableStateOf(false) }
     var descOpen by remember { mutableStateOf(false) }
+    var selectedVariant by remember { mutableStateOf<ProductVariant?>(null) }
 
     val p = product
+    // Default to the first shade when the product has variants.
+    LaunchedEffect(p?.id) { selectedVariant = p?.variants?.firstOrNull() }
+    val unitPrice = selectedVariant?.price ?: p?.price ?: 0.0
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         // Hero image with overlay nav
         Box {
@@ -96,7 +103,7 @@ fun ProductDetailScreen(
                 p.brand?.let { Text(it, color = Brand.TextFaint, fontSize = 13.sp) }
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                     Text(p.name, color = Brand.Heading, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text(rupiah(p.price), color = Brand.Teal, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+                    Text(rupiah(unitPrice), color = Brand.Teal, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -110,6 +117,24 @@ fun ProductDetailScreen(
                     Text(txt, color = dot, fontSize = 13.sp, fontWeight = FontWeight.Medium)
                 }
                 Text("SKU: ${p.sku}", color = Brand.TextGhost, fontSize = 11.sp, modifier = Modifier.padding(top = 8.dp))
+
+                // Variant picker (shade / size)
+                if (p.hasVariants) {
+                    Text("Shade", color = Color(0xFF374151), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        p.variants.forEach { v ->
+                            val sel = selectedVariant?.id == v.id
+                            Box(
+                                Modifier.clip(RoundedCornerShape(999.dp))
+                                    .background(if (sel) Brand.Navy else Brand.NavActiveBg)
+                                    .clickable { selectedVariant = v; added = false }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                            ) {
+                                Text(v.name, color = if (sel) Color.White else Brand.Navy, fontSize = 13.sp, fontWeight = if (sel) FontWeight.SemiBold else FontWeight.Normal)
+                            }
+                        }
+                    }
+                }
 
                 // Quantity selector
                 Text("Quantity", color = Color(0xFF374151), fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 20.dp, bottom = 8.dp))
@@ -152,7 +177,7 @@ fun ProductDetailScreen(
                 val bg = if (p.outOfStock) Brand.FieldBorder else if (added) Brand.Teal else Brand.Navy
                 Row(
                     Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(bg)
-                        .clickable(enabled = !p.outOfStock) { viewModel.addToCart(qty); added = true }
+                        .clickable(enabled = !p.outOfStock) { viewModel.addToCart(qty, selectedVariant?.id); added = true }
                         .padding(vertical = 16.dp),
                     horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically,
                 ) {
@@ -161,7 +186,7 @@ fun ProductDetailScreen(
                         Spacer(Modifier.size(8.dp))
                     }
                     Text(
-                        if (p.outOfStock) "Out of Stock" else if (added) "Added to Cart" else "Add to Cart · ${rupiah(p.price * qty)}",
+                        if (p.outOfStock) "Out of Stock" else if (added) "Added to Cart" else "Add to Cart · ${rupiah(unitPrice * qty)}",
                         color = if (p.outOfStock) Brand.TextFaint else Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp,
                     )
                 }

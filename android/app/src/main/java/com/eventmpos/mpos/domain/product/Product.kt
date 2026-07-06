@@ -2,6 +2,13 @@ package com.eventmpos.mpos.domain.product
 
 import kotlinx.coroutines.flow.Flow
 
+/** A sellable variation (shade/size). Price is the effective (charged) price. */
+data class ProductVariant(
+    val id: String,
+    val name: String,
+    val price: Double,
+)
+
 /** Domain product for the BA selling flow (price in major currency units). */
 data class Product(
     val id: String,
@@ -12,9 +19,11 @@ data class Product(
     val imageUrl: String?,
     val barcodes: List<String>,
     val remainingStock: Int,
+    val variants: List<ProductVariant> = emptyList(),
 ) {
     val outOfStock: Boolean get() = remainingStock <= 0
     val lowStock: Boolean get() = remainingStock in 1..10
+    val hasVariants: Boolean get() = variants.isNotEmpty()
 }
 
 interface ProductRepository {
