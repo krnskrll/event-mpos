@@ -47,11 +47,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.eventmpos.mpos.core.scanner.CameraScanner
 import com.eventmpos.mpos.core.scanner.PRODUCT_BARCODE_FORMATS
 import com.eventmpos.mpos.core.scanner.rememberCameraPermission
 import com.eventmpos.mpos.domain.product.Product
+import com.eventmpos.mpos.ui.components.ProductImage
 import com.eventmpos.mpos.ui.theme.Brand
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -259,8 +259,8 @@ private fun ResultSheet(product: Product, onDismiss: () -> Unit, onAdd: () -> Un
             Box(Modifier.align(Alignment.CenterHorizontally).size(width = 40.dp, height = 4.dp).clip(RoundedCornerShape(99.dp)).background(Brand.FieldBorder))
             Spacer(Modifier.size(20.dp))
             Row {
-                AsyncImage(
-                    model = product.imageUrl, contentDescription = product.name, contentScale = ContentScale.Crop,
+                ProductImage(
+                    imageUrl = product.imageUrl, contentDescription = product.name,
                     modifier = Modifier.size(72.dp).clip(RoundedCornerShape(12.dp)),
                 )
                 Spacer(Modifier.size(14.dp))

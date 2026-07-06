@@ -47,8 +47,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.eventmpos.mpos.domain.product.Product
+import com.eventmpos.mpos.ui.components.ProductImage
 import com.eventmpos.mpos.ui.theme.Brand
 
 @Composable
@@ -67,8 +67,8 @@ fun ProductDetailScreen(
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         // Hero image with overlay nav
         Box {
-            AsyncImage(
-                model = p?.imageUrl, contentDescription = p?.name, contentScale = ContentScale.Crop,
+            ProductImage(
+                imageUrl = p?.imageUrl, contentDescription = p?.name,
                 modifier = Modifier.fillMaxWidth().height(260.dp),
             )
             Row(Modifier.fillMaxWidth().padding(top = 40.dp, start = 16.dp, end = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {

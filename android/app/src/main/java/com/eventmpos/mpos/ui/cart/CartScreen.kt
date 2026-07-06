@@ -35,8 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import coil.compose.AsyncImage
 import com.eventmpos.mpos.ui.components.BrandButton
+import com.eventmpos.mpos.ui.components.ProductImage
 import com.eventmpos.mpos.ui.components.SectionCard
 import com.eventmpos.mpos.ui.theme.Brand
 
@@ -63,8 +63,8 @@ fun CartScreen(
             items(state.lines, key = { it.product.id }) { line ->
                 SectionCard(modifier = Modifier.padding(bottom = 10.dp), padding = androidx.compose.foundation.layout.PaddingValues(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        AsyncImage(
-                            model = line.product.imageUrl, contentDescription = line.product.name, contentScale = ContentScale.Crop,
+                        ProductImage(
+                            imageUrl = line.product.imageUrl, contentDescription = line.product.name,
                             modifier = Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)),
                         )
                         Spacer(Modifier.size(10.dp))
