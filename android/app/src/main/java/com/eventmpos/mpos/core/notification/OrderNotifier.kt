@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.core.notification
 
+import com.eventmpos.mpos.core.format.rupiah
+
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
@@ -30,7 +32,7 @@ class OrderNotifier @Inject constructor(@ApplicationContext private val context:
     fun notifyConfirmed(idempotencyKey: String, orderNumber: String?, total: Double?) {
         val subtitle = buildString {
             orderNumber?.let { append(it) }
-            total?.let { if (isNotEmpty()) append(" · "); append("RM ${"%.2f".format(it)}") }
+            total?.let { if (isNotEmpty()) append(" · "); append(rupiah(it)) }
         }.ifBlank { "Submitted successfully" }
         post(idempotencyKey, "Order confirmed", subtitle)
     }

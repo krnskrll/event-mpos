@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional
 import java.math.BigDecimal
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneOffset
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 
@@ -33,7 +33,8 @@ class OrderService(
     private val auditService: com.eventmpos.audit.AuditService,
     private val events: ApplicationEventPublisher,
 ) {
-    private val dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneOffset.UTC)
+    // Daily order-number rollover follows the event locale (Asia/Jakarta), not UTC.
+    private val dateFmt = DateTimeFormatter.ofPattern("yyyyMMdd").withZone(ZoneId.of("Asia/Jakarta"))
 
     /**
      * Create an order ATOMICALLY: idempotency check → validate → decrement stock (pessimistic locks)

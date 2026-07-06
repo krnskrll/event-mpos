@@ -56,6 +56,6 @@ class ReceiptFormatterTest {
     @Test
     fun `total reflects discount`() {
         val text = ReceiptFormatter.format(sample()).joinToString("\n")
-        assertTrue(text.contains("RM 138.60"))
+        assertTrue(text.contains("Rp 139")) // 154.00 − 15.40 = 138.60, rendered as whole Rupiah
     }
 }

@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.ui.catalogue
 
+import com.eventmpos.mpos.core.format.rupiah
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -266,7 +268,7 @@ private fun ResultSheet(product: Product, onDismiss: () -> Unit, onAdd: () -> Un
                     product.brand?.let { Text(it, color = Brand.TextFaint, fontSize = 12.sp) }
                     Text(product.name, color = Brand.Heading, fontSize = 15.sp, fontWeight = FontWeight.Bold)
                     Spacer(Modifier.size(6.dp))
-                    Text("RM ${"%.2f".format(product.price)}", color = Brand.Teal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                    Text(rupiah(product.price), color = Brand.Teal, fontSize = 16.sp, fontWeight = FontWeight.Bold)
                 }
             }
             Spacer(Modifier.size(16.dp))

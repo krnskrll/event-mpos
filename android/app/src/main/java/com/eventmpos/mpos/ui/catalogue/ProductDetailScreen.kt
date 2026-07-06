@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.ui.catalogue
 
+import com.eventmpos.mpos.core.format.rupiah
+
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -94,7 +96,7 @@ fun ProductDetailScreen(
                 p.brand?.let { Text(it, color = Brand.TextFaint, fontSize = 13.sp) }
                 Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.Top) {
                     Text(p.name, color = Brand.Heading, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
-                    Text("RM ${"%.2f".format(p.price)}", color = Brand.Teal, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
+                    Text(rupiah(p.price), color = Brand.Teal, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -159,7 +161,7 @@ fun ProductDetailScreen(
                         Spacer(Modifier.size(8.dp))
                     }
                     Text(
-                        if (p.outOfStock) "Out of Stock" else if (added) "Added to Cart" else "Add to Cart · RM ${"%.2f".format(p.price * qty)}",
+                        if (p.outOfStock) "Out of Stock" else if (added) "Added to Cart" else "Add to Cart · ${rupiah(p.price * qty)}",
                         color = if (p.outOfStock) Brand.TextFaint else Color.White, fontWeight = FontWeight.SemiBold, fontSize = 16.sp,
                     )
                 }

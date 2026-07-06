@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.ui.cart
 
+import com.eventmpos.mpos.core.format.rupiah
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -68,7 +70,7 @@ fun CartScreen(
                         Spacer(Modifier.size(10.dp))
                         Column(Modifier.weight(1f)) {
                             Text(line.product.name, color = Brand.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
-                            Text("RM ${"%.2f".format(line.lineTotal)}", color = Brand.Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            Text(rupiah(line.lineTotal), color = Brand.Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                         }
                         StepBtn("−") { viewModel.decrement(line.product.id) }
                         Text("${line.qty}", modifier = Modifier.padding(horizontal = 12.dp), fontWeight = FontWeight.Bold)
@@ -127,6 +129,6 @@ private fun StepBtn(label: String, onClick: () -> Unit) {
 private fun TotalRow(label: String, amount: Double, color: Color, bold: Boolean = false) {
     Row(Modifier.fillMaxWidth().padding(vertical = 2.dp), Arrangement.SpaceBetween) {
         Text(label, color = color, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, fontSize = if (bold) 16.sp else 14.sp)
-        Text("RM ${"%.2f".format(amount)}", color = color, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, fontSize = if (bold) 16.sp else 14.sp)
+        Text(rupiah(amount), color = color, fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal, fontSize = if (bold) 16.sp else 14.sp)
     }
 }

@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AxiosError } from "axios";
 import Layout from "./Layout";
 import { api } from "../api/client";
+import { rupiah } from "../format";
 import type {
   AuditEntry,
   EndOfEventReport,
@@ -167,8 +168,8 @@ function EventReport() {
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap", margin: "16px 0" }}>
             <Metric label="Orders" value={String(report.totalOrders)} />
             <Metric label="Items sold" value={String(report.totalItems)} />
-            <Metric label="Revenue" value={`RM ${report.totalRevenue.toFixed(2)}`} />
-            <Metric label="Discounts" value={`RM ${report.totalDiscount.toFixed(2)}`} />
+            <Metric label="Revenue" value={rupiah(report.totalRevenue)} />
+            <Metric label="Discounts" value={rupiah(report.totalDiscount)} />
             <button onClick={downloadCsv} style={{ alignSelf: "center" }}>Download CSV</button>
           </div>
           <table>
@@ -181,7 +182,7 @@ function EventReport() {
                   <td className="muted">{p.sku}</td>
                   <td>{p.name}</td>
                   <td>{p.unitsSold}</td>
-                  <td>RM {p.revenue.toFixed(2)}</td>
+                  <td>{rupiah(p.revenue)}</td>
                   <td>{p.allocated}</td>
                   <td>{p.remaining}</td>
                 </tr>

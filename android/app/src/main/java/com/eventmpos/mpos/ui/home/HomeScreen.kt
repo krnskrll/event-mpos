@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.ui.home
 
+import com.eventmpos.mpos.core.format.rupiah
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -104,7 +106,7 @@ fun HomeScreen(
 
             Spacer(Modifier.size(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(Modifier.weight(1f), "Revenue Today", "RM ${"%.2f".format(dash.revenue)}", Brand.Teal)
+                StatCard(Modifier.weight(1f), "Revenue Today", rupiah(dash.revenue), Brand.Teal)
                 StatCard(Modifier.weight(1f), "Orders", "${dash.orderCount}", Brand.Navy)
             }
         }

@@ -123,7 +123,7 @@ function CreatePromotion({ eventId, products, onDone }: { eventId: string; produ
           <input type="number" min="0" value={minQty} onChange={(e) => setMinQty(e.target.value)} required={type === "BUNDLE"} />
         </div>
         <div>
-          <label>Min subtotal RM (optional)</label>
+          <label>Min subtotal Rp (optional)</label>
           <input type="number" step="0.01" min="0" value={minSubtotal} onChange={(e) => setMinSubtotal(e.target.value)} />
         </div>
       </div>

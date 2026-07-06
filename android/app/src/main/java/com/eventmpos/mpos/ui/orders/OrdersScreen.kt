@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.ui.orders
 
+import com.eventmpos.mpos.core.format.rupiah
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -142,7 +144,7 @@ private fun OrderRow(order: OrderRecord, onOpen: (String) -> Unit) {
             Box(Modifier.clip(RoundedCornerShape(999.dp)).background(bg).padding(horizontal = 10.dp, vertical = 4.dp)) {
                 Text(label, color = c, fontSize = 10.sp, fontWeight = FontWeight.Bold)
             }
-            order.total?.let { Text("RM ${"%.2f".format(it)}", color = Brand.Heading, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp)) }
+            order.total?.let { Text(rupiah(it), color = Brand.Heading, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(top = 6.dp)) }
         }
     }
 }

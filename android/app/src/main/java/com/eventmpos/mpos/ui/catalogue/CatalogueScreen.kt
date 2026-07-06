@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.ui.catalogue
 
+import com.eventmpos.mpos.core.format.rupiah
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -186,7 +188,7 @@ private fun ProductCard(product: Product, onClick: () -> Unit) {
         Column(Modifier.padding(10.dp)) {
             product.brand?.let { Text(it, color = Brand.TextFaint, fontSize = 11.sp) }
             Text(product.name, color = Brand.Text, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, modifier = Modifier.padding(vertical = 2.dp))
-            Text("RM ${"%.2f".format(product.price)}", color = Brand.Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+            Text(rupiah(product.price), color = Brand.Teal, fontSize = 13.sp, fontWeight = FontWeight.Bold)
         }
     }
 }

@@ -86,7 +86,7 @@ class DataSeeder {
         promotionService.create(
             event.id,
             com.eventmpos.promotion.PromotionRequest(
-                name = "RM20 off when you spend RM200", type = com.eventmpos.promotion.PromotionType.FIXED,
+                name = "Rp20 off when you spend Rp200", type = com.eventmpos.promotion.PromotionType.FIXED,
                 amountOff = java.math.BigDecimal("20"), minSubtotal = java.math.BigDecimal("200"), priority = 2,
             ),
         )
@@ -94,7 +94,7 @@ class DataSeeder {
             promotionService.create(
                 event.id,
                 com.eventmpos.promotion.PromotionRequest(
-                    name = "Lipstick bundle: buy 3, RM30 off", type = com.eventmpos.promotion.PromotionType.BUNDLE,
+                    name = "Lipstick bundle: buy 3, Rp30 off", type = com.eventmpos.promotion.PromotionType.BUNDLE,
                     amountOff = java.math.BigDecimal("30"), scope = com.eventmpos.promotion.PromotionScope.SPECIFIC,
                     productIds = listOf(java.util.UUID.fromString(lipstick.id.toString())), minQty = 3, priority = 3,
                 ),

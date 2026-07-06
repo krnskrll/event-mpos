@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.domain.receipt
 
+import com.eventmpos.mpos.core.format.rupiah
+
 /** Everything needed to render + reprint a receipt, captured at confirm time (no network to reprint). */
 data class ReceiptLine(val name: String, val qty: Int, val lineTotal: Double)
 
@@ -84,5 +86,5 @@ object ReceiptFormatter {
         return l + " ".repeat(gap) + right
     }
 
-    private fun money(amount: Double) = "RM " + "%.2f".format(amount)
+    private fun money(amount: Double) = rupiah(amount)
 }
