@@ -32,6 +32,14 @@ export interface UserResponse extends UserSummary {
 
 export type ProductSource = "ERP" | "MANUAL";
 
+export interface VariantDto {
+  id: string;
+  name: string;
+  sku: string;
+  price: number;
+  active: boolean;
+}
+
 export interface BarcodeDto {
   barcode: string;
   label: string | null;
@@ -47,6 +55,7 @@ export interface ProductResponse {
   source: ProductSource;
   active: boolean;
   barcodes: BarcodeDto[];
+  variants: VariantDto[];
   updatedAt: string;
 }
 

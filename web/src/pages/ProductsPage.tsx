@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { AxiosError } from "axios";
 import Layout from "./Layout";
 import { api } from "../api/client";
+import { rupiah } from "../format";
 import type { AllocationRow, ErpSyncStatus, EventProductResponse, EventResponse, ProductResponse } from "../types";
 
 function errMsg(err: unknown): string {
@@ -240,9 +241,18 @@ function ProductsTable({ products, onDone }: { products: ProductResponse[]; onDo
             ) : (
               <tr key={p.id}>
                 <td><span className="badge">{p.sku}</span></td>
-                <td>{p.name}</td>
+                <td>
+                  {p.name}
+                  {p.variants.length > 0 && (
+                    <div style={{ marginTop: 4, display: "flex", gap: 4, flexWrap: "wrap" }}>
+                      {p.variants.map((v) => (
+                        <span key={v.id} className="pdx-tag pdx-tag--blue">{v.name} · {rupiah(v.price)}</span>
+                      ))}
+                    </div>
+                  )}
+                </td>
                 <td className="muted">{p.brand ?? "—"}</td>
-                <td>{p.price.toFixed(2)}</td>
+                <td>{rupiah(p.price)}</td>
                 <td><span className="badge">{p.source}</span></td>
                 <td className="muted">{p.barcodes.map((b) => b.barcode).join(", ") || "—"}</td>
                 <td><button className="secondary" onClick={() => setEditing(p.id)}>Edit</button></td>
