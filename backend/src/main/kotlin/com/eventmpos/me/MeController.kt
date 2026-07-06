@@ -16,6 +16,7 @@ import com.eventmpos.order.SubmitOrderRequest
 import com.eventmpos.product.ProductResponse
 import com.eventmpos.product.ProductService
 import com.eventmpos.promotion.PromotionService
+import com.eventmpos.receipt.ReceiptLogService
 import com.eventmpos.promotion.QuoteRequest
 import com.eventmpos.promotion.QuoteResponse
 import com.eventmpos.stock.BaStockLevel
@@ -30,7 +31,9 @@ import org.springframework.web.bind.annotation.PostMapping
 import org.springframework.web.bind.annotation.RequestBody
 import org.springframework.web.bind.annotation.RequestMapping
 import org.springframework.web.bind.annotation.RequestParam
+import org.springframework.web.bind.annotation.ResponseStatus
 import org.springframework.web.bind.annotation.RestController
+import java.time.Instant
 import java.util.UUID
 
 data class MeResponse(
@@ -39,6 +42,9 @@ data class MeResponse(
     val fullName: String,
     val role: Role,
 )
+
+/** Lightweight snapshot freshness check — the device compares this hash before a full re-sync. */
+data class SnapshotHashResponse(val snapshotHash: String, val checkedAt: Instant)
 
 /**
  * "Who am I" + the BA's event(s) and the event snapshot. The Android app uses these after login to
@@ -53,6 +59,7 @@ class MeController(
     private val stockService: StockService,
     private val promotionService: PromotionService,
     private val orderService: OrderService,
+    private val receiptLogService: ReceiptLogService,
 ) {
 
     @GetMapping
@@ -91,6 +98,34 @@ class MeController(
             return SnapshotStatus(changed = false, version = version)
         }
         return eventService.snapshotForEvent(eventId)
+    }
+
+    /**
+     * Just the snapshot hash — the device calls this on pull-to-refresh; if it matches the stored
+     * hash, the full snapshot download is skipped entirely.
+     */
+    @GetMapping("/events/{eventId}/snapshot/hash")
+    fun snapshotHash(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable eventId: UUID,
+    ): SnapshotHashResponse {
+        requireBa(principal)
+        eventService.requireAssigned(principal.userId, eventId)
+        return SnapshotHashResponse(eventService.snapshotVersion(eventId), Instant.now())
+    }
+
+    /**
+     * Log that a receipt was printed (or reprinted) for an order. Fire-and-forget from Android —
+     * printing happens on the device; this is just the backend audit counter. Returns 204.
+     */
+    @PostMapping("/orders/{orderId}/receipts")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    fun logReceipt(
+        @AuthenticationPrincipal principal: AuthPrincipal,
+        @PathVariable orderId: UUID,
+    ) {
+        requireBa(principal)
+        receiptLogService.logPrint(orderId)
     }
 
     /**

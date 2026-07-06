@@ -10,6 +10,7 @@ data class MemberRecord(
     val tier: MemberTier,
     val region: String?,
     val active: Boolean,
+    val phone: String? = null,
 )
 
 /**

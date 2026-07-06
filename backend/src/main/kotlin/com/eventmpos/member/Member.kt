@@ -45,6 +45,9 @@ class Member(
     /** Optional region — lets sync filter large datasets (e.g. only this market's members). */
     var region: String? = null,
 
+    /** Contact number from the member system — stored for back-office use, never exposed to clients. */
+    var phone: String? = null,
+
     @Column(nullable = false)
     var active: Boolean = true,
 

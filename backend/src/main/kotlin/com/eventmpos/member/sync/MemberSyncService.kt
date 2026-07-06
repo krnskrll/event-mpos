@@ -49,6 +49,7 @@ class MemberSyncService(
                             name = rec.name,
                             tier = rec.tier,
                             region = rec.region,
+                            phone = rec.phone,
                             active = rec.active,
                         ),
                     )
@@ -58,6 +59,7 @@ class MemberSyncService(
                     existing.name = rec.name
                     existing.tier = rec.tier
                     existing.region = rec.region
+                    existing.phone = rec.phone
                     existing.active = rec.active
                     existing.updatedAt = Instant.now()
                     memberRepository.save(existing)

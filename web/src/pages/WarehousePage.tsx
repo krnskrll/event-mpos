@@ -3,6 +3,7 @@ import { Client } from "@stomp/stompjs";
 import SockJS from "sockjs-client";
 import Layout from "./Layout";
 import { api } from "../api/client";
+import { tokenStore } from "../api/tokenStore";
 import type { EventResponse, OrderStatus, StockLevelRow, WarehouseOrderView } from "../types";
 
 const STATUSES: OrderStatus[] = ["NEW", "PACKING", "READY", "COLLECTED"];
@@ -117,6 +118,7 @@ function OrderBoard({ eventId }: { eventId: string }) {
   useEffect(() => {
     const client = new Client({
       webSocketFactory: () => new SockJS("/ws"),
+      connectHeaders: { Authorization: `Bearer ${tokenStore.accessToken ?? ""}` },
       reconnectDelay: 4000,
       onConnect: () => {
         setConnected(true);
