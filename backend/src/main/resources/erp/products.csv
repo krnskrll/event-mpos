@@ -1,0 +1,6 @@
+sku,name,brand,price,imageUrl,stock,barcodes
+SKU-1001,Hydra Glow Serum 30ml,LumièreCo,129.00,https://picsum.photos/seed/serum/300,120,8990001001|single;18990001001|box of 6
+SKU-1002,Velvet Matte Lipstick — Rose,LumièreCo,79.00,https://picsum.photos/seed/lipstick/300,300,8990001002|
+SKU-1003,Daily Mineral Sunscreen SPF50,DermaPure,99.00,https://picsum.photos/seed/spf/300,80,8990001003|single;28990001003|twin pack
+SKU-1004,Nourishing Hair Oil 100ml,Botané,65.00,https://picsum.photos/seed/hairoil/300,45,8990001004|
+SKU-1005,Gentle Foaming Cleanser 150ml,DermaPure,55.00,https://picsum.photos/seed/cleanser/300,200,8990001005|

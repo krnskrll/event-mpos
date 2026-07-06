@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>event-mpos · login tester</title>
+<style>
+  :root { --bg:#0f1115; --panel:#1a1d23; --border:#2a2f37; --text:#e7e9ee; --muted:#9aa3b2; --accent:#e0457b; --ok:#22c55e; --err:#ef4444; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; background:var(--bg); color:var(--text); display:grid; place-items:center; min-height:100vh; padding:1rem; }
+  .card { background:var(--panel); border:1px solid var(--border); border-radius:12px; padding:1.5rem; width:420px; max-width:100%; }
+  h1 { font-size:1.2rem; margin:0 0 .25rem; }
+  p.sub { color:var(--muted); margin:0 0 1rem; font-size:.85rem; }
+  label { font-size:.78rem; color:var(--muted); }
+  input,select { width:100%; padding:.55rem .65rem; margin:.3rem 0 .8rem; background:#0f1115; border:1px solid var(--border); border-radius:8px; color:var(--text); }
+  button { cursor:pointer; border:none; border-radius:8px; padding:.6rem .9rem; background:var(--accent); color:#fff; font-weight:600; width:100%; }
+  .quick { display:flex; gap:.4rem; margin-bottom:1rem; flex-wrap:wrap; }
+  .quick button { width:auto; flex:1; background:transparent; border:1px solid var(--border); color:var(--text); font-weight:500; font-size:.8rem; }
+  pre { background:#0b0d11; border:1px solid var(--border); border-radius:8px; padding:.8rem; overflow:auto; font-size:.78rem; white-space:pre-wrap; word-break:break-all; }
+  .ok { color:var(--ok); } .err { color:var(--err); }
+  .row { display:flex; gap:.5rem; } .row > * { flex:1; }
+</style>
+</head>
+<body>
+  <div class="card">
+    <h1>event-mpos — login tester</h1>
+    <p class="sub">Talks to the real backend at http://localhost:8080</p>
+
+    <div class="quick">
+      <button onclick="fill('admin@eventmpos.local','Admin123!')">Admin</button>
+      <button onclick="fill('ba@eventmpos.local','Ba123456!')">BA</button>
+      <button onclick="fill('wh@eventmpos.local','Wh123456!')">Warehouse</button>
+    </div>
+
+    <label>Email</label>
+    <input id="email" type="email" value="admin@eventmpos.local" />
+    <label>Password</label>
+    <input id="password" type="text" value="Admin123!" />
+
+    <div class="row">
+      <button onclick="login()">Sign in</button>
+      <button onclick="getEvent()" style="background:transparent;border:1px solid var(--border);color:var(--text)">Get my event (BA)</button>
+    </div>
+
+    <pre id="out">Click a role chip, then "Sign in".</pre>
+  </div>
+
+<script>
+const API = "http://localhost:8080";
+let lastToken = null;
+const out = document.getElementById("out");
+function fill(e,p){ document.getElementById("email").value=e; document.getElementById("password").value=p; }
+function show(obj, cls){ out.className = cls||""; out.textContent = typeof obj==="string"?obj:JSON.stringify(obj,null,2); }
+
+async function login(){
+  show("Signing in…");
+  try{
+    const res = await fetch(API+"/api/auth/login",{
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({ email:document.getElementById("email").value, password:document.getElementById("password").value })
+    });
+    const data = await res.json();
+    if(!res.ok){ show("❌ "+res.status+"\n"+JSON.stringify(data,null,2),"err"); return; }
+    lastToken = data.accessToken;
+    show("✅ Logged in\n\nuser: "+JSON.stringify(data.user,null,2)
+      +"\n\naccessToken: "+data.accessToken.slice(0,40)+"…"
+      +"\nrefreshToken: "+data.refreshToken.slice(0,24)+"…"
+      +"\nexpiresInSeconds: "+data.expiresInSeconds, "ok");
+  }catch(err){ show("❌ Can't reach backend. Is it running on :8080?\n"+err,"err"); }
+}
+
+async function getEvent(){
+  if(!lastToken){ show("Sign in first (as a BA) to load the assigned event.","err"); return; }
+  try{
+    const res = await fetch(API+"/api/me/event",{ headers:{ "Authorization":"Bearer "+lastToken } });
+    const data = await res.json();
+    if(!res.ok){ show("❌ "+res.status+"\n"+JSON.stringify(data,null,2),"err"); return; }
+    show("✅ Assigned event\n\n"+JSON.stringify(data,null,2),"ok");
+  }catch(err){ show("❌ "+err,"err"); }
+}
+</script>
+</body>
+</html>
