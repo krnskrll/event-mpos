@@ -210,31 +210,33 @@ func (s *Service) SnapshotForEvent(eventID uuid.UUID) (*EventSnapshot, error) {
 		return nil, common.NewAppError(http.StatusConflict,
 			"Event '"+e.Code+"' is "+string(e.Status)+" — selling is only allowed while ACTIVE")
 	}
-	products := emptyIfNil(func() []any {
-		if s.providers.Products != nil {
-			return s.providers.Products.AvailableSnapshotProducts(eventID)
+	var products, members, promotions []any
+	if s.providers.Products != nil {
+		if products, err = s.providers.Products.AvailableSnapshotProducts(eventID); err != nil {
+			return nil, err
 		}
-		return nil
-	}())
-	members := emptyIfNil(func() []any {
-		if s.providers.Members != nil {
-			return s.providers.Members.ActiveSnapshotMembers()
+	}
+	if s.providers.Members != nil {
+		if members, err = s.providers.Members.ActiveSnapshotMembers(); err != nil {
+			return nil, err
 		}
-		return nil
-	}())
-	promotions := emptyIfNil(func() []any {
-		if s.providers.Promotions != nil {
-			return s.providers.Promotions.SnapshotPromotions(eventID)
+	}
+	if s.providers.Promotions != nil {
+		if promotions, err = s.providers.Promotions.SnapshotPromotions(eventID); err != nil {
+			return nil, err
 		}
-		return nil
-	}())
+	}
+	version, err := s.versionOf(e)
+	if err != nil {
+		return nil, err
+	}
 	return &EventSnapshot{
 		Event:       e.ToResponse(),
-		Version:     s.versionOf(e),
-		Products:    products,
+		Version:     version,
+		Products:    emptyIfNil(products),
 		Stock:       []any{},
-		Members:     members,
-		Promotions:  promotions,
+		Members:     emptyIfNil(members),
+		Promotions:  emptyIfNil(promotions),
 		MemberCount: len(members),
 	}, nil
 }
@@ -245,13 +247,29 @@ func (s *Service) SnapshotVersion(eventID uuid.UUID) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return s.versionOf(e), nil
+	return s.versionOf(e)
 }
 
 // versionOf hashes everything that should trigger a device re-sync: the event's own mutable fields
 // plus each domain's fingerprint (product availability, member directory, allocation config,
 // promotion config). Mirrors Kotlin EventService.versionOf — SHA-256 hex, first 16 chars.
-func (s *Service) versionOf(e *Event) string {
+func (s *Service) versionOf(e *Event) (string, error) {
+	productFp, err := s.productFingerprint(e.ID)
+	if err != nil {
+		return "", err
+	}
+	memberFp, err := s.memberFingerprint()
+	if err != nil {
+		return "", err
+	}
+	stockFp, err := s.stockFingerprint(e.ID)
+	if err != nil {
+		return "", err
+	}
+	promoFp, err := s.promotionFingerprint(e.ID)
+	if err != nil {
+		return "", err
+	}
 	material := strings.Join([]string{
 		e.ID.String(),
 		e.Name,
@@ -259,33 +277,41 @@ func (s *Service) versionOf(e *Event) string {
 		e.EndDate.String(),
 		string(e.Status),
 		strconv.FormatInt(e.UpdatedAt.UnixMilli(), 10),
-		fingerprint(func() string {
-			if s.providers.Products != nil {
-				return s.providers.Products.AvailabilityFingerprint(e.ID)
-			}
-			return ""
-		}),
-		fingerprint(func() string {
-			if s.providers.Members != nil {
-				return s.providers.Members.Fingerprint()
-			}
-			return ""
-		}),
-		fingerprint(func() string {
-			if s.providers.Stock != nil {
-				return s.providers.Stock.AllocationFingerprint(e.ID)
-			}
-			return ""
-		}),
-		fingerprint(func() string {
-			if s.providers.Promotions != nil {
-				return s.providers.Promotions.Fingerprint(e.ID)
-			}
-			return ""
-		}),
+		productFp,
+		memberFp,
+		stockFp,
+		promoFp,
 	}, "|")
 	sum := sha256.Sum256([]byte(material))
-	return hex.EncodeToString(sum[:])[:16]
+	return hex.EncodeToString(sum[:])[:16], nil
+}
+
+func (s *Service) productFingerprint(eventID uuid.UUID) (string, error) {
+	if s.providers.Products == nil {
+		return "", nil
+	}
+	return s.providers.Products.AvailabilityFingerprint(eventID)
+}
+
+func (s *Service) memberFingerprint() (string, error) {
+	if s.providers.Members == nil {
+		return "", nil
+	}
+	return s.providers.Members.Fingerprint()
+}
+
+func (s *Service) stockFingerprint(eventID uuid.UUID) (string, error) {
+	if s.providers.Stock == nil {
+		return "", nil
+	}
+	return s.providers.Stock.AllocationFingerprint(eventID)
+}
+
+func (s *Service) promotionFingerprint(eventID uuid.UUID) (string, error) {
+	if s.providers.Promotions == nil {
+		return "", nil
+	}
+	return s.providers.Promotions.Fingerprint(eventID)
 }
 
 // ---- helpers ----
@@ -318,8 +344,6 @@ func isNotFound(err error) bool {
 	ae, ok := err.(*common.AppError)
 	return ok && ae.Status == http.StatusNotFound
 }
-
-func fingerprint(f func() string) string { return f() }
 
 func emptyIfNil(s []any) []any {
 	if s == nil {

@@ -5,6 +5,8 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/auth"
 	"github.com/krnskrll/event-mpos/internal/event"
+	"github.com/krnskrll/event-mpos/internal/product"
+	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 
@@ -17,6 +19,11 @@ func Models() []interface{} {
 		&auth.RefreshToken{},
 		&event.Event{},
 		&event.BaEventAssignment{},
+		&product.Product{},
+		&product.ProductBarcode{},
+		&product.ProductVariant{},
+		&product.EventProduct{},
+		&erp.SyncStatus{},
 	}
 }
 

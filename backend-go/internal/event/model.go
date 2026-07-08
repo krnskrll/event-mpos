@@ -106,8 +106,8 @@ type EventResponse struct {
 	ID        uuid.UUID    `json:"id"`
 	Code      string       `json:"code"`
 	Name      string       `json:"name"`
-	StartDate *common.Date `json:"startDate"`
-	EndDate   *common.Date `json:"endDate"`
+	StartDate *common.Date `json:"startDate,omitempty"`
+	EndDate   *common.Date `json:"endDate,omitempty"`
 	Status    EventStatus  `json:"status"`
 }
 
@@ -170,23 +170,23 @@ type SnapshotStatus struct {
 // ---- Provider interfaces (implemented by later phases, wired in main) ----
 
 type ProductProvider interface {
-	AvailableSnapshotProducts(eventID uuid.UUID) []any
-	AvailabilityFingerprint(eventID uuid.UUID) string
+	AvailableSnapshotProducts(eventID uuid.UUID) ([]any, error)
+	AvailabilityFingerprint(eventID uuid.UUID) (string, error)
 }
 
 type MemberProvider interface {
-	ActiveSnapshotMembers() []any
-	Fingerprint() string
+	ActiveSnapshotMembers() ([]any, error)
+	Fingerprint() (string, error)
 }
 
 type StockProvider interface {
-	Remaining(eventID, productID uuid.UUID) int
-	AllocationFingerprint(eventID uuid.UUID) string
+	Remaining(eventID, productID uuid.UUID) (int, error)
+	AllocationFingerprint(eventID uuid.UUID) (string, error)
 }
 
 type PromotionProvider interface {
-	SnapshotPromotions(eventID uuid.UUID) []any
-	Fingerprint(eventID uuid.UUID) string
+	SnapshotPromotions(eventID uuid.UUID) ([]any, error)
+	Fingerprint(eventID uuid.UUID) (string, error)
 }
 
 // Providers bundles the optional cross-domain contributors to the snapshot + its version. Each is

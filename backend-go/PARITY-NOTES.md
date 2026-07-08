@@ -30,6 +30,23 @@ computed from event fields only. The endpoint, auth/assignment guards, version-g
 (`?version=` → `{changed:false}`), and the `event` payload are already parity-verified. Full
 snapshot content + version parity is re-checked once Phase 6 completes.
 
+## Internal (non-contractual) difference
+
+- **Access-token JWT `alg`**: Kotlin signs with HS384, Go with HS256. The token is opaque to clients
+  (they only echo it back in `Authorization`), each backend validates its own, and no response body
+  is affected — so this is invisible to the API contract.
+
+## Verified identical (Phase 3)
+- `GET /api/admin/products` + `GET /api/admin/products/{id}` — full shape incl. `price` (JSON number),
+  `variants` (effective price), `barcodes`, `warehouseStock`, `source`, `active`
+- `POST /api/admin/products` → 201; duplicate SKU → 409; barcode-in-use → 409; negative price → 400
+- `PUT /api/admin/products/{id}` (partial update; price serialized as supplied)
+- `POST /api/admin/erp/sync` (SyncResult) + `GET /api/admin/erp/status`
+- `GET /api/admin/events/{id}/products` + `PUT .../products/{productId}` (set availability)
+- `GET /api/me/events/{id}/products/by-barcode/{barcode}`; unknown → 404
+- Event snapshot `products` array (compact snapshot DTOs incl. active variants) — matches; only
+  `remainingStock` stays 0 in Go until Phase 5 wires stock.
+
 ## Verified identical (Phase 2)
 - `GET /api/me` (all roles); `GET /api/me/event` + `/api/me/events` (BA); non-BA → 400
 - `GET /api/me/events/{id}/snapshot` structure + `event` payload + gating; unassigned event → 403

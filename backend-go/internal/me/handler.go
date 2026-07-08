@@ -12,6 +12,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/auth"
 	"github.com/krnskrll/event-mpos/internal/common"
 	"github.com/krnskrll/event-mpos/internal/event"
+	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 
@@ -30,11 +31,12 @@ type SnapshotHashResponse struct {
 }
 
 type Handler struct {
-	events *event.Service
+	events   *event.Service
+	products *product.Service
 }
 
-func NewHandler(events *event.Service) *Handler {
-	return &Handler{events: events}
+func NewHandler(events *event.Service, products *product.Service) *Handler {
+	return &Handler{events: events, products: products}
 }
 
 func (h *Handler) Me(c *gin.Context) {
@@ -125,6 +127,29 @@ func (h *Handler) SnapshotHash(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, SnapshotHashResponse{SnapshotHash: version, CheckedAt: time.Now().UTC()})
+}
+
+// ProductByBarcode resolves a scanned barcode to a product available for this event.
+func (h *Handler) ProductByBarcode(c *gin.Context) {
+	p, ok := h.requireBa(c)
+	if !ok {
+		return
+	}
+	eventID, err := uuid.Parse(c.Param("eventId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	if err := h.events.RequireAssigned(p.UserID, eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	resp, err := h.products.FindAvailableByBarcode(eventID, c.Param("barcode"))
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
 }
 
 // requireBa enforces that the caller is a BA (matches Kotlin's 400 for non-BA callers).

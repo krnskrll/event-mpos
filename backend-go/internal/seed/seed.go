@@ -7,10 +7,13 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/common"
 	"github.com/krnskrll/event-mpos/internal/event"
+	"github.com/krnskrll/event-mpos/internal/product"
+	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/security"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
@@ -19,7 +22,7 @@ import (
 //   admin@eventmpos.local / Admin123!  (ADMIN)
 //   ba@eventmpos.local    / Ba123456!  (BA)
 //   wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB) error {
+func Run(db *gorm.DB, erpSync *erp.SyncService) error {
 	var count int64
 	if err := db.Model(&user.User{}).Count(&count).Error; err != nil {
 		return err
@@ -74,6 +77,34 @@ func Run(db *gorm.DB) error {
 	}
 	if err := db.Create(&event.BaEventAssignment{UserID: baID, EventID: ev.ID, Active: true}).Error; err != nil {
 		return err
+	}
+
+	// Pull the initial catalogue from the (mock) ERP and make every product available for EV01.
+	erpSync.Sync()
+	var products []product.Product
+	if err := db.Find(&products).Error; err != nil {
+		return err
+	}
+	for i := range products {
+		if err := db.Create(&product.EventProduct{EventID: ev.ID, ProductID: products[i].ID, Available: true}).Error; err != nil {
+			return err
+		}
+	}
+
+	// Give the lipstick a few shade variants (one with a price override) to exercise variants.
+	var lipstick product.Product
+	if err := db.Where("sku = ?", "SKU-1002").First(&lipstick).Error; err == nil {
+		plum := decimal.RequireFromString("89000")
+		variants := []product.ProductVariant{
+			{ProductID: lipstick.ID, Name: "Rose", SKU: "SKU-1002-ROSE", Active: true},
+			{ProductID: lipstick.ID, Name: "Coral", SKU: "SKU-1002-CORAL", Active: true},
+			{ProductID: lipstick.ID, Name: "Plum (limited)", SKU: "SKU-1002-PLUM", PriceOverride: &plum, Active: true},
+		}
+		for i := range variants {
+			if err := db.Create(&variants[i]).Error; err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
