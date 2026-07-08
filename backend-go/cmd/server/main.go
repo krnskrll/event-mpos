@@ -9,6 +9,8 @@ import (
 	"github.com/krnskrll/event-mpos/internal/common"
 	"github.com/krnskrll/event-mpos/internal/config"
 	"github.com/krnskrll/event-mpos/internal/database"
+	"github.com/krnskrll/event-mpos/internal/event"
+	"github.com/krnskrll/event-mpos/internal/me"
 	"github.com/krnskrll/event-mpos/internal/seed"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
@@ -41,9 +43,13 @@ func main() {
 	refreshService := auth.NewRefreshService(db, cfg.RefreshTokenTTLDays)
 	userService := user.NewService(db)
 	authService := auth.NewService(userService, jwtService, refreshService)
+	eventService := event.NewService(db, userService)
+	// Snapshot contributors (products/members/stock/promotions) are wired in later phases.
 
 	authHandler := auth.NewHandler(authService)
 	userHandler := user.NewHandler(userService)
+	eventHandler := event.NewHandler(eventService)
+	meHandler := me.NewHandler(eventService)
 
 	// 4. Router
 	gin.SetMode(gin.ReleaseMode)
@@ -64,12 +70,25 @@ func main() {
 		authed.Use(auth.JWTMiddleware(jwtService))
 		authed.POST("/auth/logout", authHandler.Logout)
 
+		// BA-facing "me" surface (role enforced per-handler)
+		meGroup := authed.Group("/me")
+		meGroup.GET("", meHandler.Me)
+		meGroup.GET("/event", meHandler.MyEvent)
+		meGroup.GET("/events", meHandler.MyEvents)
+		meGroup.GET("/events/:eventId/snapshot", meHandler.Snapshot)
+		meGroup.GET("/events/:eventId/snapshot/hash", meHandler.SnapshotHash)
+
 		// Admin-only
 		admin := authed.Group("/admin")
 		admin.Use(auth.RequireRole(user.RoleAdmin))
 		admin.GET("/users", userHandler.List)
 		admin.POST("/users", userHandler.Create)
 		admin.PATCH("/users/:id", userHandler.Update)
+		admin.GET("/events", eventHandler.List)
+		admin.POST("/events", eventHandler.Create)
+		admin.PUT("/events/:id", eventHandler.Update)
+		admin.PATCH("/events/:id/status", eventHandler.ChangeStatus)
+		admin.POST("/assignments", eventHandler.AssignBa)
 	}
 
 	// 5. Serve

@@ -4,6 +4,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/auth"
+	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 
@@ -14,6 +15,8 @@ func Models() []interface{} {
 	return []interface{}{
 		&user.User{},
 		&auth.RefreshToken{},
+		&event.Event{},
+		&event.BaEventAssignment{},
 	}
 }
 

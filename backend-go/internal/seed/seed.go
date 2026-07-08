@@ -4,9 +4,13 @@ package seed
 
 import (
 	"log"
+	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/krnskrll/event-mpos/internal/common"
+	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/security"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
@@ -34,20 +38,42 @@ func Run(db *gorm.DB) error {
 		{"ba@eventmpos.local", "Ba123456!", "Bella Advisor", user.RoleBA},
 		{"wh@eventmpos.local", "Wh123456!", "Warren House", user.RoleWarehouse},
 	}
-	for _, u := range seedUsers {
-		hash, err := security.HashPassword(u.password)
+	var baID uuid.UUID
+	for _, su := range seedUsers {
+		hash, err := security.HashPassword(su.password)
 		if err != nil {
 			return err
 		}
-		if err := db.Create(&user.User{
-			Email:        u.email,
+		u := user.User{
+			Email:        su.email,
 			PasswordHash: hash,
-			FullName:     u.name,
-			Role:         u.role,
+			FullName:     su.name,
+			Role:         su.role,
 			Active:       true,
-		}).Error; err != nil {
+		}
+		if err := db.Create(&u).Error; err != nil {
 			return err
 		}
+		if su.role == user.RoleBA {
+			baID = u.ID
+		}
+	}
+
+	// EV01 — the active demo event, with the BA assigned to it.
+	start := common.NewDate(2026, time.July, 1)
+	end := common.NewDate(2026, time.July, 14)
+	ev := event.Event{
+		Code:      "EV01",
+		Name:      "Mid-Year Beauty Roadshow",
+		StartDate: &start,
+		EndDate:   &end,
+		Status:    event.StatusActive,
+	}
+	if err := db.Create(&ev).Error; err != nil {
+		return err
+	}
+	if err := db.Create(&event.BaEventAssignment{UserID: baID, EventID: ev.ID, Active: true}).Error; err != nil {
+		return err
 	}
 	return nil
 }

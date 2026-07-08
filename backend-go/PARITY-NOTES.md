@@ -20,6 +20,25 @@ else is byte-identical.
   so the missing-key path is never exercised in practice. When a field is *present but empty/invalid*,
   both backends return an identical `400`.
 
+## Deferred (not a divergence — completes in a later phase)
+
+### Event snapshot collections + version hash — completes in Phase 6
+`GET /api/me/events/{id}/snapshot` aggregates products, members, and promotions, and its `version`
+hash folds in each of those domains' fingerprints. Those domains land in Phases 3–6, so until then
+the Go snapshot returns empty `products`/`members`/`promotions` (memberCount 0) and a version hash
+computed from event fields only. The endpoint, auth/assignment guards, version-gating
+(`?version=` → `{changed:false}`), and the `event` payload are already parity-verified. Full
+snapshot content + version parity is re-checked once Phase 6 completes.
+
+## Verified identical (Phase 2)
+- `GET /api/me` (all roles); `GET /api/me/event` + `/api/me/events` (BA); non-BA → 400
+- `GET /api/me/events/{id}/snapshot` structure + `event` payload + gating; unassigned event → 403
+- `GET /api/me/events/{id}/snapshot/hash` shape
+- `GET/POST /api/admin/events`; duplicate code → 409
+- `PUT /api/admin/events/{id}`; edit CLOSED → 409
+- `PATCH /api/admin/events/{id}/status` transitions (DRAFT→ACTIVE→CLOSED); illegal transitions → 409
+- `POST /api/admin/assignments`; non-BA → 400; unknown user → 404
+
 ## Verified identical (Phase 1)
 - `POST /api/auth/login` success shape (accessToken, refreshToken, expiresInSeconds=900, user{})
 - `POST /api/auth/refresh` rotation success + `401` on reused/expired/unknown token
