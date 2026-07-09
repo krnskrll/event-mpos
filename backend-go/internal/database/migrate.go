@@ -5,6 +5,8 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/auth"
 	"github.com/krnskrll/event-mpos/internal/event"
+	"github.com/krnskrll/event-mpos/internal/member"
+	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/user"
@@ -24,6 +26,8 @@ func Models() []interface{} {
 		&product.ProductVariant{},
 		&product.EventProduct{},
 		&erp.SyncStatus{},
+		&member.Member{},
+		&membersync.Status{},
 	}
 }
 

@@ -11,6 +11,8 @@ import (
 	"github.com/krnskrll/event-mpos/internal/database"
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/me"
+	"github.com/krnskrll/event-mpos/internal/member"
+	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/seed"
@@ -42,20 +44,25 @@ func main() {
 	productService := product.NewService(db)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
 	erpSyncService := erp.NewSyncService(erpSource, db)
+	memberService := member.NewService(db)
+	memberSource := membersync.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
+	memberSyncService := membersync.NewService(memberSource, db, cfg.MemberRegionFilter)
 
-	// Snapshot contributors: products are live now; members/stock/promotions wired in later phases.
-	eventService.SetProviders(event.Providers{Products: productService})
+	// Snapshot contributors: products + members live now; stock/promotions wired in later phases.
+	eventService.SetProviders(event.Providers{Products: productService, Members: memberService})
 
 	authHandler := auth.NewHandler(authService)
 	userHandler := user.NewHandler(userService)
 	eventHandler := event.NewHandler(eventService)
 	productHandler := product.NewHandler(productService)
 	erpHandler := erp.NewHandler(erpSyncService)
-	meHandler := me.NewHandler(eventService, productService)
+	memberHandler := member.NewHandler(memberService)
+	memberSyncHandler := membersync.NewHandler(memberSyncService)
+	meHandler := me.NewHandler(eventService, productService, memberService)
 
 	// 3. Seed dev data
 	if cfg.SeedEnabled {
-		if err := seed.Run(db, erpSyncService); err != nil {
+		if err := seed.Run(db, erpSyncService, memberSyncService); err != nil {
 			log.Fatalf("seed failed: %v", err)
 		}
 	}
@@ -87,6 +94,8 @@ func main() {
 		meGroup.GET("/events/:eventId/snapshot", meHandler.Snapshot)
 		meGroup.GET("/events/:eventId/snapshot/hash", meHandler.SnapshotHash)
 		meGroup.GET("/events/:eventId/products/by-barcode/:barcode", meHandler.ProductByBarcode)
+		meGroup.GET("/members", meHandler.Members)
+		meGroup.GET("/members/by-qr/:qrCode", meHandler.MemberByQr)
 
 		// Admin-only
 		admin := authed.Group("/admin")
@@ -107,6 +116,9 @@ func main() {
 		admin.GET("/erp/status", erpHandler.SyncStatus)
 		admin.GET("/events/:id/products", productHandler.EventProducts)
 		admin.PUT("/events/:id/products/:productId", productHandler.SetAvailability)
+		admin.GET("/members", memberHandler.List)
+		admin.POST("/members/sync", memberSyncHandler.SyncNow)
+		admin.GET("/members/sync/status", memberSyncHandler.Status)
 	}
 
 	// 5. Serve

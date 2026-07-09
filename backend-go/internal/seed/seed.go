@@ -12,6 +12,7 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/common"
 	"github.com/krnskrll/event-mpos/internal/event"
+	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/security"
@@ -22,7 +23,7 @@ import (
 //   admin@eventmpos.local / Admin123!  (ADMIN)
 //   ba@eventmpos.local    / Ba123456!  (BA)
 //   wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB, erpSync *erp.SyncService) error {
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service) error {
 	var count int64
 	if err := db.Model(&user.User{}).Count(&count).Error; err != nil {
 		return err
@@ -106,5 +107,8 @@ func Run(db *gorm.DB, erpSync *erp.SyncService) error {
 			}
 		}
 	}
+
+	// Pull the member directory from the (mock) external member system.
+	memberSync.Sync()
 	return nil
 }

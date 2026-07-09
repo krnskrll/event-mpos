@@ -12,6 +12,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/auth"
 	"github.com/krnskrll/event-mpos/internal/common"
 	"github.com/krnskrll/event-mpos/internal/event"
+	"github.com/krnskrll/event-mpos/internal/member"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
@@ -33,10 +34,11 @@ type SnapshotHashResponse struct {
 type Handler struct {
 	events   *event.Service
 	products *product.Service
+	members  *member.Service
 }
 
-func NewHandler(events *event.Service, products *product.Service) *Handler {
-	return &Handler{events: events, products: products}
+func NewHandler(events *event.Service, products *product.Service, members *member.Service) *Handler {
+	return &Handler{events: events, products: products, members: members}
 }
 
 func (h *Handler) Me(c *gin.Context) {
@@ -145,6 +147,32 @@ func (h *Handler) ProductByBarcode(c *gin.Context) {
 		return
 	}
 	resp, err := h.products.FindAvailableByBarcode(eventID, c.Param("barcode"))
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// Members returns the active member directory for the device to cache.
+func (h *Handler) Members(c *gin.Context) {
+	if _, ok := h.requireBa(c); !ok {
+		return
+	}
+	members, err := h.members.ActiveSnapshotMembers()
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, members)
+}
+
+// MemberByQr is the online QR fallback when a scanned member isn't in the device cache.
+func (h *Handler) MemberByQr(c *gin.Context) {
+	if _, ok := h.requireBa(c); !ok {
+		return
+	}
+	resp, err := h.members.ByQr(c.Param("qrCode"))
 	if err != nil {
 		common.Fail(c, err)
 		return

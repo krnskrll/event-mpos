@@ -36,6 +36,14 @@ snapshot content + version parity is re-checked once Phase 6 completes.
   (they only echo it back in `Authorization`), each backend validates its own, and no response body
   is affected — so this is invisible to the API contract.
 
+## Verified identical (Phase 4)
+- `GET /api/admin/members` (full directory incl. inactive; no `phone` field exposed)
+- `POST /api/admin/members/sync` (Result) + `GET /api/admin/members/sync/status`
+- `GET /api/me/members` (active-only compact snapshot DTOs)
+- `GET /api/me/members/by-qr/{qr}`; inactive → 404; unknown → 404
+- Event snapshot `members` array + `memberCount` (active-only) — now matches Kotlin.
+  Member fingerprint uses a Java-`String.hashCode()` port for snapshot-version parity (Phase 6).
+
 ## Verified identical (Phase 3)
 - `GET /api/admin/products` + `GET /api/admin/products/{id}` — full shape incl. `price` (JSON number),
   `variants` (effective price), `barcodes`, `warehouseStock`, `source`, `active`
