@@ -7,11 +7,6 @@ const proxyTarget = process.env.VITE_PROXY_TARGET ?? "http://localhost:8080";
 
 export default defineConfig({
   plugins: [react()],
-  // sockjs-client (STOMP/WebSocket for the warehouse board) references Node's `global`, which
-  // doesn't exist in the browser. Alias it to globalThis so the bundle runs client-side.
-  define: {
-    global: "globalThis",
-  },
   server: {
     port: 5173,
     // Dev only: accept any Host header (lets the app be reached via host.docker.internal etc.).
@@ -22,7 +17,7 @@ export default defineConfig({
         target: proxyTarget,
         changeOrigin: true,
       },
-      // SockJS/STOMP endpoint for the real-time warehouse board (needs websocket upgrade)
+      // Native WebSocket endpoint for the real-time warehouse board (needs websocket upgrade)
       "/ws": {
         target: proxyTarget,
         changeOrigin: true,

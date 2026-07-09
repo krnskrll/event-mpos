@@ -1,6 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Client } from "@stomp/stompjs";
-import SockJS from "sockjs-client";
 import Layout from "./Layout";
 import { api } from "../api/client";
 import { tokenStore } from "../api/tokenStore";
@@ -114,24 +112,32 @@ function OrderBoard({ eventId }: { eventId: string }) {
     };
   }, [eventId, connected, upsert]);
 
-  // Real-time STOMP over SockJS.
+  // Real-time order push over a native WebSocket. The JWT goes in the ?token= query param since a
+  // browser can't set an Authorization header on a WebSocket handshake. Auto-reconnects on drop.
   useEffect(() => {
-    const client = new Client({
-      webSocketFactory: () => new SockJS("/ws"),
-      connectHeaders: { Authorization: `Bearer ${tokenStore.accessToken ?? ""}` },
-      reconnectDelay: 4000,
-      onConnect: () => {
-        setConnected(true);
-        client.subscribe(`/topic/events/${eventId}/orders`, (msg) => {
-          upsert(JSON.parse(msg.body) as WarehouseOrderView, true);
-        });
-      },
-      onWebSocketClose: () => setConnected(false),
-      onStompError: () => setConnected(false),
-    });
-    client.activate();
+    let ws: WebSocket | null = null;
+    let retry: number | undefined;
+    let closed = false;
+
+    const connect = () => {
+      if (closed) return;
+      const proto = location.protocol === "https:" ? "wss" : "ws";
+      const token = encodeURIComponent(tokenStore.accessToken ?? "");
+      ws = new WebSocket(`${proto}://${location.host}/ws/events/${eventId}/orders?token=${token}`);
+      ws.onopen = () => setConnected(true);
+      ws.onmessage = (e) => upsert(JSON.parse(e.data) as WarehouseOrderView, true);
+      ws.onerror = () => ws?.close();
+      ws.onclose = () => {
+        setConnected(false);
+        if (!closed) retry = window.setTimeout(connect, 4000);
+      };
+    };
+    connect();
+
     return () => {
-      client.deactivate();
+      closed = true;
+      if (retry) window.clearTimeout(retry);
+      ws?.close();
       setConnected(false);
     };
   }, [eventId, upsert]);

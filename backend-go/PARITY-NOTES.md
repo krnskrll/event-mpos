@@ -43,6 +43,18 @@ snapshot content + version parity is re-checked once Phase 6 completes.
   `{changed:false}`) and all snapshot *content* (products/members/stock/promotions) are verified
   identical. The parity harness normalizes `version`/`snapshotHash` out.
 
+### 3. Real-time transport: native WebSocket instead of STOMP/SockJS (planned change)
+- **Kotlin**: STOMP over SockJS at `/ws`, subscribe topic `/topic/events/{id}/orders`, JWT on the
+  STOMP CONNECT frame.
+- **Go**: native `gorilla/websocket` at `GET /ws/events/{id}/orders?token=<jwt>`, one message per
+  order change (the same `WarehouseOrderView` JSON body). JWT validated on the HTTP upgrade.
+- **Why**: gorilla/websocket doesn't speak STOMP, and the only client is the web dashboard (Android
+  uses no WebSocket). This is the one deliberate contract change in the migration; the web client was
+  updated in lockstep (`web/src/pages/WarehousePage.tsx`: STOMP/SockJS → native WebSocket). The
+  message payload is unchanged, so `OrderBoard` rendering is identical.
+- **Verified**: connect as warehouse → submit an order as BA → the order view is pushed live;
+  a bad/missing token is rejected with HTTP 401 on the upgrade.
+
 ## Internal (non-contractual) difference
 
 - **Access-token JWT `alg`**: Kotlin signs with HS384, Go with HS256. The token is opaque to clients

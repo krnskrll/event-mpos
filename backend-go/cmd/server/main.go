@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 
 	"github.com/krnskrll/event-mpos/internal/audit"
 	"github.com/krnskrll/event-mpos/internal/auth"
@@ -22,6 +23,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/seed"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
+	"github.com/krnskrll/event-mpos/internal/ws"
 )
 
 func main() {
@@ -57,6 +59,13 @@ func main() {
 	auditService := audit.NewService(db, userService)
 	receiptService := receipt.NewService(db)
 	orderService := order.NewService(db, stockService, promotionService, auditService, userService)
+
+	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.
+	hub := ws.NewHub()
+	go hub.Run()
+	orderService.SetBroadcaster(func(eventID uuid.UUID, view order.WarehouseOrderView) {
+		hub.Broadcast(eventID.String(), view)
+	})
 
 	// Snapshot contributors: all four domains live now. Products carry remaining event stock.
 	productService.SetStockRemaining(stockService.Remaining)
@@ -94,6 +103,10 @@ func main() {
 	r.Use(gin.Logger(), gin.Recovery(), common.CORS(cfg.CORSOrigins))
 
 	common.RegisterHealth(r)
+
+	// Real-time warehouse board WebSocket (JWT validated inside the handler via ?token=).
+	wsHandler := ws.NewHandler(hub, jwtService)
+	r.GET("/ws/events/:eventId/orders", wsHandler.ServeWS)
 
 	api := r.Group("/api")
 	{
