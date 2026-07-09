@@ -14,6 +14,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/stock"
+	"github.com/krnskrll/event-mpos/internal/syncconfig"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 
@@ -40,6 +41,7 @@ func Models() []interface{} {
 		&order.OrderDailySequence{},
 		&receipt.ReceiptLog{},
 		&audit.OrderAuditLog{},
+		&syncconfig.SyncConfig{},
 	}
 }
 

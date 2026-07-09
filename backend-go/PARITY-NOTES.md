@@ -19,6 +19,18 @@ else is byte-identical.
   wrong, and no client is affected — the Android app and web dashboard always serialize both fields,
   so the missing-key path is never exercised in practice. When a field is *present but empty/invalid*,
   both backends return an identical `400`.
+- **Same family**: an invalid enum *path variable* (e.g. `PUT /api/admin/sync/FOO`) also hits
+  Kotlin's `/error`-forward → 401, where Go returns a clean 400 naming the allowed values. Same
+  reasoning; no client sends an invalid sync type.
+
+### 1b. JSON money fields: numerically identical, trailing zeros may differ
+- Money read back from a `numeric(12,2)` column serializes as a JSON number that is **numerically
+  equal** across backends but may differ textually: Go emits e.g. `142200` where Kotlin's BigDecimal
+  emits `142200.00` (Go's decimal drops trailing zeros; freshly-computed values that were rounded
+  still carry 2 places). This is invisible to clients — `JSON.parse` / kotlinx both yield the same
+  number, and the web formats via `rupiah()`. Human-facing CSV export **is** rendered fixed-2
+  (`StringFixed(2)`) to match Kotlin exactly. (A dedicated Money type would make the JSON textually
+  identical too, if ever required.)
 
 ## Deferred (not a divergence — completes in a later phase)
 
@@ -60,6 +72,15 @@ snapshot content + version parity is re-checked once Phase 6 completes.
 - **Access-token JWT `alg`**: Kotlin signs with HS384, Go with HS256. The token is opaque to clients
   (they only echo it back in `Authorization`), each backend validates its own, and no response body
   is affected — so this is invisible to the API contract.
+
+## Verified identical (Phase 9)
+- `GET /api/admin/sync` overview (schedule + last-run status for ERP + member)
+- `PUT /api/admin/sync/{type}` (enabled + cron; runtime-editable); invalid cron → 400;
+  dynamic robfig/cron scheduler reschedules on update (disabled by default)
+- `GET /api/admin/events/{id}/report` (end-of-event JSON: totals + per-product units/revenue/stock)
+- `GET /api/admin/events/{id}/report.csv` (CSV export — byte-identical incl. fixed-2 money)
+- `GET /api/admin/events/{id}/audit` (+ `?orderId=`) — append-only order trail
+- Divergence: invalid sync-type path → Kotlin 401 quirk vs Go 400 (see §1).
 
 ## Verified identical (Phase 7)
 - `POST /api/me/events/{id}/orders` — atomic create (variant pricing, server-decided promotion,

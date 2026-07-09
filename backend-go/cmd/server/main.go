@@ -20,8 +20,10 @@ import (
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/receipt"
+	"github.com/krnskrll/event-mpos/internal/report"
 	"github.com/krnskrll/event-mpos/internal/seed"
 	"github.com/krnskrll/event-mpos/internal/stock"
+	"github.com/krnskrll/event-mpos/internal/syncconfig"
 	"github.com/krnskrll/event-mpos/internal/user"
 	"github.com/krnskrll/event-mpos/internal/ws"
 )
@@ -67,6 +69,17 @@ func main() {
 		hub.Broadcast(eventID.String(), view)
 	})
 
+	// Reporting + runtime-editable sync schedules with a dynamic cron scheduler.
+	reportService := report.NewService(db)
+	syncConfigService := syncconfig.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
+	if err := syncConfigService.SeedDefaults(); err != nil {
+		log.Fatalf("sync config seed failed: %v", err)
+	}
+	scheduler := syncconfig.NewScheduler(syncConfigService,
+		func() { erpSyncService.Sync() },
+		func() { memberSyncService.Sync() },
+	)
+
 	// Snapshot contributors: all four domains live now. Products carry remaining event stock.
 	productService.SetStockRemaining(stockService.Remaining)
 	eventService.SetProviders(event.Providers{
@@ -84,6 +97,8 @@ func main() {
 	warehouseStockHandler := stock.NewWarehouseHandler(stockService, eventService)
 	promotionHandler := promotion.NewHandler(promotionService)
 	warehouseOrderHandler := order.NewWarehouseHandler(orderService)
+	reportHandler := report.NewHandler(reportService, auditService)
+	syncConfigHandler := syncconfig.NewHandler(syncConfigService, scheduler, erpSyncService, memberSyncService)
 	meHandler := me.NewHandler(eventService, productService, memberService, stockService, promotionService, orderService, receiptService)
 
 	// Append-only audit trigger (Postgres; skipped with a warning elsewhere).
@@ -158,6 +173,11 @@ func main() {
 		admin.GET("/members", memberHandler.List)
 		admin.POST("/members/sync", memberSyncHandler.SyncNow)
 		admin.GET("/members/sync/status", memberSyncHandler.Status)
+		admin.GET("/sync", syncConfigHandler.Overview)
+		admin.PUT("/sync/:type", syncConfigHandler.Update)
+		admin.GET("/events/:id/report", reportHandler.Report)
+		admin.GET("/events/:id/report.csv", reportHandler.ReportCSV)
+		admin.GET("/events/:id/audit", reportHandler.Audit)
 		admin.GET("/events/:id/stock", stockAdminHandler.Allocations)
 		admin.PUT("/events/:id/stock/:productId", stockAdminHandler.SetAllocation)
 		admin.GET("/events/:id/promotions", promotionHandler.List)
@@ -174,7 +194,9 @@ func main() {
 		warehouse.PATCH("/orders/:orderId/status", warehouseOrderHandler.Advance)
 	}
 
-	// 5. Serve
+	// 5. Start the dynamic sync scheduler + serve
+	scheduler.Start()
+
 	log.Printf("listening on :%s", cfg.Port)
 	if err := r.Run(":" + cfg.Port); err != nil {
 		log.Fatalf("server failed: %v", err)
