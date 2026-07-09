@@ -36,6 +36,17 @@ snapshot content + version parity is re-checked once Phase 6 completes.
   (they only echo it back in `Authorization`), each backend validates its own, and no response body
   is affected — so this is invisible to the API contract.
 
+## Verified identical (Phase 5)
+- `GET /api/admin/events/{id}/stock` (allocation rows); `PUT .../stock/{productId}` — DRAFT-locked
+  (ACTIVE → 409), over-warehouse → 400, negative → 400, below-sold → 400
+- `GET /api/warehouse/events` + `GET /api/warehouse/events/{id}/stock` (WH+ADMIN; BA → 403);
+  lowStock flag (remaining 1..10)
+- `GET /api/me/events/{id}/stock` (BA compact levels)
+- Event snapshot `products.remainingStock` now populated (matches Kotlin); StockProvider also feeds
+  the allocation fingerprint into the snapshot version.
+- Atomic oversell-proof `Decrement` (SELECT … FOR UPDATE row lock) implemented; exercised under
+  concurrency in Phase 7's order flow.
+
 ## Verified identical (Phase 4)
 - `GET /api/admin/members` (full directory incl. inactive; no `phone` field exposed)
 - `POST /api/admin/members/sync` (Result) + `GET /api/admin/members/sync/status`

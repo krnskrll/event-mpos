@@ -14,6 +14,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/member"
 	"github.com/krnskrll/event-mpos/internal/product"
+	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 
@@ -35,10 +36,11 @@ type Handler struct {
 	events   *event.Service
 	products *product.Service
 	members  *member.Service
+	stock    *stock.Service
 }
 
-func NewHandler(events *event.Service, products *product.Service, members *member.Service) *Handler {
-	return &Handler{events: events, products: products, members: members}
+func NewHandler(events *event.Service, products *product.Service, members *member.Service, stk *stock.Service) *Handler {
+	return &Handler{events: events, products: products, members: members, stock: stk}
 }
 
 func (h *Handler) Me(c *gin.Context) {
@@ -152,6 +154,29 @@ func (h *Handler) ProductByBarcode(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+// Stock returns live remaining stock per product for the BA's event (device polls this).
+func (h *Handler) Stock(c *gin.Context) {
+	p, ok := h.requireBa(c)
+	if !ok {
+		return
+	}
+	eventID, err := uuid.Parse(c.Param("eventId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	if err := h.events.RequireAssigned(p.UserID, eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	rows, err := h.stock.BaLevelsForEvent(eventID)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, rows)
 }
 
 // Members returns the active member directory for the device to cache.

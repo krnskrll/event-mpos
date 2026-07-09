@@ -16,6 +16,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/seed"
+	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 
@@ -47,9 +48,12 @@ func main() {
 	memberService := member.NewService(db)
 	memberSource := membersync.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	memberSyncService := membersync.NewService(memberSource, db, cfg.MemberRegionFilter)
+	stockService := stock.NewService(db)
 
-	// Snapshot contributors: products + members live now; stock/promotions wired in later phases.
-	eventService.SetProviders(event.Providers{Products: productService, Members: memberService})
+	// Snapshot contributors: products + members + stock live now; promotions wired in Phase 6.
+	// Products carry remaining event stock via the stock lookup.
+	productService.SetStockRemaining(stockService.Remaining)
+	eventService.SetProviders(event.Providers{Products: productService, Members: memberService, Stock: stockService})
 
 	authHandler := auth.NewHandler(authService)
 	userHandler := user.NewHandler(userService)
@@ -58,11 +62,13 @@ func main() {
 	erpHandler := erp.NewHandler(erpSyncService)
 	memberHandler := member.NewHandler(memberService)
 	memberSyncHandler := membersync.NewHandler(memberSyncService)
-	meHandler := me.NewHandler(eventService, productService, memberService)
+	stockAdminHandler := stock.NewAdminHandler(stockService)
+	warehouseStockHandler := stock.NewWarehouseHandler(stockService, eventService)
+	meHandler := me.NewHandler(eventService, productService, memberService, stockService)
 
 	// 3. Seed dev data
 	if cfg.SeedEnabled {
-		if err := seed.Run(db, erpSyncService, memberSyncService); err != nil {
+		if err := seed.Run(db, erpSyncService, memberSyncService, stockService); err != nil {
 			log.Fatalf("seed failed: %v", err)
 		}
 	}
@@ -96,6 +102,7 @@ func main() {
 		meGroup.GET("/events/:eventId/products/by-barcode/:barcode", meHandler.ProductByBarcode)
 		meGroup.GET("/members", meHandler.Members)
 		meGroup.GET("/members/by-qr/:qrCode", meHandler.MemberByQr)
+		meGroup.GET("/events/:eventId/stock", meHandler.Stock)
 
 		// Admin-only
 		admin := authed.Group("/admin")
@@ -119,6 +126,14 @@ func main() {
 		admin.GET("/members", memberHandler.List)
 		admin.POST("/members/sync", memberSyncHandler.SyncNow)
 		admin.GET("/members/sync/status", memberSyncHandler.Status)
+		admin.GET("/events/:id/stock", stockAdminHandler.Allocations)
+		admin.PUT("/events/:id/stock/:productId", stockAdminHandler.SetAllocation)
+
+		// Warehouse-only
+		warehouse := authed.Group("/warehouse")
+		warehouse.Use(auth.RequireRole(user.RoleWarehouse, user.RoleAdmin))
+		warehouse.GET("/events", warehouseStockHandler.Events)
+		warehouse.GET("/events/:eventId/stock", warehouseStockHandler.Levels)
 	}
 
 	// 5. Serve

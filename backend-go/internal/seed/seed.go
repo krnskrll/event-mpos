@@ -16,6 +16,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/security"
+	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 
@@ -23,7 +24,7 @@ import (
 //   admin@eventmpos.local / Admin123!  (ADMIN)
 //   ba@eventmpos.local    / Ba123456!  (BA)
 //   wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service) error {
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, stockSvc *stock.Service) error {
 	var count int64
 	if err := db.Model(&user.User{}).Count(&count).Error; err != nil {
 		return err
@@ -88,6 +89,14 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service) 
 	}
 	for i := range products {
 		if err := db.Create(&product.EventProduct{EventID: ev.ID, ProductID: products[i].ID, Available: true}).Error; err != nil {
+			return err
+		}
+		// Allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning.
+		qty := min(products[i].WarehouseStock, 60)
+		if products[i].SKU == "SKU-1004" {
+			qty = 8
+		}
+		if err := stockSvc.ForceAllocate(ev.ID, products[i].ID, qty); err != nil {
 			return err
 		}
 	}
