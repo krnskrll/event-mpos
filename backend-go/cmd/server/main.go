@@ -15,6 +15,7 @@ import (
 	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
+	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/seed"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
@@ -49,11 +50,13 @@ func main() {
 	memberSource := membersync.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	memberSyncService := membersync.NewService(memberSource, db, cfg.MemberRegionFilter)
 	stockService := stock.NewService(db)
+	promotionService := promotion.NewService(db)
 
-	// Snapshot contributors: products + members + stock live now; promotions wired in Phase 6.
-	// Products carry remaining event stock via the stock lookup.
+	// Snapshot contributors: all four domains live now. Products carry remaining event stock.
 	productService.SetStockRemaining(stockService.Remaining)
-	eventService.SetProviders(event.Providers{Products: productService, Members: memberService, Stock: stockService})
+	eventService.SetProviders(event.Providers{
+		Products: productService, Members: memberService, Stock: stockService, Promotions: promotionService,
+	})
 
 	authHandler := auth.NewHandler(authService)
 	userHandler := user.NewHandler(userService)
@@ -64,11 +67,12 @@ func main() {
 	memberSyncHandler := membersync.NewHandler(memberSyncService)
 	stockAdminHandler := stock.NewAdminHandler(stockService)
 	warehouseStockHandler := stock.NewWarehouseHandler(stockService, eventService)
-	meHandler := me.NewHandler(eventService, productService, memberService, stockService)
+	promotionHandler := promotion.NewHandler(promotionService)
+	meHandler := me.NewHandler(eventService, productService, memberService, stockService, promotionService)
 
 	// 3. Seed dev data
 	if cfg.SeedEnabled {
-		if err := seed.Run(db, erpSyncService, memberSyncService, stockService); err != nil {
+		if err := seed.Run(db, erpSyncService, memberSyncService, stockService, promotionService); err != nil {
 			log.Fatalf("seed failed: %v", err)
 		}
 	}
@@ -103,6 +107,7 @@ func main() {
 		meGroup.GET("/members", meHandler.Members)
 		meGroup.GET("/members/by-qr/:qrCode", meHandler.MemberByQr)
 		meGroup.GET("/events/:eventId/stock", meHandler.Stock)
+		meGroup.POST("/events/:eventId/promotions/quote", meHandler.Quote)
 
 		// Admin-only
 		admin := authed.Group("/admin")
@@ -128,6 +133,10 @@ func main() {
 		admin.GET("/members/sync/status", memberSyncHandler.Status)
 		admin.GET("/events/:id/stock", stockAdminHandler.Allocations)
 		admin.PUT("/events/:id/stock/:productId", stockAdminHandler.SetAllocation)
+		admin.GET("/events/:id/promotions", promotionHandler.List)
+		admin.POST("/events/:id/promotions", promotionHandler.Create)
+		admin.PUT("/promotions/:id", promotionHandler.Update)
+		admin.DELETE("/promotions/:id", promotionHandler.Delete)
 
 		// Warehouse-only
 		warehouse := authed.Group("/warehouse")

@@ -14,6 +14,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/member"
 	"github.com/krnskrll/event-mpos/internal/product"
+	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
@@ -33,14 +34,15 @@ type SnapshotHashResponse struct {
 }
 
 type Handler struct {
-	events   *event.Service
-	products *product.Service
-	members  *member.Service
-	stock    *stock.Service
+	events     *event.Service
+	products   *product.Service
+	members    *member.Service
+	stock      *stock.Service
+	promotions *promotion.Service
 }
 
-func NewHandler(events *event.Service, products *product.Service, members *member.Service, stk *stock.Service) *Handler {
-	return &Handler{events: events, products: products, members: members, stock: stk}
+func NewHandler(events *event.Service, products *product.Service, members *member.Service, stk *stock.Service, promotions *promotion.Service) *Handler {
+	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions}
 }
 
 func (h *Handler) Me(c *gin.Context) {
@@ -149,6 +151,34 @@ func (h *Handler) ProductByBarcode(c *gin.Context) {
 		return
 	}
 	resp, err := h.products.FindAvailableByBarcode(eventID, c.Param("barcode"))
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+// Quote returns the authoritative cart quote — the server picks + applies the single best promotion.
+func (h *Handler) Quote(c *gin.Context) {
+	p, ok := h.requireBa(c)
+	if !ok {
+		return
+	}
+	eventID, err := uuid.Parse(c.Param("eventId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	if err := h.events.RequireAssigned(p.UserID, eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	var req promotion.QuoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
+		return
+	}
+	resp, err := h.promotions.Quote(eventID, req.Lines)
 	if err != nil {
 		common.Fail(c, err)
 		return

@@ -30,11 +30,34 @@ computed from event fields only. The endpoint, auth/assignment guards, version-g
 (`?version=` → `{changed:false}`), and the `event` payload are already parity-verified. Full
 snapshot content + version parity is re-checked once Phase 6 completes.
 
+### 2. Event snapshot `version` string is backend-relative (opaque cache token)
+- **When**: the `version` field of `GET /api/me/events/{id}/snapshot` and the `snapshotHash` of
+  `.../snapshot/hash`.
+- **Behaviour**: Go computes a deterministic version (stable; changes iff the event's data changes),
+  but its exact string differs from Kotlin's.
+- **Why we diverge**: the version is an opaque cache token a client only ever compares against the
+  *same* backend (the device stores the version it received and sends it back via `?version=`). No
+  client compares a Go version to a Kotlin version. Reproducing Kotlin's exact hash would require
+  mirroring Java's `UUID.compareTo` (signed-long halves) and Hibernate's unspecified `findAllById`
+  ordering — fragile and of zero client value. The version-gating behaviour (`?version=current` →
+  `{changed:false}`) and all snapshot *content* (products/members/stock/promotions) are verified
+  identical. The parity harness normalizes `version`/`snapshotHash` out.
+
 ## Internal (non-contractual) difference
 
 - **Access-token JWT `alg`**: Kotlin signs with HS384, Go with HS256. The token is opaque to clients
   (they only echo it back in `Authorization`), each backend validates its own, and no response body
   is affected — so this is invisible to the API contract.
+
+## Verified identical (Phase 6)
+- `GET/POST /api/admin/events/{id}/promotions`; `PUT/DELETE /api/admin/promotions/{id}` (204)
+- Validation: percentage needs percentOff; fixed/bundle need amountOff; bundle needs minQty;
+  SPECIFIC needs productIds — all → 400 with matching messages
+- `POST /api/me/events/{id}/promotions/quote` — subtotal/discount/total + applied promotion; the
+  pure engine (percentage/fixed/bundle, scope, minQty/minSubtotal, cap-at-subtotal, best-by
+  discount→priority→name) verified against Kotlin and via Go unit tests
+- Event snapshot `promotions` array — matches. **Snapshot content is now fully identical to Kotlin
+  across products + members + stock + promotions**; only the opaque `version` token differs (above).
 
 ## Verified identical (Phase 5)
 - `GET /api/admin/events/{id}/stock` (allocation rows); `PUT .../stock/{productId}` — DRAFT-locked

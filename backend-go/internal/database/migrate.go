@@ -9,6 +9,7 @@ import (
 	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
+	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
@@ -30,6 +31,7 @@ func Models() []interface{} {
 		&member.Member{},
 		&membersync.Status{},
 		&stock.EventStockAllocation{},
+		&promotion.Promotion{},
 	}
 }
 

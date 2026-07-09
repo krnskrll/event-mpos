@@ -15,6 +15,7 @@ import (
 	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
+	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/security"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
@@ -24,7 +25,7 @@ import (
 //   admin@eventmpos.local / Admin123!  (ADMIN)
 //   ba@eventmpos.local    / Ba123456!  (BA)
 //   wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, stockSvc *stock.Service) error {
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, stockSvc *stock.Service, promoSvc *promotion.Service) error {
 	var count int64
 	if err := db.Model(&user.User{}).Count(&count).Error; err != nil {
 		return err
@@ -114,6 +115,35 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 			if err := db.Create(&variants[i]).Error; err != nil {
 				return err
 			}
+		}
+	}
+
+	// Seed a few event-scoped promotions for EV01 (so the cart/quote has something to apply).
+	pct := decimal.RequireFromString("10")
+	off20k := decimal.RequireFromString("20000")
+	min200k := decimal.RequireFromString("200000")
+	off30k := decimal.RequireFromString("30000")
+	pri1, pri2, pri3 := 1, 2, 3
+	bundleQty := 3
+	specific := promotion.ScopeSpecific
+	if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
+		Name: "10% off everything", Type: promotion.TypePercentage, PercentOff: &pct, Priority: &pri1,
+	}); err != nil {
+		return err
+	}
+	if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
+		Name: "Rp20.000 off when you spend Rp200.000", Type: promotion.TypeFixed,
+		AmountOff: &off20k, MinSubtotal: &min200k, Priority: &pri2,
+	}); err != nil {
+		return err
+	}
+	if lipstick.ID != uuid.Nil {
+		if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
+			Name: "Lipstick bundle: buy 3, Rp30.000 off", Type: promotion.TypeBundle,
+			AmountOff: &off30k, Scope: &specific, ProductIDs: []uuid.UUID{lipstick.ID},
+			MinQty: &bundleQty, Priority: &pri3,
+		}); err != nil {
+			return err
 		}
 	}
 
