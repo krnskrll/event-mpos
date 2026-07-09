@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/krnskrll/event-mpos/internal/audit"
 	"github.com/krnskrll/event-mpos/internal/auth"
 	"github.com/krnskrll/event-mpos/internal/common"
 	"github.com/krnskrll/event-mpos/internal/config"
@@ -13,9 +14,11 @@ import (
 	"github.com/krnskrll/event-mpos/internal/me"
 	"github.com/krnskrll/event-mpos/internal/member"
 	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
+	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/promotion"
+	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/seed"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
@@ -51,6 +54,9 @@ func main() {
 	memberSyncService := membersync.NewService(memberSource, db, cfg.MemberRegionFilter)
 	stockService := stock.NewService(db)
 	promotionService := promotion.NewService(db)
+	auditService := audit.NewService(db, userService)
+	receiptService := receipt.NewService(db)
+	orderService := order.NewService(db, stockService, promotionService, auditService, userService)
 
 	// Snapshot contributors: all four domains live now. Products carry remaining event stock.
 	productService.SetStockRemaining(stockService.Remaining)
@@ -68,7 +74,11 @@ func main() {
 	stockAdminHandler := stock.NewAdminHandler(stockService)
 	warehouseStockHandler := stock.NewWarehouseHandler(stockService, eventService)
 	promotionHandler := promotion.NewHandler(promotionService)
-	meHandler := me.NewHandler(eventService, productService, memberService, stockService, promotionService)
+	warehouseOrderHandler := order.NewWarehouseHandler(orderService)
+	meHandler := me.NewHandler(eventService, productService, memberService, stockService, promotionService, orderService, receiptService)
+
+	// Append-only audit trigger (Postgres; skipped with a warning elsewhere).
+	audit.InstallAppendOnlyGuard(db)
 
 	// 3. Seed dev data
 	if cfg.SeedEnabled {
@@ -108,6 +118,10 @@ func main() {
 		meGroup.GET("/members/by-qr/:qrCode", meHandler.MemberByQr)
 		meGroup.GET("/events/:eventId/stock", meHandler.Stock)
 		meGroup.POST("/events/:eventId/promotions/quote", meHandler.Quote)
+		meGroup.POST("/events/:eventId/orders", meHandler.SubmitOrder)
+		meGroup.GET("/events/:eventId/orders", meHandler.OrderHistory)
+		meGroup.GET("/orders/:orderId", meHandler.Order)
+		meGroup.POST("/orders/:orderId/receipts", meHandler.LogReceipt)
 
 		// Admin-only
 		admin := authed.Group("/admin")
@@ -143,6 +157,8 @@ func main() {
 		warehouse.Use(auth.RequireRole(user.RoleWarehouse, user.RoleAdmin))
 		warehouse.GET("/events", warehouseStockHandler.Events)
 		warehouse.GET("/events/:eventId/stock", warehouseStockHandler.Levels)
+		warehouse.GET("/events/:eventId/orders", warehouseOrderHandler.Orders)
+		warehouse.PATCH("/orders/:orderId/status", warehouseOrderHandler.Advance)
 	}
 
 	// 5. Serve

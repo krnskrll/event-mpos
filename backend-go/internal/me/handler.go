@@ -13,8 +13,10 @@ import (
 	"github.com/krnskrll/event-mpos/internal/common"
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/member"
+	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/promotion"
+	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
@@ -39,10 +41,12 @@ type Handler struct {
 	members    *member.Service
 	stock      *stock.Service
 	promotions *promotion.Service
+	orders     *order.Service
+	receipts   *receipt.Service
 }
 
-func NewHandler(events *event.Service, products *product.Service, members *member.Service, stk *stock.Service, promotions *promotion.Service) *Handler {
-	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions}
+func NewHandler(events *event.Service, products *product.Service, members *member.Service, stk *stock.Service, promotions *promotion.Service, orders *order.Service, receipts *receipt.Service) *Handler {
+	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions, orders: orders, receipts: receipts}
 }
 
 func (h *Handler) Me(c *gin.Context) {
@@ -156,6 +160,96 @@ func (h *Handler) ProductByBarcode(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, resp)
+}
+
+// SubmitOrder creates an order atomically (stock + promotion + daily number). Idempotent per key.
+func (h *Handler) SubmitOrder(c *gin.Context) {
+	p, ok := h.requireBa(c)
+	if !ok {
+		return
+	}
+	eventID, err := uuid.Parse(c.Param("eventId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	if err := h.events.RequireAssigned(p.UserID, eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	var req order.SubmitOrderRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
+		return
+	}
+	if len(req.Lines) == 0 {
+		common.AbortError(c, http.StatusBadRequest, "lines: must not be empty")
+		return
+	}
+	conf, err := h.orders.Submit(eventID, p.UserID, req)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, conf)
+}
+
+// OrderHistory returns this BA's order history for the event.
+func (h *Handler) OrderHistory(c *gin.Context) {
+	p, ok := h.requireBa(c)
+	if !ok {
+		return
+	}
+	eventID, err := uuid.Parse(c.Param("eventId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	if err := h.events.RequireAssigned(p.UserID, eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	summaries, err := h.orders.History(eventID, p.UserID)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, summaries)
+}
+
+// Order returns full order detail / reprint payload.
+func (h *Handler) Order(c *gin.Context) {
+	if _, ok := h.requireBa(c); !ok {
+		return
+	}
+	orderID, err := uuid.Parse(c.Param("orderId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid order id")
+		return
+	}
+	conf, err := h.orders.Get(orderID)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, conf)
+}
+
+// LogReceipt records that a receipt was printed (or reprinted) for an order. Returns 204.
+func (h *Handler) LogReceipt(c *gin.Context) {
+	if _, ok := h.requireBa(c); !ok {
+		return
+	}
+	orderID, err := uuid.Parse(c.Param("orderId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid order id")
+		return
+	}
+	if err := h.receipts.LogPrint(orderID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.Status(http.StatusNoContent)
 }
 
 // Quote returns the authoritative cart quote — the server picks + applies the single best promotion.

@@ -13,6 +13,9 @@ import (
 func Connect(dbURL string) (*gorm.DB, error) {
 	db, err := gorm.Open(postgres.Open(dbURL), &gorm.Config{
 		Logger: logger.Default.LogMode(logger.Warn),
+		// Surface gorm.ErrDuplicatedKey / ErrForeignKeyViolated so services can detect e.g. the
+		// idempotency-key race on concurrent order submits.
+		TranslateError: true,
 	})
 	if err != nil {
 		return nil, err

@@ -49,6 +49,22 @@ snapshot content + version parity is re-checked once Phase 6 completes.
   (they only echo it back in `Authorization`), each backend validates its own, and no response body
   is affected — so this is invisible to the API contract.
 
+## Verified identical (Phase 7)
+- `POST /api/me/events/{id}/orders` — atomic create (variant pricing, server-decided promotion,
+  Asia/Jakarta daily order number, ORD-YYYYMMDD-EVxx-NNN reference); idempotency-key returns the
+  original order with `duplicate:true`; insufficient stock → 409; empty cart / unknown product /
+  unknown variant → 400
+- `GET /api/me/events/{id}/orders` (history) + `GET /api/me/orders/{id}` (detail/reprint)
+- `POST /api/me/orders/{id}/receipts` → 204 (receipt-log counter)
+- `GET /api/warehouse/events/{id}/orders` (board, optional ?status) + `PATCH /api/warehouse/orders/{id}/status`
+  (one-step-forward guard; illegal transition → 409)
+- Append-only `order_audit_log` written in-transaction for create + status change; Postgres
+  BEFORE UPDATE/DELETE trigger installed on startup
+- **Concurrency (Go): 20 simultaneous 1-unit orders against an 8-unit allocation → exactly 8 sold,
+  0 remaining, 12 rejected — no oversell** (SELECT … FOR UPDATE row lock verified)
+- Warehouse-board broadcast (OrderChangedEvent) is deferred to Phase 8 (WebSocket); the order
+  service holds a nil broadcaster hook until then.
+
 ## Verified identical (Phase 6)
 - `GET/POST /api/admin/events/{id}/promotions`; `PUT/DELETE /api/admin/promotions/{id}` (204)
 - Validation: percentage needs percentOff; fixed/bundle need amountOff; bundle needs minQty;

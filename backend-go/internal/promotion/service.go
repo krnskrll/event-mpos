@@ -42,6 +42,16 @@ func (s *Service) activeForEvent(eventID uuid.UUID) ([]Promotion, error) {
 	return promos, err
 }
 
+// BestFor evaluates the active promotions for an event against a cart and returns the single best
+// applied promotion (or nil). Shared by the quote endpoint and order submission.
+func (s *Service) BestFor(eventID uuid.UUID, cart []CartLine, now time.Time) (*AppliedPromotion, error) {
+	promos, err := s.activeForEvent(eventID)
+	if err != nil {
+		return nil, err
+	}
+	return BestPromotion(cart, promos, now), nil
+}
+
 // SnapshotPromotions returns active promotions as compact snapshot DTOs (event.PromotionProvider).
 func (s *Service) SnapshotPromotions(eventID uuid.UUID) ([]any, error) {
 	promos, err := s.activeForEvent(eventID)

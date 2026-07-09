@@ -3,13 +3,16 @@ package database
 import (
 	"gorm.io/gorm"
 
+	"github.com/krnskrll/event-mpos/internal/audit"
 	"github.com/krnskrll/event-mpos/internal/auth"
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/member"
 	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
+	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/promotion"
+	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
@@ -32,6 +35,11 @@ func Models() []interface{} {
 		&membersync.Status{},
 		&stock.EventStockAllocation{},
 		&promotion.Promotion{},
+		&order.Order{},
+		&order.OrderItem{},
+		&order.OrderDailySequence{},
+		&receipt.ReceiptLog{},
+		&audit.OrderAuditLog{},
 	}
 }
 
