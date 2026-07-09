@@ -1,6 +1,14 @@
 package database
 
 import (
+	"errors"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/golang-migrate/migrate/v4"
+	_ "github.com/golang-migrate/migrate/v4/database/postgres"
+	_ "github.com/golang-migrate/migrate/v4/source/file"
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/audit"
@@ -45,8 +53,41 @@ func Models() []interface{} {
 	}
 }
 
-// AutoMigrate reconciles the schema with the registered models (dev/local behaviour, equivalent to
-// the Kotlin ddl-auto=update). Production deploys run the generated golang-migrate SQL instead.
+// AutoMigrate reconciles the schema with the registered models (dev fallback, equivalent to the
+// Kotlin ddl-auto=update). Used only when no golang-migrate files are present.
 func AutoMigrate(db *gorm.DB) error {
 	return db.AutoMigrate(Models()...)
+}
+
+// HasMigrations reports whether the given dir contains golang-migrate files.
+func HasMigrations(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if strings.HasSuffix(e.Name(), ".up.sql") {
+			return true
+		}
+	}
+	return false
+}
+
+// RunMigrations applies the golang-migrate files in dir against the DB. This is the production
+// source of truth (Option A); the init file was generated from the GORM structs so the two can't
+// drift. Idempotent — a no-op when the DB is already up to date.
+func RunMigrations(dbURL, dir string) error {
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return err
+	}
+	m, err := migrate.New("file://"+abs, dbURL)
+	if err != nil {
+		return err
+	}
+	defer m.Close()
+	if err := m.Up(); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return err
+	}
+	return nil
 }

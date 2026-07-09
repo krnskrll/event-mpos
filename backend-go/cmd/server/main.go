@@ -36,10 +36,19 @@ func main() {
 	if err != nil {
 		log.Fatalf("database connection failed: %v", err)
 	}
-	if err := database.AutoMigrate(db); err != nil {
-		log.Fatalf("schema migration failed: %v", err)
+	// Schema: golang-migrate (production source of truth) when migration files are present;
+	// otherwise GORM AutoMigrate (dev fallback).
+	if database.HasMigrations(cfg.MigrationsPath) {
+		if err := database.RunMigrations(cfg.DBUrl, cfg.MigrationsPath); err != nil {
+			log.Fatalf("golang-migrate failed: %v", err)
+		}
+		log.Println("database connected + migrations applied")
+	} else {
+		if err := database.AutoMigrate(db); err != nil {
+			log.Fatalf("schema migration failed: %v", err)
+		}
+		log.Println("database connected + schema via AutoMigrate")
 	}
-	log.Println("database connected + schema ready")
 
 	// 2. Services
 	jwtService, err := auth.NewJwtService(cfg.JWTSecret, cfg.AccessTokenTTLMin)

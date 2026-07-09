@@ -16,6 +16,9 @@ type Config struct {
 	// Serves both GORM (app runtime) and golang-migrate (schema), so upscaling is a URL swap.
 	DBUrl string
 
+	// Schema migrations directory (golang-migrate). Falls back to GORM AutoMigrate if absent.
+	MigrationsPath string
+
 	// HTTP
 	Port           string
 	CORSOrigins    []string
@@ -49,6 +52,8 @@ func Load() *Config {
 
 	return &Config{
 		DBUrl: getenv("DB_URL", "postgres://eventmpos:eventmpos@localhost:5432/eventmpos?sslmode=disable"),
+
+		MigrationsPath: getenv("MIGRATIONS_PATH", "migrations"),
 
 		Port:        getenv("PORT", getenv("SERVER_PORT", "8080")),
 		CORSOrigins: splitCSV(getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")),
