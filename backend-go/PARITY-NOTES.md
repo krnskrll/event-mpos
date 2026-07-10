@@ -47,8 +47,13 @@ else is byte-identical.
   warehouse data flow through the `/api` proxy, and the **native WebSocket through the Vite `/ws`
   proxy** delivers a live order broadcast (bad token → 401). Confirms the one contract change works
   end-to-end against Go.
-- **Android**: requires **no changes** — the REST contract is byte-identical and the app uses no
-  WebSocket. A live emulator run is the only check not done headless (optional; steps on request).
+- **Android (live emulator, verified)**: the unchanged Jul-6 debug APK ran against the Go backend
+  (Pixel7_API34 → `10.0.2.2:8080`). Logged in as BA (`POST /api/auth/login` 200), fetched the
+  assigned event (EV01 "Mid-Year Beauty Roadshow"), downloaded the snapshot (`/snapshot` +
+  `/stock` 200), and rendered the catalogue: "Synced" badge, brand filters, Rupiah prices
+  (Rp 99.000 / Rp 55.000), and stock badges from Go allocations incl. the low-stock "8 left"
+  (SKU-1004). Zero app changes; the order write-path is proven byte-identical + oversell-safe
+  via the parity harness.
 
 ## Deferred (not a divergence — completes in a later phase)
 
