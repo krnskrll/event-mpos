@@ -54,6 +54,27 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
 `ba@eventmpos.local` / `Ba123456!` (BA, assigned to EV01),
 `wh@eventmpos.local` / `Wh123456!` (warehouse).
 
+## Architecture
+
+```
+Android (Kotlin, Compose, Room)  ──HTTPS/JSON──▶  Go API (Gin)  ──GORM──▶  PostgreSQL
+  offline-first: Room is the UI's                 source of truth          golang-migrate schema
+  source; WorkManager uploads orders              row-locked stock         append-only audit (trigger)
+                                                       │
+Web dashboard (React + TS)  ◀──native WebSocket────────┘  live warehouse board (+ polling fallback)
+```
+
+- **Event-scoped**: products, stock, promotions, orders and BA assignments all belong to an event.
+- **Selling offline**: each device draws final order numbers from its own server-issued block, prints
+  the receipt at confirmation, and uploads later. The server never rejects an uploaded order for
+  stock; it flags `stock_conflict`. A CLOSED event accepts orders created before closing for 24h.
+- **Stock** changes only through `SELECT … FOR UPDATE` in the stock service; every order state change
+  is audited in the same transaction.
+- **Hardware** sits behind `PrinterPort` / `ScannerPort`, so the app runs on an emulator.
+- **CI** (`.github/workflows/ci.yml`): Go vet + migrations + Postgres integration tests; Android
+  lint + unit tests + build; web type check + build + vitest. The Go and Android promotion engines
+  both run `testdata/promotion-cases.json`.
+
 ## Epic Status
 - **EPIC-01 — Foundation & Authentication**: ✅ implemented. JWT login + refresh, role-based
   access (Admin/BA/Warehouse), admin user creation + BA→event assignment, Android secure-token
@@ -74,11 +95,11 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
 - **EPIC-05 — Warehouse Allocation & Stock**: ✅ implemented. Warehouse stock synced from ERP,
   admin per-event allocation (locked once ACTIVE), warehouse + Android remaining-stock views with
   low-stock/sold-out flags (polling), and an **atomic, oversell-proof decrement** (PostgreSQL
-  `SELECT … FOR UPDATE` + `@Version`) proven by a 300-thread concurrency test. See
+  `SELECT … FOR UPDATE`) proven by a 300-goroutine Postgres integration test. See
   [docs/EPIC-05-verification.md](docs/EPIC-05-verification.md).
 - **EPIC-06 — Promotions**: ✅ implemented. Event-scoped promotions (percentage / fixed / bundle)
   that auto-apply, a **shared rule engine** (server-authoritative + mirrored client preview, pinned
-  by a unit test), promotions in the snapshot, admin CRUD, and an authoritative cart **quote**
+  by a shared fixture both engines run in CI), promotions in the snapshot, admin CRUD, and an authoritative cart **quote**
   endpoint that picks the single best promotion. See [docs/EPIC-06-verification.md](docs/EPIC-06-verification.md).
 - **EPIC-07 — Cart & Order Creation**: ✅ implemented. Local cart with live promo preview + customer
   requirement; **atomic order submit** (stock decrement + promotion + race-safe daily order number
@@ -95,6 +116,16 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   NEW→PACKING→READY→COLLECTED (validated), status filter, **new-order beep + flash**, **polling
   fallback** when the socket drops, and a remaining-stock panel. See
   [docs/EPIC-09-verification.md](docs/EPIC-09-verification.md).
+- **EPIC-10 — Background Sync & Offline Resilience**: ✅ implemented. Offline banner, silent 60s stock
+  refresh, pull-to-refresh re-sync, a WorkManager upload queue that drains oldest-first on reconnect,
+  and a notification when a queued order resolves. See [docs/EPIC-10-verification.md](docs/EPIC-10-verification.md).
+- **EPIC-11 — Back Office Administration**: ✅ implemented. User edit/deactivate, DB-stored sync
+  schedules editable at runtime, end-of-event report + CSV (CLOSED events only), and a paginated,
+  filterable, append-only audit log. See [docs/EPIC-11-verification.md](docs/EPIC-11-verification.md).
+- **EPIC-12 — Phase 1 Completion**: ✅ implemented, except Milestone B (real Sunmi printer + scanner),
+  which waits for a physical V2 Pro. Go became the only backend with CI; offline order confirmation
+  with per-device number blocks; late sync after an event closes; order cancel; cart drafts;
+  back-office fixes. See [docs/EPIC-12-verification.md](docs/EPIC-12-verification.md).
 
 ## How to Use the Prompts
 
@@ -114,7 +145,8 @@ prompts/
 ├── EPIC-08-receipt-print.md
 ├── EPIC-09-warehouse-dashboard.md
 ├── EPIC-10-offline-resilience.md
-└── EPIC-11-backoffice-admin.md
+├── EPIC-11-backoffice-admin.md
+└── EPIC-12-phase1-completion.md
 ```
 
 ## Git Setup (First Time)
