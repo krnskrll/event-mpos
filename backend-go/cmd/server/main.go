@@ -124,7 +124,7 @@ func main() {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
 	_ = r.SetTrustedProxies(nil)
-	r.Use(gin.Logger(), gin.Recovery(), common.CORS(cfg.CORSOrigins))
+	r.Use(common.AccessLogger(), gin.Recovery(), common.CORS(cfg.CORSOrigins))
 
 	common.RegisterHealth(r)
 
