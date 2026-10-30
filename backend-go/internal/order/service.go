@@ -233,31 +233,80 @@ func (s *Service) WarehouseOrders(eventID uuid.UUID, status *OrderStatus) ([]War
 	return views, nil
 }
 
-// AdvanceStatus moves an order one step forward, auditing + broadcasting the change.
+// AdvanceStatus moves an order one step forward, auditing + broadcasting the change. The order row is
+// locked so a concurrent cancel can't be overtaken by a stale advance.
 func (s *Service) AdvanceStatus(orderID uuid.UUID, target OrderStatus, actorUserID *uuid.UUID) (*WarehouseOrderView, error) {
 	var o Order
-	if err := s.db.Preload("Items").First(&o, "id = ?", orderID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, common.NewAppError(http.StatusNotFound, "Order not found")
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := lockOrder(tx, orderID, &o); err != nil {
+			return err
 		}
-		return nil, err
-	}
-	if !o.Status.CanAdvanceTo(target) {
-		return nil, common.NewAppError(http.StatusConflict,
-			"Cannot move order from "+string(o.Status)+" to "+string(target))
-	}
-	from := o.Status
-	txErr := s.db.Transaction(func(tx *gorm.DB) error {
+		if !o.Status.CanAdvanceTo(target) {
+			return common.NewAppError(http.StatusConflict, "Cannot move order from "+string(o.Status)+" to "+string(target))
+		}
+		from := o.Status
 		if err := tx.Model(&o).Update("status", target).Error; err != nil {
 			return err
 		}
+		o.Status = target
 		return s.audit.RecordStatusChange(tx, o.EventID, o.ID, o.ReferenceID, string(from), string(target), actorUserID)
 	})
-	if txErr != nil {
-		return nil, txErr
+	if err != nil {
+		return nil, err
 	}
-	o.Status = target
-	view, err := s.toWarehouseView(&o)
+	return s.publish(&o)
+}
+
+// Cancel cancels an order and returns its stock, in one transaction with the audit entry. A BA may
+// cancel only their own order while it is NEW (others' orders are a 404); warehouse and admin may
+// cancel any order that is NEW or PACKING. Anything else is a 409.
+func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole user.Role, reason *string) (*WarehouseOrderView, error) {
+	var o Order
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		if err := lockOrder(tx, orderID, &o); err != nil {
+			return err
+		}
+		isBa := actorRole == user.RoleBA
+		if isBa && o.BaUserID != actorID {
+			return common.NewAppError(http.StatusNotFound, "Order not found")
+		}
+		if !o.Status.CanCancel() || (isBa && o.Status != StatusNew) {
+			return common.NewAppError(http.StatusConflict, "Order "+o.ReferenceID+" is "+string(o.Status)+" and can no longer be cancelled")
+		}
+		for _, it := range o.Items {
+			if err := s.stock.Restore(tx, o.EventID, it.ProductID, it.Qty); err != nil {
+				return err
+			}
+		}
+		from := o.Status
+		if err := tx.Model(&o).Update("status", StatusCancelled).Error; err != nil {
+			return err
+		}
+		o.Status = StatusCancelled
+		return s.audit.RecordCancelled(tx, o.EventID, o.ID, o.ReferenceID, string(from), &actorID, reason)
+	})
+	if err != nil {
+		return nil, err
+	}
+	s.stock.InvalidateSummary(o.EventID)
+	return s.publish(&o)
+}
+
+// lockOrder loads an order with its items, holding a row lock until the transaction ends.
+func lockOrder(tx *gorm.DB, orderID uuid.UUID, o *Order) error {
+	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(o, "id = ?", orderID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return common.NewAppError(http.StatusNotFound, "Order not found")
+	}
+	if err != nil {
+		return err
+	}
+	return tx.Where("order_id = ?", orderID).Find(&o.Items).Error
+}
+
+// publish pushes the order's current board view to the warehouse WebSocket after commit.
+func (s *Service) publish(o *Order) (*WarehouseOrderView, error) {
+	view, err := s.toWarehouseView(o)
 	if err != nil {
 		return nil, err
 	}

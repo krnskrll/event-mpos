@@ -16,12 +16,14 @@ const (
 	StatusPacking   OrderStatus = "PACKING"
 	StatusReady     OrderStatus = "READY"
 	StatusCollected OrderStatus = "COLLECTED"
+	// StatusCancelled is terminal and off the forward flow; reachable only via Service.Cancel.
+	StatusCancelled OrderStatus = "CANCELLED"
 )
 
 var statusOrder = []OrderStatus{StatusNew, StatusPacking, StatusReady, StatusCollected}
 
 func ParseStatus(s string) (OrderStatus, bool) {
-	for _, st := range statusOrder {
+	for _, st := range append(statusOrder, StatusCancelled) {
 		if st == OrderStatus(s) {
 			return st, true
 		}
@@ -37,6 +39,9 @@ func (s OrderStatus) next() (OrderStatus, bool) {
 	}
 	return "", false
 }
+
+// CanCancel reports whether the order may still be cancelled (nothing has left the warehouse yet).
+func (s OrderStatus) CanCancel() bool { return s == StatusNew || s == StatusPacking }
 
 // CanAdvanceTo reports whether target is exactly the next status forward.
 func (s OrderStatus) CanAdvanceTo(target OrderStatus) bool {
@@ -151,23 +156,23 @@ type OrderItemView struct {
 }
 
 type OrderConfirmation struct {
-	ID                uuid.UUID       `json:"id"`
-	OrderNumber       int             `json:"orderNumber"`
-	OrderNumberDisplay string         `json:"orderNumberDisplay"`
-	ReferenceID       string          `json:"referenceId"`
-	Status            OrderStatus     `json:"status"`
-	EventCode         string          `json:"eventCode"`
-	EventName         string          `json:"eventName"`
-	CustomerName      string          `json:"customerName"`
-	CustomerTier      *string         `json:"customerTier,omitempty"`
-	Items             []OrderItemView `json:"items"`
-	Subtotal          decimal.Decimal `json:"subtotal"`
-	Discount          decimal.Decimal `json:"discount"`
-	Total             decimal.Decimal `json:"total"`
-	PromotionName     *string         `json:"promotionName,omitempty"`
-	CreatedAt         time.Time       `json:"createdAt"`
-	CashierNote       string          `json:"cashierNote"`
-	Duplicate         bool            `json:"duplicate"`
+	ID                 uuid.UUID       `json:"id"`
+	OrderNumber        int             `json:"orderNumber"`
+	OrderNumberDisplay string          `json:"orderNumberDisplay"`
+	ReferenceID        string          `json:"referenceId"`
+	Status             OrderStatus     `json:"status"`
+	EventCode          string          `json:"eventCode"`
+	EventName          string          `json:"eventName"`
+	CustomerName       string          `json:"customerName"`
+	CustomerTier       *string         `json:"customerTier,omitempty"`
+	Items              []OrderItemView `json:"items"`
+	Subtotal           decimal.Decimal `json:"subtotal"`
+	Discount           decimal.Decimal `json:"discount"`
+	Total              decimal.Decimal `json:"total"`
+	PromotionName      *string         `json:"promotionName,omitempty"`
+	CreatedAt          time.Time       `json:"createdAt"`
+	CashierNote        string          `json:"cashierNote"`
+	Duplicate          bool            `json:"duplicate"`
 }
 
 type OrderSummary struct {
@@ -200,6 +205,10 @@ type WarehouseOrderView struct {
 	Status             OrderStatus     `json:"status"`
 	Total              decimal.Decimal `json:"total"`
 	CreatedAt          time.Time       `json:"createdAt"`
+}
+
+type CancelOrderRequest struct {
+	Reason *string `json:"reason"`
 }
 
 type AdvanceStatusRequest struct {

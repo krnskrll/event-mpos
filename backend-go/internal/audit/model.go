@@ -13,12 +13,13 @@ const (
 	ActionOrderCreated   AuditAction = "ORDER_CREATED"
 	ActionStatusChanged  AuditAction = "STATUS_CHANGED"
 	ActionReceiptPrinted AuditAction = "RECEIPT_PRINTED"
+	ActionOrderCancelled AuditAction = "ORDER_CANCELLED"
 )
 
 // ParseAction validates an action name from a query string.
 func ParseAction(s string) (AuditAction, bool) {
 	switch a := AuditAction(s); a {
-	case ActionOrderCreated, ActionStatusChanged, ActionReceiptPrinted:
+	case ActionOrderCreated, ActionStatusChanged, ActionReceiptPrinted, ActionOrderCancelled:
 		return a, true
 	}
 	return "", false

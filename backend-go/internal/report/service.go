@@ -33,16 +33,18 @@ type ProductReportRow struct {
 }
 
 type EndOfEventReport struct {
-	EventID       uuid.UUID          `json:"eventId"`
-	EventCode     string             `json:"eventCode"`
-	EventName     string             `json:"eventName"`
-	Status        event.EventStatus  `json:"status"`
-	GeneratedAt   time.Time          `json:"generatedAt"`
-	TotalOrders   int                `json:"totalOrders"`
-	TotalItems    int                `json:"totalItems"`
-	TotalRevenue  decimal.Decimal    `json:"totalRevenue"`
-	TotalDiscount decimal.Decimal    `json:"totalDiscount"`
-	Products      []ProductReportRow `json:"products"`
+	EventID     uuid.UUID         `json:"eventId"`
+	EventCode   string            `json:"eventCode"`
+	EventName   string            `json:"eventName"`
+	Status      event.EventStatus `json:"status"`
+	GeneratedAt time.Time         `json:"generatedAt"`
+	TotalOrders int               `json:"totalOrders"`
+	// CancelledOrders are excluded from every other total (orders, items, revenue, discount).
+	CancelledOrders int                `json:"cancelledOrders"`
+	TotalItems      int                `json:"totalItems"`
+	TotalRevenue    decimal.Decimal    `json:"totalRevenue"`
+	TotalDiscount   decimal.Decimal    `json:"totalDiscount"`
+	Products        []ProductReportRow `json:"products"`
 }
 
 type Service struct {
@@ -65,7 +67,13 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 			"The end-of-event report is available once "+ev.Code+" is CLOSED (it is "+string(ev.Status)+").")
 	}
 	var orders []order.Order
-	if err := s.db.Preload("Items").Where("event_id = ?", eventID).Order("created_at DESC").Find(&orders).Error; err != nil {
+	if err := s.db.Preload("Items").Where("event_id = ? AND status <> ?", eventID, order.StatusCancelled).
+		Order("created_at DESC").Find(&orders).Error; err != nil {
+		return nil, err
+	}
+	var cancelled int64
+	if err := s.db.Model(&order.Order{}).Where("event_id = ? AND status = ?", eventID, order.StatusCancelled).
+		Count(&cancelled).Error; err != nil {
 		return nil, err
 	}
 
@@ -146,7 +154,7 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 
 	return &EndOfEventReport{
 		EventID: ev.ID, EventCode: ev.Code, EventName: ev.Name, Status: ev.Status,
-		GeneratedAt: time.Now().UTC(), TotalOrders: len(orders), TotalItems: totalItems,
+		GeneratedAt: time.Now().UTC(), TotalOrders: len(orders), CancelledOrders: int(cancelled), TotalItems: totalItems,
 		TotalRevenue: totalRevenue.Round(2), TotalDiscount: totalDiscount.Round(2), Products: rows,
 	}, nil
 }
@@ -159,6 +167,7 @@ func (s *Service) ToCSV(r *EndOfEventReport) string {
 	line("Status," + string(r.Status))
 	line("Generated," + r.GeneratedAt.Format(time.RFC3339))
 	line("Total Orders," + itoa(r.TotalOrders))
+	line("Cancelled Orders," + itoa(r.CancelledOrders))
 	line("Total Items," + itoa(r.TotalItems))
 	// StringFixed(2) matches Kotlin BigDecimal's fixed 2-decimal rendering (Round/String drops zeros).
 	line("Total Revenue," + r.TotalRevenue.StringFixed(2))

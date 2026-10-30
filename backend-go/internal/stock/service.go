@@ -238,6 +238,18 @@ func (s *Service) Decrement(tx *gorm.DB, eventID, productID uuid.UUID, qty int) 
 	return tx.Save(&alloc).Error
 }
 
+// Restore returns qty of a product to the event's stock (order cancelled), under the same row lock
+// as Decrement. Must run inside the caller's transaction.
+func (s *Service) Restore(tx *gorm.DB, eventID, productID uuid.UUID, qty int) error {
+	var alloc EventStockAllocation
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("event_id = ? AND product_id = ?", eventID, productID).First(&alloc).Error; err != nil {
+		return err
+	}
+	alloc.SoldQty = max(alloc.SoldQty-qty, 0)
+	return tx.Save(&alloc).Error
+}
+
 // ---- helpers ----
 
 func (s *Service) findAllocation(tx *gorm.DB, eventID, productID uuid.UUID) (*EventStockAllocation, error) {
