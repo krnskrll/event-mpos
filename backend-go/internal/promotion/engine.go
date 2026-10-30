@@ -45,7 +45,7 @@ func greater(a, b *AppliedPromotion) bool {
 		return c > 0
 	}
 	if a.Promotion.Priority != b.Promotion.Priority {
-		return a.Promotion.Priority > b.Promotion.Priority
+		return a.Promotion.Priority < b.Promotion.Priority
 	}
 	return a.Promotion.Name > b.Promotion.Name
 }
