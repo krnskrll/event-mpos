@@ -1,0 +1,5 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- Local backend runs on plain HTTP; release builds require HTTPS. -->
+    <application android:usesCleartextTraffic="true"/>
+</manifest>
