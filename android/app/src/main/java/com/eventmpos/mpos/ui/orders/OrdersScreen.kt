@@ -4,6 +4,8 @@ import com.eventmpos.mpos.core.format.rupiah
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -89,7 +91,8 @@ fun OrdersScreen(
             }
         }
         // Underline filter tabs
-        Row(Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 16.dp)) {
+        // Five tabs don't fit a phone width: let the row scroll.
+        Row(Modifier.fillMaxWidth().background(Color.White).horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp)) {
             FILTERS.forEach { (label, state) ->
                 val active = filter == state
                 val count = if (state == null) orders.size else orders.count { it.state == state }
