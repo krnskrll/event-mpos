@@ -28,6 +28,9 @@ data class ReceiptData(
 object ReceiptFormatter {
     const val WIDTH = 32
 
+    /** First line of a cancelled order's stored receipt (also printed on any reprint). */
+    const val CANCELLED = "       *** CANCELLED ***"
+
     fun format(r: ReceiptData): List<String> {
         val out = mutableListOf<String>()
         out += center(r.brand.uppercase())

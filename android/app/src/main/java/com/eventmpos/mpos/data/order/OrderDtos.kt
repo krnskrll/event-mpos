@@ -13,7 +13,20 @@ data class SubmitOrderRequestDto(
     val idempotencyKey: String,
     val customer: CustomerInfoDto,
     val lines: List<OrderLineDto>,
+    // Confirmed on the device with a final number from its block (EPIC-12 C1).
+    val deviceId: String? = null,
+    val orderNumber: Int? = null,
+    val clientCreatedAt: String? = null,
 )
+
+@Serializable
+data class NumberBlockRequestDto(val deviceId: String)
+
+@Serializable
+data class NumberBlockDto(val businessDate: String, val rangeStart: Int, val rangeEnd: Int)
+
+@Serializable
+data class CancelOrderRequestDto(val reason: String? = null)
 
 @Serializable
 data class OrderItemViewDto(

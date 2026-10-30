@@ -21,4 +21,7 @@ class FakePendingOrderDao : PendingOrderDao {
     }
 
     override suspend fun get(key: String): PendingOrderEntity? = rows.value[key]
+
+    override fun observePendingCount(eventId: String): Flow<Int> =
+        rows.map { all -> all.values.count { it.eventId == eventId && it.status == "PENDING" } }
 }

@@ -79,6 +79,9 @@ object AppProvidesModule {
     @Provides
     fun provideCartDraftDao(db: AppDatabase): CartDraftDao = db.cartDraftDao()
 
+    @Provides
+    fun provideNumberBlockDao(db: AppDatabase): com.eventmpos.mpos.data.order.NumberBlockDao = db.numberBlockDao()
+
     /** Process-lifetime scope for app-wide background work (e.g. cart autosave). */
     @Provides
     @Singleton

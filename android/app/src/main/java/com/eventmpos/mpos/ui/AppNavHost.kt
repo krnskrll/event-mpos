@@ -50,6 +50,7 @@ fun AppNavHost(startLoggedIn: Boolean) {
     val cartCount by cartBadge.count.collectAsStateWithLifecycle()
     val connectivity: com.eventmpos.mpos.ui.components.ConnectivityViewModel = hiltViewModel()
     val isOnline by connectivity.isOnline.collectAsStateWithLifecycle()
+    val closedPending by connectivity.closedEventPending.collectAsStateWithLifecycle()
 
     // A returning BA goes to event selection (re-pick + re-sync); fresh launch → login.
     val start = if (startLoggedIn) Routes.EVENT_SELECTION else Routes.LOGIN
@@ -65,6 +66,7 @@ fun AppNavHost(startLoggedIn: Boolean) {
     ) { padding ->
       androidx.compose.foundation.layout.Column(androidx.compose.ui.Modifier.padding(padding)) {
         com.eventmpos.mpos.ui.components.OfflineBanner(isOnline)
+        com.eventmpos.mpos.ui.components.ClosedEventBanner(closedPending)
         NavHost(navController = nav, startDestination = start, modifier = androidx.compose.ui.Modifier.weight(1f)) {
             composable(Routes.LOGIN) {
                 LoginScreen(onLoggedIn = { nav.navigate(Routes.EVENT_SELECTION) { popUpTo(Routes.LOGIN) { inclusive = true } } })

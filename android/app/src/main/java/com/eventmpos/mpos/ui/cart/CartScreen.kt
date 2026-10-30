@@ -51,6 +51,7 @@ fun CartScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val drafts by viewModel.drafts.collectAsStateWithLifecycle()
+    val error by viewModel.error.collectAsStateWithLifecycle()
     var showSave by remember { mutableStateOf(false) }
     var showDrafts by remember { mutableStateOf(false) }
 
@@ -117,6 +118,7 @@ fun CartScreen(
             Spacer(Modifier.size(4.dp))
             TotalRow("Total", state.total, Brand.Heading, bold = true)
             Spacer(Modifier.size(12.dp))
+            error?.let { Text(it, color = Brand.Danger, fontSize = 13.sp, modifier = Modifier.padding(bottom = 8.dp)) }
             BrandButton(
                 text = when {
                     state.submitting -> "Submitting…"

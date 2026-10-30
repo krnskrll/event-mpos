@@ -24,4 +24,6 @@ data class PendingOrderEntity(
     val referenceId: String? = null,
     val total: Double? = null,
     val errorMessage: String? = null,
+    val orderNumber: Int? = null,      // final number from the device's block (EPIC-12 C1)
+    val serverOrderId: String? = null, // set once uploaded; needed to cancel
 )

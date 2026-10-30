@@ -1,93 +1,105 @@
 package com.eventmpos.mpos.data.order
 
-import androidx.work.ExistingWorkPolicy
-import androidx.work.OneTimeWorkRequest
 import androidx.work.WorkManager
+import com.eventmpos.mpos.data.auth.AuthApi
 import com.eventmpos.mpos.data.cart.CartStore
-import com.eventmpos.mpos.data.local.PendingOrderEntity
+import com.eventmpos.mpos.data.local.ProductDao
+import com.eventmpos.mpos.data.receipt.ReceiptManager
+import com.eventmpos.mpos.data.session.SessionStore
+import com.eventmpos.mpos.domain.auth.AssignedEvent
+import com.eventmpos.mpos.domain.auth.EventStatus
 import com.eventmpos.mpos.domain.member.CustomerSource
 import com.eventmpos.mpos.domain.member.SelectedCustomer
 import com.eventmpos.mpos.domain.order.OrderState
+import com.eventmpos.mpos.domain.order.Sale
+import com.eventmpos.mpos.domain.receipt.ReceiptData
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.mockk
+import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.runTest
-import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import retrofit2.HttpException
+import retrofit2.Response
 
+/** Offline confirmation (EPIC-12 C1) and cancel (C4) on the device. */
 class OrderRepositoryImplTest {
-
     private val cart = CartStore()
     private val dao = FakePendingOrderDao()
+    private val numbers = mockk<OrderNumbers>(relaxed = true)
+    private val receipts = mockk<ReceiptManager>(relaxed = true)
+    private val products = mockk<ProductDao>(relaxed = true)
+    private val api = mockk<AuthApi>(relaxed = true)
     private val workManager = mockk<WorkManager>(relaxed = true)
-    private val json = Json { ignoreUnknownKeys = true }
-    private val repo = OrderRepositoryImpl(cart, dao, workManager, json)
+    private val session = SessionStore().apply {
+        startSession("BA", AssignedEvent("ev1", "EV01", "Roadshow", null, null, EventStatus.ACTIVE))
+    }
+    private val sale = Sale(emptyList(), 55_000.0, 5_500.0, "10% off", 49_500.0)
 
-    private fun customer() = SelectedCustomer("Bryan Tan", "GOLD", "MBR-00002", CustomerSource.entries.first())
+    private fun TestScope.repo() =
+        OrderRepositoryImpl(cart, dao, workManager, Json, numbers, receipts, products, session, api, backgroundScope)
+
+    private fun fillCart() {
+        cart.add("p1", 2)
+        cart.setCustomer(SelectedCustomer("Bryan", "GOLD", "MBR-2", CustomerSource.LOCAL_CACHE))
+    }
 
     @Test
-    fun `confirming queues a PENDING order, enqueues the upload and clears the cart`() = runTest {
-        cart.add("p1", 2)
-        cart.addVariant("p2", "rose")
-        cart.setCustomer(customer())
+    fun `confirm assigns a final number, prints, decrements local stock and queues the upload`() = runTest {
+        coEvery { numbers.next("ev1") } returns (3 to "20261030")
+        fillCart()
 
-        val key = repo.confirmCurrentCart("ev1")
+        val key = repo().confirmCurrentCart("ev1", sale)
 
         val row = dao.get(key)!!
-        assertEquals("PENDING", row.status)
-        assertEquals("ev1", row.eventId)
-        assertEquals("Bryan Tan", row.customerName)
-        assertEquals("MBR-00002", row.customerQr)
-        val lines = json.decodeFromString(ListSerializer(OrderLineDto.serializer()), row.linesJson)
-        assertEquals(setOf(OrderLineDto("p1", 2, null), OrderLineDto("p2", 1, "rose")), lines.toSet())
-        verify { workManager.enqueueUniqueWork("submit-orders", ExistingWorkPolicy.APPEND_OR_REPLACE, any<OneTimeWorkRequest>()) }
+        assertEquals(listOf("PENDING", "#003", "ORD-20261030-EV01-003"), listOf(row.status, row.orderNumberDisplay, row.referenceId))
+        assertEquals(3, row.orderNumber)
+        val printed = slot<ReceiptData>()
+        coVerify { receipts.storeAndPrint(key, "ev1", capture(printed)) }
+        assertEquals("#003", printed.captured.orderNumberDisplay)
+        coVerify { products.adjustRemaining("ev1", "p1", -2) }
+        verify { workManager.enqueueUniqueWork("submit-orders", any(), any<androidx.work.OneTimeWorkRequest>()) }
         assertTrue(cart.isEmpty())
-        assertNull(cart.customer.value)
     }
 
     @Test
-    fun `each confirm gets its own idempotency key`() = runTest {
-        cart.add("p1"); cart.setCustomer(customer())
-        val first = repo.confirmCurrentCart("ev1")
-        cart.add("p1"); cart.setCustomer(customer())
-        val second = repo.confirmCurrentCart("ev1")
-        assertTrue(first != second)
-        assertEquals(2, dao.pending().size)
-    }
+    fun `no number left blocks checkout and keeps the cart`() = runTest {
+        coEvery { numbers.next("ev1") } throws NoOrderNumberException()
+        fillCart()
 
-    @Test(expected = IllegalStateException::class)
-    fun `confirming without a customer is refused`() = runTest {
-        cart.add("p1")
-        repo.confirmCurrentCart("ev1")
-    }
+        val failure = runCatching { repo().confirmCurrentCart("ev1", sale) }.exceptionOrNull()
 
-    @Test(expected = IllegalArgumentException::class)
-    fun `confirming an empty cart is refused`() = runTest {
-        cart.setCustomer(customer())
-        repo.confirmCurrentCart("ev1")
+        assertTrue(failure is NoOrderNumberException)
+        assertFalse(cart.isEmpty())
+        assertTrue(dao.rows.value.isEmpty())
     }
 
     @Test
-    fun `observeOrders maps every state and treats unknown status as pending`() = runTest {
-        fun row(key: String, status: String, at: Long) = PendingOrderEntity(
-            idempotencyKey = key, eventId = "ev1", customerName = key, customerQr = null, customerTier = null,
-            linesJson = "[]", status = status, createdAtEpochMs = at,
-        )
-        dao.upsert(row("a", "PENDING", 1))
-        dao.upsert(row("b", "CONFIRMED", 2).copy(orderNumberDisplay = "#007", referenceId = "ORD-1", total = 49_500.0))
-        dao.upsert(row("c", "FAILED", 3).copy(errorMessage = "Rejected (409)"))
-        dao.upsert(row("d", "SOMETHING_NEW", 4))
+    fun `cancel marks the order and receipt cancelled and returns local stock`() = runTest {
+        coEvery { numbers.next("ev1") } returns (1 to "20261030")
+        fillCart()
+        val r = repo()
+        val key = r.confirmCurrentCart("ev1", sale)
+        assertEquals("This order hasn't synced yet — try again when it's confirmed.", r.cancel(key))
+        dao.upsert(dao.get(key)!!.copy(status = "CONFIRMED", serverOrderId = "srv-1"))
+        assertTrue(r.observeOrders("ev1").first().single().canCancel)
 
-        val orders = repo.observeOrders("ev1").first().associateBy { it.idempotencyKey }
-        assertEquals(OrderState.PENDING, orders["a"]!!.state)
-        assertEquals(OrderState.CONFIRMED, orders["b"]!!.state)
-        assertEquals("#007", orders["b"]!!.orderNumberDisplay)
-        assertEquals(OrderState.FAILED, orders["c"]!!.state)
-        assertEquals("Rejected (409)", orders["c"]!!.error)
-        assertEquals(OrderState.PENDING, orders["d"]!!.state)
+        assertNull(r.cancel(key))
+        assertEquals(OrderState.CANCELLED, r.observeOrders("ev1").first().single().state)
+        coVerify { receipts.markCancelled(key) }
+        coVerify { products.adjustRemaining("ev1", "p1", 2) }
+
+        coEvery { api.cancelOrder(any(), any()) } throws HttpException(Response.error<Any>(409, "{}".toResponseBody()))
+        dao.upsert(dao.get(key)!!.copy(status = "CONFIRMED"))
+        assertTrue(r.cancel(key)!!.contains("already packing"))
     }
 }

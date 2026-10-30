@@ -34,6 +34,10 @@ interface ProductDao {
     @Query("UPDATE product SET remainingStock = :remaining WHERE eventId = :eventId AND id = :productId")
     suspend fun updateRemaining(eventId: String, productId: String, remaining: Int)
 
+    /** Local best-guess stock after an on-device sale (delta < 0) or cancel (delta > 0). */
+    @Query("UPDATE product SET remainingStock = remainingStock + :delta WHERE eventId = :eventId AND id = :productId")
+    suspend fun adjustRemaining(eventId: String, productId: String, delta: Int)
+
     @Query("DELETE FROM product WHERE eventId = :eventId")
     suspend fun clearEvent(eventId: String)
 

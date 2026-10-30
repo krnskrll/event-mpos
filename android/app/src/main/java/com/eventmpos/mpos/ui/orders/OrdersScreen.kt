@@ -19,8 +19,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Assignment
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -43,8 +45,9 @@ import com.eventmpos.mpos.ui.theme.Brand
 private val FILTERS = listOf<Pair<String, OrderState?>>(
     "All" to null,
     "Confirmed" to OrderState.CONFIRMED,
-    "Pending" to OrderState.PENDING,
+    "Syncing" to OrderState.PENDING,
     "Failed" to OrderState.FAILED,
+    "Cancelled" to OrderState.CANCELLED,
 )
 
 @Composable
@@ -53,7 +56,19 @@ fun OrdersScreen(
     viewModel: OrdersViewModel = hiltViewModel(),
 ) {
     val orders by viewModel.orders.collectAsStateWithLifecycle()
+    val message by viewModel.message.collectAsStateWithLifecycle()
     var filter by remember { mutableStateOf<OrderState?>(null) }
+    var confirmCancel by remember { mutableStateOf<OrderRecord?>(null) }
+
+    confirmCancel?.let { o ->
+        AlertDialog(
+            onDismissRequest = { confirmCancel = null },
+            title = { Text("Cancel order ${o.orderNumberDisplay}?") },
+            text = { Text("${o.customerName}'s order is cancelled and its stock goes back on sale. Only possible before the warehouse starts packing.") },
+            confirmButton = { TextButton({ viewModel.cancel(o.idempotencyKey); confirmCancel = null }) { Text("Cancel order", color = Brand.Danger) } },
+            dismissButton = { TextButton({ confirmCancel = null }) { Text("Keep") } },
+        )
+    }
     val filtered = orders.filter { filter == null || it.state == filter }
 
     Column(Modifier.fillMaxSize().background(Brand.Bg)) {
@@ -97,6 +112,7 @@ fun OrdersScreen(
             }
         }
 
+        message?.let { Text(it, color = Brand.TextMuted, fontSize = 12.sp, modifier = Modifier.padding(start = 20.dp, top = 10.dp)) }
         if (filtered.isEmpty()) {
             Column(Modifier.fillMaxSize(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
                 Box(Modifier.size(72.dp).clip(CircleShape).background(Brand.CardBorder), Alignment.Center) {
@@ -107,15 +123,16 @@ fun OrdersScreen(
             }
         } else {
             LazyColumn(contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp)) {
-                items(filtered, key = { it.idempotencyKey }) { o -> OrderRow(o, onOpenReceipt); Spacer(Modifier.size(10.dp)) }
+                items(filtered, key = { it.idempotencyKey }) { o -> OrderRow(o, onOpenReceipt) { confirmCancel = o }; Spacer(Modifier.size(10.dp)) }
             }
         }
     }
 }
 
 @Composable
-private fun OrderRow(order: OrderRecord, onOpen: (String) -> Unit) {
-    val confirmed = order.state == OrderState.CONFIRMED
+private fun OrderRow(order: OrderRecord, onOpen: (String) -> Unit, onCancel: () -> Unit) {
+    // Every numbered order has a receipt on the device, including ones still waiting to sync.
+    val confirmed = order.orderNumberDisplay != null
     Row(
         Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Brand.Card)
             .then(if (confirmed) Modifier.clickable { onOpen(order.idempotencyKey) } else Modifier)
@@ -133,13 +150,15 @@ private fun OrderRow(order: OrderRecord, onOpen: (String) -> Unit) {
             order.referenceId?.let { Text(it, color = Brand.TextMuted, fontSize = 11.sp, maxLines = 1) }
             order.error?.let { Text(it, color = Brand.Danger, fontSize = 11.sp) }
             if (confirmed) Text("Tap for receipt ›", color = Brand.Teal, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(top = 2.dp))
+            if (order.canCancel) Text("Cancel", color = Brand.Danger, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.clickable { onCancel() }.padding(top = 6.dp))
         }
         // right: status + total
         Column(horizontalAlignment = Alignment.End) {
             val (label, c, bg) = when (order.state) {
-                OrderState.PENDING -> Triple("PENDING", Brand.Packing, Brand.PackingBg)
+                OrderState.PENDING -> Triple("SYNCING", Brand.Packing, Brand.PackingBg)
                 OrderState.CONFIRMED -> Triple("CONFIRMED", Brand.Ready, Brand.ReadyBg)
                 OrderState.FAILED -> Triple("FAILED", Brand.Danger, Brand.CollectedBg)
+                OrderState.CANCELLED -> Triple("CANCELLED", Brand.Collected, Brand.CollectedBg)
             }
             Box(Modifier.clip(RoundedCornerShape(999.dp)).background(bg).padding(horizontal = 10.dp, vertical = 4.dp)) {
                 Text(label, color = c, fontSize = 10.sp, fontWeight = FontWeight.Bold)
