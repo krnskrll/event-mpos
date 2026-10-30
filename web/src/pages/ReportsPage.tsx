@@ -3,12 +3,14 @@ import { AxiosError } from "axios";
 import Layout from "./Layout";
 import { api } from "../api/client";
 import { rupiah } from "../format";
+import { AUDIT_ACTIONS } from "../types";
 import type {
-  AuditEntry,
+  AuditPage,
   EndOfEventReport,
   EventResponse,
   SyncOverview,
   SyncTypeView,
+  UserResponse,
 } from "../types";
 
 function errMsg(err: unknown): string {
@@ -111,31 +113,41 @@ function SyncCard({ cfg, onChange }: { cfg: SyncTypeView; onChange: () => void }
 
 // ---- End-of-event report + audit ----
 
+const PAGE_SIZES = [50, 100, 200];
+
+interface AuditFilters {
+  actor: string;
+  action: string;
+  page: number;
+  size: number;
+}
+
+const NO_FILTERS: AuditFilters = { actor: "", action: "", page: 0, size: 50 };
+
 function EventReport() {
   const [events, setEvents] = useState<EventResponse[]>([]);
+  const [users, setUsers] = useState<UserResponse[]>([]);
   const [eventId, setEventId] = useState("");
   const [report, setReport] = useState<EndOfEventReport | null>(null);
-  const [audit, setAudit] = useState<AuditEntry[]>([]);
+  // Why the final report isn't available (e.g. the event is still ACTIVE) — not an error.
+  const [reportNote, setReportNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     api.get<EventResponse[]>("/api/admin/events").then((r) => setEvents(r.data)).catch(() => {});
+    api.get<UserResponse[]>("/api/admin/users").then((r) => setUsers(r.data)).catch(() => {});
   }, []);
 
   async function load(id: string) {
-    setEventId(id); setReport(null); setAudit([]); setError(null);
+    setEventId(id); setReport(null); setReportNote(null); setError(null);
     if (!id) return;
     setBusy(true);
     try {
-      const [rep, aud] = await Promise.all([
-        api.get<EndOfEventReport>(`/api/admin/events/${id}/report`),
-        api.get<AuditEntry[]>(`/api/admin/events/${id}/audit`),
-      ]);
-      setReport(rep.data);
-      setAudit(aud.data);
+      setReport((await api.get<EndOfEventReport>(`/api/admin/events/${id}/report`)).data);
     } catch (err) {
-      setError(errMsg(err));
+      if ((err as AxiosError).response?.status === 409) setReportNote(errMsg(err));
+      else setError(errMsg(err));
     } finally { setBusy(false); }
   }
 
@@ -162,6 +174,12 @@ function EventReport() {
       </select>
       {error && <div className="error">{error}</div>}
       {busy && <p className="muted">Loading…</p>}
+      {reportNote && (
+        <div className="notice" role="status">
+          <strong>Final report not available yet.</strong> {reportNote} Sales can still change until the
+          event is closed, so totals would not be final. The audit trail below is live.
+        </div>
+      )}
 
       {report && (
         <>
@@ -189,31 +207,88 @@ function EventReport() {
               ))}
             </tbody>
           </table>
-
-          <h3>Order audit trail ({audit.length})</h3>
-          {audit.length === 0 ? (
-            <p className="muted">No audited activity yet (orders created before auditing was enabled aren't shown).</p>
-          ) : (
-            <table>
-              <thead>
-                <tr><th>When</th><th>Order</th><th>Action</th><th>Change</th><th>By</th></tr>
-              </thead>
-              <tbody>
-                {audit.map((e) => (
-                  <tr key={e.id}>
-                    <td className="muted">{new Date(e.at).toLocaleString()}</td>
-                    <td>{e.orderReference}</td>
-                    <td><span className="badge">{e.action}</span></td>
-                    <td>{e.fromStatus ? `${e.fromStatus} → ${e.toStatus}` : (e.toStatus ?? "—")}</td>
-                    <td>{e.actorName}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          )}
         </>
       )}
+
+      {eventId && <AuditTrail key={eventId} eventId={eventId} users={users} />}
     </div>
+  );
+}
+
+/** The event's audit log, one server-side page at a time, filterable by actor and action. */
+function AuditTrail({ eventId, users }: { eventId: string; users: UserResponse[] }) {
+  const [filters, setFilters] = useState<AuditFilters>(NO_FILTERS);
+  const [page, setPage] = useState<AuditPage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const params = new URLSearchParams({ page: String(filters.page), size: String(filters.size) });
+    if (filters.actor) params.set("actor", filters.actor);
+    if (filters.action) params.set("action", filters.action);
+    let cancelled = false;
+    setError(null);
+    api.get<AuditPage>(`/api/admin/events/${eventId}/audit?${params}`)
+      .then((r) => { if (!cancelled) setPage(r.data); })
+      .catch((err) => { if (!cancelled) setError(errMsg(err)); });
+    return () => { cancelled = true; };
+  }, [eventId, filters]);
+
+  // Changing a filter or the page size starts again from the first page.
+  const refine = (patch: Partial<AuditFilters>) => setFilters((f) => ({ ...f, ...patch, page: 0 }));
+  const pageCount = page ? Math.max(1, Math.ceil(page.total / page.size)) : 1;
+  const from = page && page.total > 0 ? page.page * page.size + 1 : 0;
+  const to = page ? page.page * page.size + page.items.length : 0;
+
+  return (
+    <>
+      <h3>Order audit trail{page ? ` (${page.total})` : ""}</h3>
+      <div className="pager">
+        <select aria-label="Filter by user" value={filters.actor} onChange={(e) => refine({ actor: e.target.value })}>
+          <option value="">All users</option>
+          {users.map((u) => <option key={u.id} value={u.id}>{u.fullName} ({u.role})</option>)}
+        </select>
+        <select aria-label="Filter by action" value={filters.action} onChange={(e) => refine({ action: e.target.value })}>
+          <option value="">All actions</option>
+          {AUDIT_ACTIONS.map((a) => <option key={a} value={a}>{a}</option>)}
+        </select>
+        <select aria-label="Page size" value={filters.size} onChange={(e) => refine({ size: Number(e.target.value) })}>
+          {PAGE_SIZES.map((n) => <option key={n} value={n}>{n} per page</option>)}
+        </select>
+      </div>
+      {error && <div className="error">{error}</div>}
+
+      {page && page.total === 0 ? (
+        <p className="muted">No audited activity matches.</p>
+      ) : page && (
+        <>
+          <table>
+            <thead>
+              <tr><th>When</th><th>Order</th><th>Action</th><th>Change</th><th>By</th></tr>
+            </thead>
+            <tbody>
+              {page.items.map((e) => (
+                <tr key={e.id}>
+                  <td className="muted">{new Date(e.at).toLocaleString()}</td>
+                  <td>{e.orderReference}</td>
+                  <td><span className="badge">{e.action}</span></td>
+                  <td>{e.fromStatus ? `${e.fromStatus} → ${e.toStatus}` : (e.detail ?? e.toStatus ?? "—")}</td>
+                  <td>{e.actorName}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div className="pager">
+            <button className="secondary" disabled={page.page === 0}
+              onClick={() => setFilters((f) => ({ ...f, page: f.page - 1 }))}>← Newer</button>
+            <span className="muted">
+              {from}–{to} of {page.total} · page {page.page + 1} of {pageCount}
+            </span>
+            <button className="secondary" disabled={page.page + 1 >= pageCount}
+              onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}>Older →</button>
+          </div>
+        </>
+      )}
+    </>
   );
 }
 
