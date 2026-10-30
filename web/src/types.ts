@@ -113,7 +113,7 @@ export interface StockLevelRow {
   lowStock: boolean;
 }
 
-export type OrderStatus = "NEW" | "PACKING" | "READY" | "COLLECTED";
+export type OrderStatus = "NEW" | "PACKING" | "READY" | "COLLECTED" | "CANCELLED";
 
 export interface WarehouseItem {
   name: string;
@@ -173,14 +173,15 @@ export interface EndOfEventReport {
   status: EventStatus;
   generatedAt: string;
   totalOrders: number;
+  cancelledOrders: number;
   totalItems: number;
   totalRevenue: number;
   totalDiscount: number;
   products: ProductReportRow[];
 }
 
-export type AuditAction = "ORDER_CREATED" | "STATUS_CHANGED" | "RECEIPT_PRINTED";
-export const AUDIT_ACTIONS: AuditAction[] = ["ORDER_CREATED", "STATUS_CHANGED", "RECEIPT_PRINTED"];
+export type AuditAction = "ORDER_CREATED" | "STATUS_CHANGED" | "RECEIPT_PRINTED" | "ORDER_CANCELLED";
+export const AUDIT_ACTIONS: AuditAction[] = ["ORDER_CREATED", "STATUS_CHANGED", "RECEIPT_PRINTED", "ORDER_CANCELLED"];
 
 export interface AuditEntry {
   id: string;

@@ -4,18 +4,20 @@ import { api } from "../api/client";
 import { tokenStore } from "../api/tokenStore";
 import type { EventResponse, OrderStatus, StockLevelRow, WarehouseOrderView } from "../types";
 
-const STATUSES: OrderStatus[] = ["NEW", "PACKING", "READY", "COLLECTED"];
+const STATUSES: OrderStatus[] = ["NEW", "PACKING", "READY", "COLLECTED", "CANCELLED"];
 const NEXT: Record<OrderStatus, OrderStatus | null> = {
   NEW: "PACKING",
   PACKING: "READY",
   READY: "COLLECTED",
   COLLECTED: null,
+  CANCELLED: null,
 };
 const STATUS_COLOR: Record<OrderStatus, string> = {
   NEW: "#e0457b",
   PACKING: "#e0b341",
   READY: "#22c55e",
   COLLECTED: "#6b7280",
+  CANCELLED: "#9ca3af",
 };
 
 export default function WarehousePage() {
@@ -142,6 +144,18 @@ function OrderBoard({ eventId }: { eventId: string }) {
     };
   }, [eventId, upsert]);
 
+  // Cancelling returns the stock (the Stock tab picks it up on its next poll). The prompt doubles as
+  // the confirm step: Cancel aborts, OK proceeds with an optional reason.
+  async function cancel(o: WarehouseOrderView) {
+    const reason = window.prompt(`Cancel order ${o.orderNumberDisplay} for ${o.customerName}? Its stock goes back on sale.\n\nReason (optional):`, "");
+    if (reason === null) return;
+    try {
+      upsert((await api.post<WarehouseOrderView>(`/api/warehouse/orders/${o.id}/cancel`, { reason: reason || null })).data, false);
+    } catch (err) {
+      window.alert((err as { response?: { data?: { message?: string } } }).response?.data?.message ?? "Cancel failed");
+    }
+  }
+
   async function advance(o: WarehouseOrderView) {
     const next = NEXT[o.status];
     if (!next) return;
@@ -176,7 +190,7 @@ function OrderBoard({ eventId }: { eventId: string }) {
 
       <div className="grid-2">
         {list.map((o) => (
-          <OrderCard key={o.id} order={o} onAdvance={() => advance(o)} />
+          <OrderCard key={o.id} order={o} onAdvance={() => advance(o)} onCancel={() => cancel(o)} />
         ))}
       </div>
       {list.length === 0 && <div className="card muted">No orders{filter !== "ALL" ? ` in ${filter}` : ""} yet.</div>}
@@ -184,7 +198,7 @@ function OrderBoard({ eventId }: { eventId: string }) {
   );
 }
 
-function OrderCard({ order, onAdvance }: { order: WarehouseOrderView; onAdvance: () => void }) {
+function OrderCard({ order, onAdvance, onCancel }: { order: WarehouseOrderView; onAdvance: () => void; onCancel: () => void }) {
   const next = NEXT[order.status];
   return (
     <div className="card" style={{ borderLeft: `6px solid ${STATUS_COLOR[order.status]}` }}>
@@ -210,7 +224,10 @@ function OrderCard({ order, onAdvance }: { order: WarehouseOrderView; onAdvance:
           Mark {next}
         </button>
       ) : (
-        <div className="muted" style={{ textAlign: "center" }}>✓ Collected</div>
+        <div className="muted" style={{ textAlign: "center" }}>{order.status === "CANCELLED" ? "✕ Cancelled" : "✓ Collected"}</div>
+      )}
+      {(order.status === "NEW" || order.status === "PACKING") && (
+        <button className="secondary" onClick={onCancel} style={{ width: "100%", marginTop: 8 }}>Cancel order</button>
       )}
     </div>
   );
