@@ -112,4 +112,14 @@ dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("io.mockk:mockk:1.13.11")
+    testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.8.1")
+}
+
+// The promotion parity fixture lives at the repo root so the Go and Android engines run the same
+// file. Pass its absolute path to the unit tests and re-run them when it changes.
+tasks.withType<Test>().configureEach {
+    val promotionCases = rootProject.file("../testdata/promotion-cases.json")
+    inputs.file(promotionCases)
+    systemProperty("promotionCases", promotionCases.absolutePath)
 }

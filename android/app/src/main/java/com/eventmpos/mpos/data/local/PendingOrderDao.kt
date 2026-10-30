@@ -11,7 +11,8 @@ interface PendingOrderDao {
     @Query("SELECT * FROM pending_order WHERE eventId = :eventId ORDER BY createdAtEpochMs DESC")
     fun observeForEvent(eventId: String): Flow<List<PendingOrderEntity>>
 
-    @Query("SELECT * FROM pending_order WHERE status = 'PENDING'")
+    /** Oldest first, so the retry queue uploads in the order the BA confirmed them. */
+    @Query("SELECT * FROM pending_order WHERE status = 'PENDING' ORDER BY createdAtEpochMs ASC")
     suspend fun pending(): List<PendingOrderEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
