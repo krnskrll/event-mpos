@@ -32,5 +32,6 @@ class PromotionRepositoryImpl @Inject constructor(
         minSubtotal = minSubtotal,
         startsAtEpochMs = startsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
         endsAtEpochMs = endsAt?.let { runCatching { Instant.parse(it).toEpochMilli() }.getOrNull() },
+        priority = priority,
     )
 }

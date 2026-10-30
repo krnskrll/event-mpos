@@ -1,5 +1,6 @@
 package com.eventmpos.mpos.data.local
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -20,4 +21,5 @@ data class PromotionEntity(
     val minSubtotal: Double?,
     val startsAt: String?,
     val endsAt: String?,
+    @ColumnInfo(defaultValue = "0") val priority: Int = 0,
 )

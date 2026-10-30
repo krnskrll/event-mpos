@@ -74,7 +74,7 @@ class CartViewModel @Inject constructor(
                 val variant = CartKey.variantId(key)?.let { vid -> p.variants.firstOrNull { it.id == vid } }
                 CartLineItem(key, p, variant, qty)
             }
-            val subtotal = lines.fold(BigDecimal.ZERO) { acc, l -> acc + BigDecimal(l.unitPrice).multiply(BigDecimal(l.qty)) }
+            val subtotal = lines.fold(BigDecimal.ZERO) { acc, l -> acc + BigDecimal.valueOf(l.unitPrice).multiply(BigDecimal(l.qty)) }
             // local promo preview (server confirms authoritatively at submit)
             val cartLines = lines.map { CartLine(it.product.id, it.unitPrice, it.qty) }
             val applied = PromotionEngine.bestPromotion(cartLines, promos, System.currentTimeMillis())
@@ -85,7 +85,7 @@ class CartViewModel @Inject constructor(
                 customer = customer,
                 subtotal = subtotal.setScale(2, RoundingMode.HALF_UP).toDouble(),
                 discount = discount,
-                total = BigDecimal(total).setScale(2, RoundingMode.HALF_UP).toDouble(),
+                total = BigDecimal.valueOf(total).setScale(2, RoundingMode.HALF_UP).toDouble(),
                 promotionName = applied?.promotion?.name,
                 submitting = isSubmitting,
                 submitted = submitted.value,

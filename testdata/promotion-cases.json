@@ -1,0 +1,157 @@
+{
+  "_about": "Shared promotion-engine fixture. Run by backend-go/internal/promotion/parity_test.go AND android app/src/test/.../PromotionParityTest.kt. Both engines must produce exactly these results; change both engines (and this file) together. Money is a decimal string. 'expected.promotion' is the chosen promotion's name, or null when none applies. Only active promotions appear here: the server filters inactive ones out before the snapshot reaches the device.",
+  "now": "2026-07-05T10:00:00Z",
+  "carts": {
+    "standard": [
+      { "productId": "00000000-0000-0000-0000-00000000000a", "unitPrice": "100.00", "qty": 2 },
+      { "productId": "00000000-0000-0000-0000-00000000000b", "unitPrice": "50.00", "qty": 1 }
+    ],
+    "rupiah": [
+      { "productId": "00000000-0000-0000-0000-00000000000c", "unitPrice": "99000.00", "qty": 1 },
+      { "productId": "00000000-0000-0000-0000-00000000000d", "unitPrice": "55000.00", "qty": 1 }
+    ],
+    "oddCents": [
+      { "productId": "00000000-0000-0000-0000-00000000000e", "unitPrice": "1.15", "qty": 1 }
+    ],
+    "thirds": [
+      { "productId": "00000000-0000-0000-0000-00000000000f", "unitPrice": "33.33", "qty": 1 }
+    ]
+  },
+  "cases": [
+    {
+      "name": "percentage applies to the whole cart",
+      "cart": "standard",
+      "promotions": [{ "name": "10pct", "type": "PERCENTAGE", "percentOff": "10" }],
+      "expected": { "promotion": "10pct", "discount": "25.00" }
+    },
+    {
+      "name": "fixed applies when min subtotal is met",
+      "cart": "standard",
+      "promotions": [{ "name": "20off", "type": "FIXED", "amountOff": "20", "minSubtotal": "200" }],
+      "expected": { "promotion": "20off", "discount": "20.00" }
+    },
+    {
+      "name": "fixed does not apply below min subtotal",
+      "cart": "standard",
+      "promotions": [{ "name": "20off", "type": "FIXED", "amountOff": "20", "minSubtotal": "999" }],
+      "expected": { "promotion": null, "discount": "0" }
+    },
+    {
+      "name": "specific scope only counts its products",
+      "cart": "standard",
+      "promotions": [{ "name": "B10", "type": "PERCENTAGE", "percentOff": "10", "scope": "SPECIFIC", "productIds": ["00000000-0000-0000-0000-00000000000b"] }],
+      "expected": { "promotion": "B10", "discount": "5.00" }
+    },
+    {
+      "name": "specific scope with none of its products in the cart",
+      "cart": "standard",
+      "promotions": [{ "name": "Z10", "type": "PERCENTAGE", "percentOff": "10", "scope": "SPECIFIC", "productIds": ["00000000-0000-0000-0000-0000000000ff"] }],
+      "expected": { "promotion": null, "discount": "0" }
+    },
+    {
+      "name": "bundle applies at the bundle size",
+      "cart": "standard",
+      "promotions": [{ "name": "A2", "type": "BUNDLE", "amountOff": "30", "scope": "SPECIFIC", "productIds": ["00000000-0000-0000-0000-00000000000a"], "minQty": 2 }],
+      "expected": { "promotion": "A2", "discount": "30.00" }
+    },
+    {
+      "name": "bundle does not apply below the bundle size",
+      "cart": "standard",
+      "promotions": [{ "name": "A3", "type": "BUNDLE", "amountOff": "30", "scope": "SPECIFIC", "productIds": ["00000000-0000-0000-0000-00000000000a"], "minQty": 3 }],
+      "expected": { "promotion": null, "discount": "0" }
+    },
+    {
+      "name": "min qty on a non-bundle promotion is met",
+      "cart": "standard",
+      "promotions": [{ "name": "q3", "type": "PERCENTAGE", "percentOff": "10", "minQty": 3 }],
+      "expected": { "promotion": "q3", "discount": "25.00" }
+    },
+    {
+      "name": "min qty on a non-bundle promotion is not met",
+      "cart": "standard",
+      "promotions": [{ "name": "q4", "type": "PERCENTAGE", "percentOff": "10", "minQty": 4 }],
+      "expected": { "promotion": null, "discount": "0" }
+    },
+    {
+      "name": "expired promotion does not apply",
+      "cart": "standard",
+      "promotions": [{ "name": "old", "type": "PERCENTAGE", "percentOff": "50", "endsAt": "2026-07-05T09:00:00Z" }],
+      "expected": { "promotion": null, "discount": "0" }
+    },
+    {
+      "name": "not-yet-started promotion does not apply",
+      "cart": "standard",
+      "promotions": [{ "name": "soon", "type": "PERCENTAGE", "percentOff": "50", "startsAt": "2026-07-05T11:00:00Z" }],
+      "expected": { "promotion": null, "discount": "0" }
+    },
+    {
+      "name": "window boundaries are inclusive",
+      "cart": "standard",
+      "promotions": [{ "name": "edge", "type": "PERCENTAGE", "percentOff": "10", "startsAt": "2026-07-05T10:00:00Z", "endsAt": "2026-07-05T10:00:00Z" }],
+      "expected": { "promotion": "edge", "discount": "25.00" }
+    },
+    {
+      "name": "largest discount wins (one promotion per order)",
+      "cart": "standard",
+      "promotions": [
+        { "name": "10pct", "type": "PERCENTAGE", "percentOff": "10" },
+        { "name": "RM40", "type": "FIXED", "amountOff": "40", "minSubtotal": "200" }
+      ],
+      "expected": { "promotion": "RM40", "discount": "40.00" }
+    },
+    {
+      "name": "discount is capped at the applicable subtotal",
+      "cart": "standard",
+      "promotions": [{ "name": "huge", "type": "FIXED", "amountOff": "9999", "minSubtotal": "0" }],
+      "expected": { "promotion": "huge", "discount": "250.00" }
+    },
+    {
+      "name": "equal discount: higher priority wins",
+      "cart": "standard",
+      "promotions": [
+        { "name": "Zeta", "type": "FIXED", "amountOff": "25", "priority": 0 },
+        { "name": "Alpha", "type": "PERCENTAGE", "percentOff": "10", "priority": 5 }
+      ],
+      "expected": { "promotion": "Alpha", "discount": "25.00" }
+    },
+    {
+      "name": "equal discount and priority: later name wins",
+      "cart": "standard",
+      "promotions": [
+        { "name": "Alpha", "type": "FIXED", "amountOff": "20", "priority": 1 },
+        { "name": "Beta", "type": "FIXED", "amountOff": "20", "priority": 1 }
+      ],
+      "expected": { "promotion": "Beta", "discount": "20.00" }
+    },
+    {
+      "name": "zero discount is never chosen",
+      "cart": "standard",
+      "promotions": [{ "name": "nothing", "type": "PERCENTAGE", "percentOff": "0" }],
+      "expected": { "promotion": null, "discount": "0" }
+    },
+    {
+      "name": "no promotions",
+      "cart": "standard",
+      "promotions": [],
+      "expected": { "promotion": null, "discount": "0" }
+    },
+    {
+      "name": "rupiah prices",
+      "cart": "rupiah",
+      "promotions": [{ "name": "10% off everything", "type": "PERCENTAGE", "percentOff": "10" }],
+      "expected": { "promotion": "10% off everything", "discount": "15400.00" }
+    },
+    {
+      "name": "half-cent rounds up (1.15 x 10% = 0.115)",
+      "cart": "oddCents",
+      "promotions": [{ "name": "10pct", "type": "PERCENTAGE", "percentOff": "10" }],
+      "expected": { "promotion": "10pct", "discount": "0.12" }
+    },
+    {
+      "name": "fractional percent rounds to cents (33.33 x 12.5%)",
+      "cart": "thirds",
+      "promotions": [{ "name": "12.5pct", "type": "PERCENTAGE", "percentOff": "12.5" }],
+      "expected": { "promotion": "12.5pct", "discount": "4.17" }
+    }
+  ]
+}

@@ -50,6 +50,7 @@ object AppProvidesModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "eventmpos.db")
+            .addMigrations(AppDatabase.MIGRATION_9_10)
             .fallbackToDestructiveMigration()
             .build()
 

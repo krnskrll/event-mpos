@@ -77,9 +77,9 @@ func (s *Service) Fingerprint(eventID uuid.UUID) (string, error) {
 	for i := range promos {
 		p := &promos[i]
 		parts = append(parts, strings.Join([]string{
-			p.ID.String(), string(p.Type), decStr(p.PercentOff), decStr(p.AmountOff),
-			intStr(p.MinQty), decStr(p.MinSubtotal), strconv.FormatBool(p.Active),
-			timeStr(p.StartsAt), timeStr(p.EndsAt),
+			p.ID.String(), p.Name, string(p.Type), string(p.Scope), csvStr(p.ProductIdsCsv),
+			decStr(p.PercentOff), decStr(p.AmountOff), intStr(p.MinQty), decStr(p.MinSubtotal),
+			strconv.FormatBool(p.Active), timeStr(p.StartsAt), timeStr(p.EndsAt), strconv.Itoa(p.Priority),
 		}, ":"))
 	}
 	return strings.Join(parts, ","), nil
@@ -237,6 +237,13 @@ func decStr(d *decimal.Decimal) string {
 		return "null"
 	}
 	return d.String()
+}
+
+func csvStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
 }
 
 func intStr(i *int) string {

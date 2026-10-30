@@ -100,7 +100,7 @@ class EventRepositoryImpl @Inject constructor(
                             rowKey = "$eventId:${p.id}", eventId = eventId, id = p.id, name = p.name,
                             type = p.type, percentOff = p.percentOff, amountOff = p.amountOff, scope = p.scope,
                             productIds = p.productIds.joinToString(","), minQty = p.minQty,
-                            minSubtotal = p.minSubtotal, startsAt = p.startsAt, endsAt = p.endsAt,
+                            minSubtotal = p.minSubtotal, startsAt = p.startsAt, endsAt = p.endsAt, priority = p.priority,
                         )
                     },
                 )
