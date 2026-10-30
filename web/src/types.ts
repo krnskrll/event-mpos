@@ -179,7 +179,8 @@ export interface EndOfEventReport {
   products: ProductReportRow[];
 }
 
-export type AuditAction = "ORDER_CREATED" | "STATUS_CHANGED";
+export type AuditAction = "ORDER_CREATED" | "STATUS_CHANGED" | "RECEIPT_PRINTED";
+export const AUDIT_ACTIONS: AuditAction[] = ["ORDER_CREATED", "STATUS_CHANGED", "RECEIPT_PRINTED"];
 
 export interface AuditEntry {
   id: string;
@@ -191,6 +192,14 @@ export interface AuditEntry {
   toStatus: string | null;
   detail: string | null;
   at: string;
+}
+
+/** One page of an event's audit log, newest first (page is 0-based). */
+export interface AuditPage {
+  items: AuditEntry[];
+  page: number;
+  size: number;
+  total: number;
 }
 
 export type PromotionType = "PERCENTAGE" | "FIXED" | "BUNDLE";

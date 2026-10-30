@@ -59,6 +59,11 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 		}
 		return nil, err
 	}
+	// The final report is only meaningful once selling has stopped.
+	if ev.Status != event.StatusClosed {
+		return nil, common.NewAppError(http.StatusConflict,
+			"The end-of-event report is available once "+ev.Code+" is CLOSED (it is "+string(ev.Status)+").")
+	}
 	var orders []order.Order
 	if err := s.db.Preload("Items").Where("event_id = ?", eventID).Order("created_at DESC").Find(&orders).Error; err != nil {
 		return nil, err

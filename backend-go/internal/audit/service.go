@@ -2,6 +2,7 @@ package audit
 
 import (
 	"log"
+	"strconv"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -53,6 +54,62 @@ func (s *Service) RecordStatusChange(tx *gorm.DB, eventID, orderID uuid.UUID, or
 		Action: ActionStatusChanged, ActorUserID: actorUserID, ActorName: s.actorName(tx, actorUserID),
 		FromStatus: &from, ToStatus: &to, Detail: &detail,
 	}).Error
+}
+
+// RecordReceiptPrinted writes a RECEIPT_PRINTED entry using the provided tx. printCount is the
+// order's print count after this print (1 = first print, 2+ = reprints).
+func (s *Service) RecordReceiptPrinted(tx *gorm.DB, eventID, orderID uuid.UUID, orderReference string, actorUserID *uuid.UUID, printCount int) error {
+	detail := "Receipt printed"
+	if printCount > 1 {
+		detail = "Receipt reprinted (print #" + strconv.Itoa(printCount) + ")"
+	}
+	return tx.Create(&OrderAuditLog{
+		EventID: eventID, OrderID: orderID, OrderReference: orderReference,
+		Action: ActionReceiptPrinted, ActorUserID: actorUserID, ActorName: s.actorName(tx, actorUserID),
+		Detail: &detail,
+	}).Error
+}
+
+// Query filters for an event's audit log. Nil filters match everything.
+type Query struct {
+	EventID uuid.UUID
+	OrderID *uuid.UUID
+	ActorID *uuid.UUID
+	Action  *AuditAction
+	Page    int // 0-based
+	Size    int
+}
+
+// Page is one page of audit entries, newest first, plus the total matching count.
+type Page struct {
+	Items []AuditEntryResponse `json:"items"`
+	Page  int                  `json:"page"`
+	Size  int                  `json:"size"`
+	Total int64                `json:"total"`
+}
+
+// Search returns one page of an event's audit log, newest first.
+func (s *Service) Search(q Query) (*Page, error) {
+	tx := s.db.Model(&OrderAuditLog{}).Where("event_id = ?", q.EventID)
+	if q.OrderID != nil {
+		tx = tx.Where("order_id = ?", *q.OrderID)
+	}
+	if q.ActorID != nil {
+		tx = tx.Where("actor_user_id = ?", *q.ActorID)
+	}
+	if q.Action != nil {
+		tx = tx.Where("action = ?", *q.Action)
+	}
+	var total int64
+	if err := tx.Count(&total).Error; err != nil {
+		return nil, err
+	}
+	var rows []OrderAuditLog
+	if err := tx.Order("created_at DESC").Order("id DESC").
+		Offset(q.Page * q.Size).Limit(q.Size).Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	return &Page{Items: mapEntries(rows), Page: q.Page, Size: q.Size, Total: total}, nil
 }
 
 func (s *Service) ForEvent(eventID uuid.UUID) ([]AuditEntryResponse, error) {

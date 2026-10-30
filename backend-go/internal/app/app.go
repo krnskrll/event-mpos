@@ -72,7 +72,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Stock = stock.NewService(db)
 	a.Promotions = promotion.NewService(db)
 	a.Audit = audit.NewService(db)
-	a.Receipts = receipt.NewService(db)
+	a.Receipts = receipt.NewService(db, a.Audit)
 	a.Orders = order.NewService(db, a.Stock, a.Promotions, a.Audit, a.Users)
 
 	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.

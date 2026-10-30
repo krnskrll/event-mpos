@@ -237,7 +237,8 @@ func (h *Handler) Order(c *gin.Context) {
 
 // LogReceipt records that a receipt was printed (or reprinted) for an order. Returns 204.
 func (h *Handler) LogReceipt(c *gin.Context) {
-	if _, ok := h.requireBa(c); !ok {
+	p, ok := h.requireBa(c)
+	if !ok {
 		return
 	}
 	orderID, err := uuid.Parse(c.Param("orderId"))
@@ -245,7 +246,7 @@ func (h *Handler) LogReceipt(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid order id")
 		return
 	}
-	if err := h.receipts.LogPrint(orderID); err != nil {
+	if err := h.receipts.LogPrint(orderID, p.UserID); err != nil {
 		common.Fail(c, err)
 		return
 	}

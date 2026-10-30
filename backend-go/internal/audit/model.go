@@ -10,15 +10,25 @@ import (
 type AuditAction string
 
 const (
-	ActionOrderCreated  AuditAction = "ORDER_CREATED"
-	ActionStatusChanged AuditAction = "STATUS_CHANGED"
+	ActionOrderCreated   AuditAction = "ORDER_CREATED"
+	ActionStatusChanged  AuditAction = "STATUS_CHANGED"
+	ActionReceiptPrinted AuditAction = "RECEIPT_PRINTED"
 )
+
+// ParseAction validates an action name from a query string.
+func ParseAction(s string) (AuditAction, bool) {
+	switch a := AuditAction(s); a {
+	case ActionOrderCreated, ActionStatusChanged, ActionReceiptPrinted:
+		return a, true
+	}
+	return "", false
+}
 
 // OrderAuditLog is an append-only audit trail of order activity — rows are only ever inserted. A
 // Postgres BEFORE UPDATE/DELETE trigger (installed on startup) enforces this at the DB level too.
 type OrderAuditLog struct {
 	ID             uuid.UUID   `gorm:"type:uuid;primaryKey"`
-	EventID        uuid.UUID   `gorm:"column:event_id;type:uuid;not null;index:idx_audit_event"`
+	EventID        uuid.UUID   `gorm:"column:event_id;type:uuid;not null;index:idx_audit_event;index:idx_audit_event_created,priority:1"`
 	OrderID        uuid.UUID   `gorm:"column:order_id;type:uuid;not null;index:idx_audit_order"`
 	OrderReference string      `gorm:"column:order_reference;not null"`
 	Action         AuditAction `gorm:"type:varchar(20);not null"`
@@ -27,7 +37,7 @@ type OrderAuditLog struct {
 	FromStatus     *string     `gorm:"column:from_status"`
 	ToStatus       *string     `gorm:"column:to_status"`
 	Detail         *string     `gorm:"column:detail"`
-	CreatedAt      time.Time   `gorm:"column:created_at;not null"`
+	CreatedAt      time.Time   `gorm:"column:created_at;not null;index:idx_audit_event_created,priority:2,sort:desc"`
 }
 
 func (OrderAuditLog) TableName() string { return "order_audit_log" }

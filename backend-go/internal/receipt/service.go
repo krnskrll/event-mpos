@@ -4,10 +4,16 @@ package receipt
 
 import (
 	"errors"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+
+	"github.com/krnskrll/event-mpos/internal/audit"
+	"github.com/krnskrll/event-mpos/internal/common"
+	"github.com/krnskrll/event-mpos/internal/order"
 )
 
 type ReceiptLog struct {
@@ -28,23 +34,42 @@ func (r *ReceiptLog) BeforeCreate(_ *gorm.DB) error {
 }
 
 type Service struct {
-	db *gorm.DB
+	db    *gorm.DB
+	audit *audit.Service
 }
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func NewService(db *gorm.DB, aud *audit.Service) *Service { return &Service{db: db, audit: aud} }
 
-// LogPrint records a print/reprint: first print inserts the row; reprints bump the counter.
-func (s *Service) LogPrint(orderID uuid.UUID) error {
-	var existing ReceiptLog
-	err := s.db.Where("order_id = ?", orderID).First(&existing).Error
-	now := time.Now().UTC()
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return s.db.Create(&ReceiptLog{OrderID: orderID, PrintCount: 1, FirstPrintedAt: now, LastPrintedAt: now}).Error
-	}
-	if err != nil {
-		return err
-	}
-	existing.PrintCount++
-	existing.LastPrintedAt = now
-	return s.db.Save(&existing).Error
+// LogPrint records a print/reprint of one of the BA's own orders. In one transaction it bumps the
+// receipt_logs counter (atomic upsert, safe under concurrent prints) and appends a RECEIPT_PRINTED
+// audit entry. An unknown order, or another BA's order, is a 404.
+func (s *Service) LogPrint(orderID, baUserID uuid.UUID) error {
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		var o order.Order
+		err := tx.Select("id", "event_id", "reference_id", "ba_user_id").
+			Where("id = ? AND ba_user_id = ?", orderID, baUserID).Take(&o).Error
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return common.NewAppError(http.StatusNotFound, "Order not found")
+		}
+		if err != nil {
+			return err
+		}
+
+		now := time.Now().UTC()
+		row := ReceiptLog{OrderID: orderID, PrintCount: 1, FirstPrintedAt: now, LastPrintedAt: now}
+		if err := tx.Clauses(clause.OnConflict{
+			Columns: []clause.Column{{Name: "order_id"}},
+			DoUpdates: clause.Assignments(map[string]any{
+				"print_count":     gorm.Expr("receipt_logs.print_count + 1"),
+				"last_printed_at": now,
+			}),
+		}).Create(&row).Error; err != nil {
+			return err
+		}
+		var printCount int
+		if err := tx.Model(&ReceiptLog{}).Where("order_id = ?", orderID).Pluck("print_count", &printCount).Error; err != nil {
+			return err
+		}
+		return s.audit.RecordReceiptPrinted(tx, o.EventID, o.ID, o.ReferenceID, &baUserID, printCount)
+	})
 }

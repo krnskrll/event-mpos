@@ -78,6 +78,13 @@ label { font-size: var(--pdx-font-sm); color: var(--pdx-grey-700); font-weight: 
 /* ---- Feedback text ---- */
 .error { color: var(--pdx-danger); font-size: var(--pdx-font-sm); margin: var(--pdx-space-1) 0; }
 .ok { color: var(--pdx-success); font-size: var(--pdx-font-sm); }
+.notice {
+  background: var(--pdx-info-light); color: var(--pdx-grey-900);
+  border-radius: var(--pdx-radius-md); padding: var(--pdx-space-3) var(--pdx-space-4);
+  margin: var(--pdx-space-4) 0; font-size: var(--pdx-font-sm);
+}
+.pager { display: flex; align-items: center; gap: var(--pdx-space-3); flex-wrap: wrap; margin: var(--pdx-space-3) 0; }
+.pager select { width: auto; margin: 0; }
 
 /* ---- Card (Paradise pdx-card) ---- */
 .card, .pdx-card {

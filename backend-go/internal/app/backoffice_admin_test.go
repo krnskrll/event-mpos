@@ -66,6 +66,7 @@ func TestEndOfEventReportTotalsAndCSV(t *testing.T) {
 	if _, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 2)); err != nil {
 		t.Fatal(err)
 	}
+	closeEvent(t, a, ev.ID)
 
 	r, err := a.Reports.EndOfEvent(ev.ID)
 	if err != nil {
