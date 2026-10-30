@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -164,8 +165,12 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 	}
 
 	// 3+5+6) atomic tx: stock decrement (row locks) → daily number → persist + audit
+	// Lock allocation rows in a fixed (product id) order so two multi-line orders can't each hold
+	// one row and wait on the other.
+	lockOrder := append([]OrderLineRequest(nil), lines...)
+	sort.Slice(lockOrder, func(i, j int) bool { return lockOrder[i].ProductID.String() < lockOrder[j].ProductID.String() })
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
-		for _, line := range lines {
+		for _, line := range lockOrder {
 			if err := s.stock.Decrement(tx, eventID, line.ProductID, line.Qty); err != nil {
 				return err
 			}
