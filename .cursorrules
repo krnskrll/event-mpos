@@ -8,7 +8,7 @@ Payment happens at an external cashier (Guardian, Watsons, etc.) — this system
 
 ## System Components
 - **Android mPOS** — used by Beauty Advisors at events (Sunmi V2 Pro device with built-in 58mm thermal printer + 2D barcode scanner)
-- **Backend API** — Spring Boot + PostgreSQL, the single source of truth
+- **Backend API** — Go (Gin) + PostgreSQL, the single source of truth (`backend-go/`)
 - **Web Dashboard** — React + TypeScript, used by warehouse team and admins
 
 ## Core Concept: Everything Is Scoped to an Event
@@ -28,25 +28,28 @@ An Event is the central domain boundary. Products, stock, promotions, orders, an
 - Coil (image loading)
 - EncryptedSharedPreferences (secure token storage)
 
-### Backend
-- Spring Boot (Kotlin or Java)
-- PostgreSQL
-- Spring Security + JWT
-- Spring WebSocket + STOMP (real-time order push)
-- Spring Batch / Scheduler (ERP and member sync jobs)
+### Backend (`backend-go/`)
+- Go + Gin (HTTP API)
+- PostgreSQL via GORM
+- golang-migrate for schema — new numbered files in `backend-go/migrations/`; never edit `000001_init`
+- JWT auth (access + rotating refresh tokens), bcrypt passwords
+- Native WebSocket (gorilla/websocket) for real-time order push — `GET /ws/events/{id}/orders?token=<jwt>`
+- robfig/cron dynamic scheduler (ERP and member sync jobs, schedule stored in the DB)
 
 ### Web Dashboard
 - React + TypeScript
-- SockJS + STOMP.js (WebSocket client)
+- Native browser `WebSocket` (real-time warehouse board, polling fallback)
 
 ## Key Architecture Rules
 1. **Backend is the source of truth** — Android uses Room as a local cache, never as the authority
 2. **Event snapshot on login** — when BA selects an event, download products + stock + members + promotions to Room in one call
 3. **Order submission requires network** — cart can be built offline, but submit needs server confirmation; use WorkManager retry queue
 4. **Receipt prints only after server confirms the order** — never print on submission attempt
-5. **Stock validation is atomic on the server** — use PostgreSQL SELECT FOR UPDATE; never trust client-side stock checks
+5. **Stock validation is atomic on the server** — use PostgreSQL SELECT FOR UPDATE via the stock service's row-locked path (for decrement and restore); never write a bare `UPDATE`; never trust client-side stock checks
 6. **Idempotency key on every order submission** — prevent duplicate orders from double taps
 7. **PrinterPort abstraction** — wrap all Sunmi printer SDK calls behind an interface so hardware can be swapped later
+8. **Audit in the same transaction** — every order state change writes `order_audit_log` in the same DB transaction; the log is append-only (enforced by a DB trigger)
+9. **Promotion engine parity** — `backend-go/internal/promotion/engine.go` and Android `domain/promotion/PromotionEngine.kt` must give identical results; change both or neither
 
 ## Order Lifecycle
 NEW → PACKING → READY → COLLECTED

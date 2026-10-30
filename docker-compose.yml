@@ -1,6 +1,7 @@
-# Brings up Postgres + the backend API with one command, no local JDK needed:
+# Brings up Postgres + the Go backend API with one command, no local Go toolchain needed:
 #   docker compose up --build
 # Backend on http://localhost:8080, Postgres on localhost:5432.
+# After a schema change, reset old dev databases with: docker compose down -v
 services:
   db:
     image: postgres:16-alpine
@@ -19,16 +20,19 @@ services:
       retries: 10
 
   backend:
-    build: ./backend
+    build: ./backend-go
     depends_on:
       db:
         condition: service_healthy
     environment:
-      DB_URL: jdbc:postgresql://db:5432/eventmpos
-      DB_USERNAME: eventmpos
-      DB_PASSWORD: eventmpos
+      DB_URL: postgres://eventmpos:eventmpos@db:5432/eventmpos?sslmode=disable
+      PORT: "8080"
+      # Base64, 256-bit. Dev-only value — override JWT_SECRET in any real deployment.
+      JWT_SECRET: ZHYtbG9jYWwtZGV2LXNlY3JldC1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0
       SEED_ENABLED: "true"
-      # Override JWT_SECRET (base64, 256-bit) in any real deployment.
+      ERP_SOURCE: mock
+      MEMBER_SOURCE: mock
+      CORS_ALLOWED_ORIGINS: http://localhost:5173,http://127.0.0.1:5173
     ports:
       - "8080:8080"
 
