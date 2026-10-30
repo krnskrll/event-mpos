@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  go:
+    name: Go backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend-go
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: eventmpos_test
+          POSTGRES_USER: eventmpos
+          POSTGRES_PASSWORD: eventmpos
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U eventmpos"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+    env:
+      DB_URL: postgres://eventmpos:eventmpos@localhost:5432/eventmpos_test?sslmode=disable
+      TEST_DB_URL: postgres://eventmpos:eventmpos@localhost:5432/eventmpos_test?sslmode=disable
+      # Integration tests fail (instead of skipping) if the database isn't configured.
+      REQUIRE_TEST_DB: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: backend-go/go.mod
+          cache-dependency-path: backend-go/go.sum
+      - name: go vet
+        run: go vet ./...
+      - name: Apply migrations
+        run: go run ./cmd/migrate
+      - name: go test
+        run: go test -timeout 5m ./...
+      - name: Build server
+        run: go build ./cmd/server
+
+  android:
+    name: Android app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Lint, unit tests, debug build
+        run: ./gradlew lint testDebugUnitTest assembleDebug
+      - name: Upload reports on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-reports
+          path: android/app/build/reports/
+
+  web:
+    name: Web dashboard
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      - name: Unit tests
+        run: npx vitest run
