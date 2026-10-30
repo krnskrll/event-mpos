@@ -209,6 +209,12 @@ function OrderCard({ order, onAdvance, onCancel }: { order: WarehouseOrderView; 
         </span>
       </div>
       <div style={{ fontSize: "1.1rem", fontWeight: 600, marginTop: 4 }}>{order.customerName}</div>
+      {(order.lateSynced || order.stockConflict) && (
+        <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
+          {order.lateSynced && <span className="pdx-tag pdx-tag--blue" title="Uploaded after the event closed">LATE-SYNCED</span>}
+          {order.stockConflict && <span className="pdx-tag pdx-tag--red" title="Confirmed offline beyond the allocation — check stock">STOCK CONFLICT</span>}
+        </div>
+      )}
       <div className="muted" style={{ fontSize: "0.8rem" }}>
         BA: {order.baName} · {timeSince(order.createdAt)}
       </div>
@@ -264,8 +270,8 @@ function StockPanel({ eventId }: { eventId: string }) {
               <td>{r.name}</td>
               <td>{r.allocatedQty}</td>
               <td>{r.soldQty}</td>
-              <td style={{ fontWeight: 600, color: r.remaining === 0 ? "#ef4444" : r.lowStock ? "#e0b341" : undefined }}>
-                {r.remaining}{r.remaining === 0 ? " · SOLD OUT" : r.lowStock ? " · LOW" : ""}
+              <td style={{ fontWeight: 600, color: r.remaining <= 0 ? "#ef4444" : r.lowStock ? "#e0b341" : undefined }}>
+                {r.remaining}{r.remaining < 0 ? " · OVERSOLD" : r.remaining === 0 ? " · SOLD OUT" : r.lowStock ? " · LOW" : ""}
               </td>
             </tr>
           ))}

@@ -132,6 +132,8 @@ export interface WarehouseOrderView {
   status: OrderStatus;
   total: number;
   createdAt: string;
+  stockConflict: boolean;
+  lateSynced: boolean;
 }
 
 // ---- EPIC-11: back office admin ----
@@ -174,6 +176,8 @@ export interface EndOfEventReport {
   generatedAt: string;
   totalOrders: number;
   cancelledOrders: number;
+  lateSyncedOrders: number;
+  stockConflictOrders: number;
   totalItems: number;
   totalRevenue: number;
   totalDiscount: number;
