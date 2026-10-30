@@ -60,6 +60,8 @@ type Event struct {
 	CreatedAt time.Time    `gorm:"column:created_at;not null"`
 	// Bumped on any edit/status change; feeds the snapshot version so devices know when to re-sync.
 	UpdatedAt time.Time `gorm:"column:updated_at;not null"`
+	// When the event moved to CLOSED; queued orders created before it are still accepted for 24h.
+	ClosedAt *time.Time `gorm:"column:closed_at"`
 }
 
 func (Event) TableName() string { return "events" }
@@ -109,6 +111,7 @@ type EventResponse struct {
 	StartDate *common.Date `json:"startDate,omitempty"`
 	EndDate   *common.Date `json:"endDate,omitempty"`
 	Status    EventStatus  `json:"status"`
+	ClosedAt  *time.Time   `json:"closedAt,omitempty"`
 }
 
 func (e *Event) ToResponse() EventResponse {
@@ -118,6 +121,7 @@ func (e *Event) ToResponse() EventResponse {
 		Name:      e.Name,
 		StartDate: e.StartDate,
 		EndDate:   e.EndDate,
+		ClosedAt:  e.ClosedAt,
 		Status:    e.Status,
 	}
 }

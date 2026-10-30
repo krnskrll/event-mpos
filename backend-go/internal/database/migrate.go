@@ -47,6 +47,7 @@ func Models() []interface{} {
 		&order.Order{},
 		&order.OrderItem{},
 		&order.OrderDailySequence{},
+		&order.NumberBlock{},
 		&receipt.ReceiptLog{},
 		&audit.OrderAuditLog{},
 		&syncconfig.SyncConfig{},

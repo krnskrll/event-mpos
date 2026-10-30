@@ -2,11 +2,15 @@ package com.eventmpos.mpos.ui.cart
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.data.cart.CartDraft
 import com.eventmpos.mpos.data.cart.CartKey
+import com.eventmpos.mpos.data.cart.CartRepository
 import com.eventmpos.mpos.data.cart.CartStore
 import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.member.SelectedCustomer
 import com.eventmpos.mpos.domain.order.OrderRepository
+import com.eventmpos.mpos.domain.order.Sale
+import com.eventmpos.mpos.domain.receipt.ReceiptLine
 import com.eventmpos.mpos.domain.product.Product
 import com.eventmpos.mpos.domain.product.ProductVariant
 import com.eventmpos.mpos.domain.product.ProductRepository
@@ -53,6 +57,7 @@ class CartViewModel @Inject constructor(
     private val productRepository: ProductRepository,
     private val promotionRepository: PromotionRepository,
     private val orderRepository: OrderRepository,
+    private val cartRepository: CartRepository,
     sessionStore: SessionStore,
 ) : ViewModel() {
 
@@ -92,6 +97,13 @@ class CartViewModel @Inject constructor(
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CartUiState())
 
+    val drafts: StateFlow<List<CartDraft>> = cartRepository.observeDrafts(eventId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun saveDraft(label: String) = viewModelScope.launch { cartRepository.saveDraft(label) }
+    fun resumeDraft(id: String) = viewModelScope.launch { cartRepository.resume(id) }
+    fun deleteDraft(id: String) = viewModelScope.launch { cartRepository.delete(id) }
+
     fun increment(cartKey: String) = cartStore.adjust(cartKey, 1)
     fun decrement(cartKey: String) = cartStore.adjust(cartKey, -1)
     fun remove(cartKey: String) = cartStore.remove(cartKey)
@@ -99,14 +111,24 @@ class CartViewModel @Inject constructor(
     val canConfirm: Boolean
         get() = !cartStore.isEmpty() && cartStore.customer.value != null
 
+    /** Why the last confirm didn't go through (e.g. offline with no order numbers left). */
+    val error = MutableStateFlow<String?>(null)
+
+    /** Confirms on the device (final number + receipt), online or offline; the upload follows. */
     fun confirm(onDone: () -> Unit) {
         if (!canConfirm || submitting.value) return
+        val s = state.value
+        val sale = Sale(
+            items = s.lines.map { ReceiptLine(it.displayName, it.qty, it.lineTotal) },
+            subtotal = s.subtotal, discount = s.discount, promotionName = s.promotionName, total = s.total,
+        )
         submitting.value = true
+        error.value = null
         viewModelScope.launch {
-            runCatching { orderRepository.confirmCurrentCart(eventId) }
+            val result = runCatching { orderRepository.confirmCurrentCart(eventId, sale) }
             submitting.value = false
-            submitted.value = true
-            onDone()
+            result.onSuccess { submitted.value = true; onDone() }
+                .onFailure { error.value = it.message ?: "Could not confirm the order" }
         }
     }
 }

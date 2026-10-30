@@ -102,6 +102,9 @@ func (s *Service) ChangeStatus(id uuid.UUID, target EventStatus) (*EventResponse
 	}
 	e.Status = target
 	e.UpdatedAt = time.Now().UTC()
+	if target == StatusClosed {
+		e.ClosedAt = &e.UpdatedAt
+	}
 	if err := s.db.Save(e).Error; err != nil {
 		return nil, err
 	}

@@ -43,8 +43,8 @@ An Event is the central domain boundary. Products, stock, promotions, orders, an
 ## Key Architecture Rules
 1. **Backend is the source of truth** — Android uses Room as a local cache, never as the authority
 2. **Event snapshot on login** — when BA selects an event, download products + stock + members + promotions to Room in one call
-3. **Order submission requires network** — cart can be built offline, but submit needs server confirmation; use WorkManager retry queue
-4. **Receipt prints only after server confirms the order** — never print on submission attempt
+3. **Orders can be confirmed offline** — each device draws final order numbers from its own server-issued block (never reused), so a confirmed order never needs renumbering; the WorkManager queue uploads it later with its idempotency key. If the block is empty and the device is offline, checkout is blocked
+4. **The receipt prints at confirmation, on the device** — it shows the final number whether confirmed online or offline. The server stays the stock authority: it never rejects an uploaded order for stock, it flags it `stock_conflict=true`. A CLOSED event accepts orders created before `closed_at` for 24h (`late_synced=true`)
 5. **Stock validation is atomic on the server** — use PostgreSQL SELECT FOR UPDATE via the stock service's row-locked path (for decrement and restore); never write a bare `UPDATE`; never trust client-side stock checks
 6. **Idempotency key on every order submission** — prevent duplicate orders from double taps
 7. **PrinterPort abstraction** — wrap all Sunmi printer SDK calls behind an interface so hardware can be swapped later
@@ -52,7 +52,7 @@ An Event is the central domain boundary. Products, stock, promotions, orders, an
 9. **Promotion engine parity** — `backend-go/internal/promotion/engine.go` and Android `domain/promotion/PromotionEngine.kt` must give identical results; change both or neither
 
 ## Order Lifecycle
-NEW → PACKING → READY → COLLECTED
+NEW → PACKING → READY → COLLECTED (CANCELLED from NEW or PACKING; stock is restored)
 
 ## Order Number Strategy
 - `id` — UUID (internal, API only)

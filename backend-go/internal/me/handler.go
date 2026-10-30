@@ -339,3 +339,32 @@ func (h *Handler) requireBa(c *gin.Context) (auth.Principal, bool) {
 	}
 	return p, true
 }
+
+// IssueNumberBlock reserves a block of order numbers for the calling device (EPIC-12 C1), so it can
+// confirm orders offline with final numbers. Body: {"deviceId": "<uuid generated on install>"}.
+func (h *Handler) IssueNumberBlock(c *gin.Context) {
+	p, ok := h.requireBa(c)
+	if !ok {
+		return
+	}
+	eventID, err := uuid.Parse(c.Param("eventId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	var req order.NumberBlockRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
+		return
+	}
+	if err := h.events.RequireAssigned(p.UserID, eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	block, err := h.orders.IssueNumberBlock(eventID, req.DeviceID)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, block)
+}

@@ -238,6 +238,36 @@ func (s *Service) Decrement(tx *gorm.DB, eventID, productID uuid.UUID, qty int) 
 	return tx.Save(&alloc).Error
 }
 
+// Reserve is Decrement for orders a device already confirmed offline: it never rejects. It reports
+// whether the sale oversold the allocation; remaining then goes negative so the shortfall stays
+// visible to the warehouse instead of the order being lost.
+func (s *Service) Reserve(tx *gorm.DB, eventID, productID uuid.UUID, qty int) (oversold bool, err error) {
+	var alloc EventStockAllocation
+	err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("event_id = ? AND product_id = ?", eventID, productID).First(&alloc).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return true, nil // nothing allocated at all: flag it, nothing to decrement
+	}
+	if err != nil {
+		return false, err
+	}
+	oversold = alloc.Remaining() < qty
+	alloc.SoldQty += qty
+	return oversold, tx.Save(&alloc).Error
+}
+
+// Restore returns qty of a product to the event's stock (order cancelled), under the same row lock
+// as Decrement. Must run inside the caller's transaction.
+func (s *Service) Restore(tx *gorm.DB, eventID, productID uuid.UUID, qty int) error {
+	var alloc EventStockAllocation
+	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+		Where("event_id = ? AND product_id = ?", eventID, productID).First(&alloc).Error; err != nil {
+		return err
+	}
+	alloc.SoldQty = max(alloc.SoldQty-qty, 0)
+	return tx.Save(&alloc).Error
+}
+
 // ---- helpers ----
 
 func (s *Service) findAllocation(tx *gorm.DB, eventID, productID uuid.UUID) (*EventStockAllocation, error) {

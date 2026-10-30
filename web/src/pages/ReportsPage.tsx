@@ -185,6 +185,9 @@ function EventReport() {
         <>
           <div style={{ display: "flex", gap: 24, flexWrap: "wrap", margin: "16px 0" }}>
             <Metric label="Orders" value={String(report.totalOrders)} />
+            <Metric label="Cancelled" value={String(report.cancelledOrders)} />
+            <Metric label="Late-synced" value={String(report.lateSyncedOrders)} />
+            <Metric label="Stock conflicts" value={String(report.stockConflictOrders)} />
             <Metric label="Items sold" value={String(report.totalItems)} />
             <Metric label="Revenue" value={rupiah(report.totalRevenue)} />
             <Metric label="Discounts" value={rupiah(report.totalDiscount)} />

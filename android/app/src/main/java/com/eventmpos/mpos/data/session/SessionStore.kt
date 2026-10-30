@@ -1,6 +1,7 @@
 package com.eventmpos.mpos.data.session
 
 import com.eventmpos.mpos.domain.auth.AssignedEvent
+import com.eventmpos.mpos.domain.auth.EventStatus
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -27,6 +28,9 @@ class SessionStore @Inject constructor() {
     fun setUser(name: String) { userName = name }
 
     val eventId: String? get() = _event.value?.id
+
+    /** Refresh the selected event's status (e.g. it was closed while the BA was selling). */
+    fun updateStatus(status: EventStatus) { _event.value = _event.value?.copy(status = status) }
 
     fun clear() {
         userName = ""

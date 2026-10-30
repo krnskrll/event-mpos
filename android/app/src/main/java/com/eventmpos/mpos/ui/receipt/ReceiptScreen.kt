@@ -44,7 +44,7 @@ fun ReceiptScreen(
         Box(Modifier.size(64.dp).clip(CircleShape).background(Brand.TealSoft), Alignment.Center) {
             Text("✓", color = Brand.Teal, fontSize = 34.sp)
         }
-        Text("Order confirmed", color = Brand.Heading, fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
+        Text(if (state.cancelled) "Order cancelled" else "Order confirmed", color = Brand.Heading, fontSize = 20.sp, fontWeight = androidx.compose.ui.text.font.FontWeight.Bold, modifier = Modifier.padding(top = 12.dp))
         Text("Receipt printed automatically", color = Brand.TextMuted, fontSize = 13.sp)
 
         when {

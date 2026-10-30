@@ -28,13 +28,14 @@ class OrderSubmitterTest {
     private val dao = FakePendingOrderDao()
     private val receipts = mockk<ReceiptManager>(relaxed = true)
     private val notifier = mockk<OrderNotifier>(relaxed = true)
-    private val submitter = OrderSubmitter(api, dao, receipts, notifier, Json { ignoreUnknownKeys = true })
+    private val numbers = mockk<OrderNumbers> { coEvery { deviceId() } returns "device-1" }
+    private val submitter = OrderSubmitter(api, dao, receipts, notifier, Json { ignoreUnknownKeys = true }, numbers)
 
     private suspend fun queue(key: String, at: Long = 1) = dao.upsert(
         PendingOrderEntity(
             idempotencyKey = key, eventId = "ev1", customerName = "Cust $key", customerQr = null,
             customerTier = null, linesJson = """[{"productId":"p1","qty":1}]""", status = "PENDING",
-            createdAtEpochMs = at,
+            createdAtEpochMs = at, orderNumber = 7,
         ),
     )
 
@@ -46,7 +47,7 @@ class OrderSubmitterTest {
     private fun httpError(code: Int) = HttpException(Response.error<Any>(code, "{}".toResponseBody()))
 
     @Test
-    fun `server confirmation marks CONFIRMED, prints and notifies`() = runTest {
+    fun `upload marks CONFIRMED with the device number and links the receipt`() = runTest {
         queue("k1")
         val sent = slot<SubmitOrderRequestDto>()
         coEvery { api.submitOrder("ev1", capture(sent)) } returns confirmation(7)
@@ -59,7 +60,9 @@ class OrderSubmitterTest {
         assertEquals("ORD-20261030-EV01-007", row.referenceId)
         assertEquals("k1", sent.captured.idempotencyKey) // the stored key is reused on every attempt
         assertEquals(listOf(OrderLineDto("p1", 1)), sent.captured.lines)
-        coVerify { receipts.storeAndPrint("k1", "ev1", any()) }
+        assertEquals(7 to "device-1", sent.captured.orderNumber to sent.captured.deviceId)
+        assertEquals("srv-7", row.serverOrderId)
+        coVerify { receipts.linkServerOrder("k1", "srv-7") }
         verify { notifier.notifyConfirmed("k1", "#007", 49_500.0) }
     }
 
@@ -70,7 +73,7 @@ class OrderSubmitterTest {
 
         assertTrue(submitter.drainPending())
         assertEquals("PENDING", dao.get("k1")!!.status)
-        coVerify(exactly = 0) { receipts.storeAndPrint(any(), any(), any()) }
+        coVerify(exactly = 0) { receipts.linkServerOrder(any(), any()) }
     }
 
     @Test
@@ -96,10 +99,10 @@ class OrderSubmitterTest {
     }
 
     @Test
-    fun `a print failure does not affect the confirmed order`() = runTest {
+    fun `a receipt-link failure does not affect the confirmed order`() = runTest {
         queue("k1")
         coEvery { api.submitOrder(any(), any()) } returns confirmation(1)
-        coEvery { receipts.storeAndPrint(any(), any(), any()) } throws IllegalStateException("printer on fire")
+        coEvery { receipts.linkServerOrder(any(), any()) } throws IllegalStateException("db busy")
 
         assertFalse(submitter.drainPending())
         assertEquals("CONFIRMED", dao.get("k1")!!.status)

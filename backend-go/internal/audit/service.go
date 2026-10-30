@@ -3,6 +3,7 @@ package audit
 import (
 	"log"
 	"strconv"
+	"strings"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -36,9 +37,8 @@ func (s *Service) actorName(tx *gorm.DB, userID *uuid.UUID) string {
 
 // RecordOrderCreated writes an ORDER_CREATED entry using the provided tx (same transaction as the
 // order create).
-func (s *Service) RecordOrderCreated(tx *gorm.DB, eventID, orderID uuid.UUID, orderReference string, actorUserID *uuid.UUID) error {
+func (s *Service) RecordOrderCreated(tx *gorm.DB, eventID, orderID uuid.UUID, orderReference string, actorUserID *uuid.UUID, detail string) error {
 	to := "NEW"
-	detail := "Order created"
 	return tx.Create(&OrderAuditLog{
 		EventID: eventID, OrderID: orderID, OrderReference: orderReference,
 		Action: ActionOrderCreated, ActorUserID: actorUserID, ActorName: s.actorName(tx, actorUserID),
@@ -67,6 +67,20 @@ func (s *Service) RecordReceiptPrinted(tx *gorm.DB, eventID, orderID uuid.UUID, 
 		EventID: eventID, OrderID: orderID, OrderReference: orderReference,
 		Action: ActionReceiptPrinted, ActorUserID: actorUserID, ActorName: s.actorName(tx, actorUserID),
 		Detail: &detail,
+	}).Error
+}
+
+// RecordCancelled writes an ORDER_CANCELLED entry (with the optional reason) using the provided tx.
+func (s *Service) RecordCancelled(tx *gorm.DB, eventID, orderID uuid.UUID, orderReference, from string, actorUserID *uuid.UUID, reason *string) error {
+	to := "CANCELLED"
+	detail := "Order cancelled"
+	if reason != nil && strings.TrimSpace(*reason) != "" {
+		detail += ": " + strings.TrimSpace(*reason)
+	}
+	return tx.Create(&OrderAuditLog{
+		EventID: eventID, OrderID: orderID, OrderReference: orderReference,
+		Action: ActionOrderCancelled, ActorUserID: actorUserID, ActorName: s.actorName(tx, actorUserID),
+		FromStatus: &from, ToStatus: &to, Detail: &detail,
 	}).Error
 }
 

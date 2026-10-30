@@ -18,6 +18,9 @@ interface PendingOrderDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(order: PendingOrderEntity)
 
+    @Query("SELECT COUNT(*) FROM pending_order WHERE eventId = :eventId AND status = 'PENDING'")
+    fun observePendingCount(eventId: String): Flow<Int>
+
     @Query("SELECT * FROM pending_order WHERE idempotencyKey = :key")
     suspend fun get(key: String): PendingOrderEntity?
 }

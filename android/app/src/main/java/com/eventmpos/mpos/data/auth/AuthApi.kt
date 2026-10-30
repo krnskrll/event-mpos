@@ -1,6 +1,9 @@
 package com.eventmpos.mpos.data.auth
 
 import com.eventmpos.mpos.data.order.OrderConfirmationDto
+import com.eventmpos.mpos.data.order.CancelOrderRequestDto
+import com.eventmpos.mpos.data.order.NumberBlockDto
+import com.eventmpos.mpos.data.order.NumberBlockRequestDto
 import com.eventmpos.mpos.data.order.OrderSummaryDto
 import com.eventmpos.mpos.data.order.SubmitOrderRequestDto
 import retrofit2.http.Body
@@ -50,6 +53,12 @@ interface AuthApi {
     suspend fun getOrderHistory(@Path("eventId") eventId: String): List<OrderSummaryDto>
 
     /** Fire-and-forget: log that a receipt was printed/reprinted for an order (backend audit). */
+    @POST("api/me/events/{eventId}/number-blocks")
+    suspend fun issueNumberBlock(@Path("eventId") eventId: String, @Body body: NumberBlockRequestDto): NumberBlockDto
+
+    @POST("api/me/orders/{orderId}/cancel")
+    suspend fun cancelOrder(@Path("orderId") orderId: String, @Body body: CancelOrderRequestDto)
+
     @POST("api/me/orders/{orderId}/receipts")
     suspend fun logReceipt(@Path("orderId") orderId: String)
 }

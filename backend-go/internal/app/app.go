@@ -157,9 +157,11 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 		meGroup.GET("/events/:eventId/stock", meHandler.Stock)
 		meGroup.POST("/events/:eventId/promotions/quote", meHandler.Quote)
 		meGroup.POST("/events/:eventId/orders", meHandler.SubmitOrder)
+		meGroup.POST("/events/:eventId/number-blocks", meHandler.IssueNumberBlock)
 		meGroup.GET("/events/:eventId/orders", meHandler.OrderHistory)
 		meGroup.GET("/orders/:orderId", meHandler.Order)
 		meGroup.POST("/orders/:orderId/receipts", meHandler.LogReceipt)
+		meGroup.POST("/orders/:orderId/cancel", auth.RequireRole(user.RoleBA), warehouseOrderHandler.Cancel)
 
 		// Admin-only
 		admin := authed.Group("/admin")
@@ -202,6 +204,7 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 		warehouse.GET("/events/:eventId/stock", warehouseStockHandler.Levels)
 		warehouse.GET("/events/:eventId/orders", warehouseOrderHandler.Orders)
 		warehouse.PATCH("/orders/:orderId/status", warehouseOrderHandler.Advance)
+		warehouse.POST("/orders/:orderId/cancel", warehouseOrderHandler.Cancel)
 	}
 	return r
 }

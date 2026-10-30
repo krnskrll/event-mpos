@@ -88,6 +88,9 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
     implementation("com.jakewharton.retrofit:retrofit2-kotlinx-serialization-converter:1.0.0")
 
+    // Install-scoped device id (EPIC-12 C1: per-device order-number blocks)
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
     // Secure token storage
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 

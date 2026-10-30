@@ -8,13 +8,14 @@ import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import retrofit2.HttpException
 import java.io.IOException
+import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Uploads PENDING orders, oldest first. Each upload reuses the order's stored idempotency key, so a
- * retry never creates a duplicate on the server.
- *  - success             -> CONFIRMED (order number / reference / total stored), receipt printed
+ * Uploads PENDING orders, oldest first. They were already confirmed on the device (final number,
+ * receipt printed); upload only syncs them. The stored idempotency key makes retries duplicate-free.
+ *  - success             -> CONFIRMED (server id stored, receipt linked for reprint logging)
  *  - network error / 5xx -> stays PENDING; [drainPending] returns true so the worker retries
  *  - other 4xx (sold out)-> FAILED with the reason (permanent; needs BA action)
  */
@@ -25,6 +26,7 @@ class OrderSubmitter @Inject constructor(
     private val receiptManager: ReceiptManager,
     private val notifier: OrderNotifier,
     private val json: Json,
+    private val numbers: OrderNumbers,
 ) {
     /** Returns true when at least one order must be retried later. */
     suspend fun drainPending(): Boolean {
@@ -38,6 +40,9 @@ class OrderSubmitter @Inject constructor(
                         idempotencyKey = order.idempotencyKey,
                         customer = CustomerInfoDto(order.customerName, order.customerQr, order.customerTier),
                         lines = lines,
+                        deviceId = order.orderNumber?.let { numbers.deviceId() },
+                        orderNumber = order.orderNumber,
+                        clientCreatedAt = Instant.ofEpochMilli(order.createdAtEpochMs).toString(),
                     ),
                 )
                 dao.upsert(
@@ -47,11 +52,10 @@ class OrderSubmitter @Inject constructor(
                         referenceId = resp.referenceId,
                         total = resp.total,
                         errorMessage = null,
+                        serverOrderId = resp.id,
                     ),
                 )
-                // Auto-print the receipt the moment the server confirms (never on a submit attempt).
-                // A printer failure is non-fatal: the receipt is stored for reprint; order stands.
-                runCatching { receiptManager.storeAndPrint(order.idempotencyKey, order.eventId, resp) }
+                runCatching { receiptManager.linkServerOrder(order.idempotencyKey, resp.id) }
                 // Let the BA know a queued sale went through, even if they're on another screen.
                 notifier.notifyConfirmed(order.idempotencyKey, resp.orderNumberDisplay, resp.total)
             } catch (e: IOException) {

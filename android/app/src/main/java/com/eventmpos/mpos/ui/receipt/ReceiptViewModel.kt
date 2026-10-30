@@ -4,6 +4,7 @@ import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eventmpos.mpos.core.printer.PrintResult
+import com.eventmpos.mpos.domain.receipt.ReceiptFormatter
 import com.eventmpos.mpos.domain.receipt.ReceiptRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,9 @@ data class ReceiptUiState(
     val printing: Boolean = false,
     val message: String? = null,
     val error: Boolean = false,
-)
+) {
+    val cancelled: Boolean get() = lines.firstOrNull() == ReceiptFormatter.CANCELLED
+}
 
 @HiltViewModel
 class ReceiptViewModel @Inject constructor(
