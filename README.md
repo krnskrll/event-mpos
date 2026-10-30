@@ -7,7 +7,7 @@ Event-based Android Mobile POS for retail beauty events.
 | Component | Tech | Purpose |
 |---|---|---|
 | Android mPOS | Kotlin + Jetpack Compose | Beauty Advisor selling tool |
-| Backend API | Spring Boot + PostgreSQL | Source of truth |
+| Backend API | Go (Gin + GORM) + PostgreSQL | Source of truth |
 | Web Dashboard | React + TypeScript | Warehouse order execution |
 
 ## Project Structure
@@ -15,7 +15,8 @@ Event-based Android Mobile POS for retail beauty events.
 ```
 event-mpos/
 ├── android/          # Android mPOS app (Kotlin)
-├── backend/          # Spring Boot API
+├── backend-go/       # Go API (Gin, GORM, golang-migrate, native WebSocket)
+├── backend/          # Legacy Kotlin/Spring Boot API — no longer run; removed once its tests are ported to Go
 ├── web/              # React web dashboard
 └── prompts/          # Cursor development prompts (one per epic)
 ```
@@ -23,14 +24,30 @@ event-mpos/
 ## Quick Start (local dev)
 
 ```bash
-# 1. Backend + Postgres (no local JDK needed — uses Docker)
-docker compose up --build          # API on http://localhost:8080, seeded with demo users
+# 1. Backend + Postgres (no local Go toolchain needed — uses Docker)
+docker compose up --build          # Go API on http://localhost:8080, seeded with demo users
+# After pulling a schema change, reset the dev DB first: docker compose down -v
 
 # 2. Web dashboard
 cd web && npm install && npm run dev   # http://localhost:5173
 
 # 3. Android app
 # open the android/ folder in Android Studio and Run on an emulator
+```
+
+## Backend (Go)
+
+`backend-go/` is the only backend. Stack: **Gin** (HTTP), **GORM** on PostgreSQL,
+**golang-migrate** (schema in `backend-go/migrations/`, applied on startup — add new numbered
+`00000N_*.up.sql` / `.down.sql` files, never edit `000001_init`), JWT auth with rotating refresh
+tokens, a DB-driven **robfig/cron** sync scheduler, and a native **WebSocket** for the warehouse
+board at `GET /ws/events/{id}/orders?token=<jwt>` (the token is redacted from access logs).
+Configuration is environment variables — see `backend-go/.env.example`; the only value that
+changes per environment is `DB_URL`. Behavioural parity with the retired Kotlin backend is recorded
+in [backend-go/PARITY-NOTES.md](backend-go/PARITY-NOTES.md).
+
+```bash
+cd backend-go && go test ./...     # or: docker run --rm -v "$PWD":/app -w /app golang:1.25-alpine go test ./...
 ```
 
 Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
@@ -73,8 +90,8 @@ Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
   `ReceiptFormatter`, **auto-print on confirm** (status checked first), receipts stored in Room for
   **reprint without network**, and a receipt screen + retry on printer failure (order unaffected).
   See [docs/EPIC-08-verification.md](docs/EPIC-08-verification.md).
-- **EPIC-09 — Warehouse Order Dashboard**: ✅ implemented. Real-time order board over **WebSocket/
-  STOMP** (broadcast `AFTER_COMMIT` to `/topic/events/{id}/orders`), with status advance
+- **EPIC-09 — Warehouse Order Dashboard**: ✅ implemented. Real-time order board over a **native
+  WebSocket** (broadcast after commit on `/ws/events/{id}/orders`; originally STOMP on Kotlin), with status advance
   NEW→PACKING→READY→COLLECTED (validated), status filter, **new-order beep + flash**, **polling
   fallback** when the socket drops, and a remaining-stock panel. See
   [docs/EPIC-09-verification.md](docs/EPIC-09-verification.md).

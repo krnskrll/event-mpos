@@ -12,6 +12,7 @@ web/node_modules/
 web/dist/
 web/.vite/
 web/*.local
+web/*.tsbuildinfo
 
 # ---- Android ----
 android/.gradle/
