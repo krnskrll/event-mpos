@@ -1,5 +1,7 @@
 package com.eventmpos.mpos.domain.member
 
+import kotlinx.serialization.Serializable
+
 /** Minimal customer for identification + order linking. */
 data class Member(
     val qrCode: String,
@@ -11,6 +13,7 @@ data class Member(
 enum class CustomerSource { LOCAL_CACHE, ONLINE_LOOKUP, MANUAL }
 
 /** The customer attached to the current selling session. */
+@Serializable
 data class SelectedCustomer(
     val name: String,
     val tier: String?,

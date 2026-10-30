@@ -11,6 +11,7 @@ import com.eventmpos.mpos.core.secure.SecureTokenStorage
 import com.eventmpos.mpos.data.auth.AuthRepositoryImpl
 import com.eventmpos.mpos.data.event.EventRepositoryImpl
 import com.eventmpos.mpos.data.local.AppDatabase
+import com.eventmpos.mpos.data.local.CartDraftDao
 import com.eventmpos.mpos.data.local.EventSnapshotDao
 import com.eventmpos.mpos.data.local.MemberDao
 import com.eventmpos.mpos.data.local.PendingOrderDao
@@ -35,6 +36,9 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import javax.inject.Singleton
 
 @Module
@@ -50,7 +54,7 @@ object AppProvidesModule {
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
         Room.databaseBuilder(context, AppDatabase::class.java, "eventmpos.db")
-            .addMigrations(AppDatabase.MIGRATION_9_10)
+            .addMigrations(AppDatabase.MIGRATION_9_10, AppDatabase.MIGRATION_10_11)
             .fallbackToDestructiveMigration()
             .build()
 
@@ -71,6 +75,14 @@ object AppProvidesModule {
 
     @Provides
     fun provideReceiptDao(db: AppDatabase): ReceiptDao = db.receiptDao()
+
+    @Provides
+    fun provideCartDraftDao(db: AppDatabase): CartDraftDao = db.cartDraftDao()
+
+    /** Process-lifetime scope for app-wide background work (e.g. cart autosave). */
+    @Provides
+    @Singleton
+    fun provideAppScope(): CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Provides
     @Singleton

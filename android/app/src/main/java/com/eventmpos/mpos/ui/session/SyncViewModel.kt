@@ -3,6 +3,7 @@ package com.eventmpos.mpos.ui.session
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eventmpos.mpos.core.sync.SyncCoordinator
+import com.eventmpos.mpos.data.cart.CartRepository
 import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.event.EventRepository
 import com.eventmpos.mpos.domain.event.SyncResult
@@ -28,6 +29,7 @@ class SyncViewModel @Inject constructor(
     private val eventRepository: EventRepository,
     private val sessionStore: SessionStore,
     private val syncCoordinator: SyncCoordinator,
+    private val cartRepository: CartRepository,
 ) : ViewModel() {
 
     val eventName: String get() = sessionStore.event.value?.name ?: "your event"
@@ -59,6 +61,8 @@ class SyncViewModel @Inject constructor(
             }
             when (val result = sync.await()) {
                 is SyncResult.Ready, is SyncResult.NotActive -> {
+                    // No more selling on a non-active (e.g. closed) event: its parked carts are moot.
+                    if (result is SyncResult.NotActive) eventId?.let { cartRepository.clearEvent(it) }
                     // Data is on the device and the session is live — start background sync
                     // (60s stock refresh + reconnect-driven retry-queue flush).
                     eventId?.let { syncCoordinator.start(it) }

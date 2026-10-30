@@ -25,6 +25,9 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -47,11 +50,23 @@ fun CartScreen(
     viewModel: CartViewModel = hiltViewModel(),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val drafts by viewModel.drafts.collectAsStateWithLifecycle()
+    var showSave by remember { mutableStateOf(false) }
+    var showDrafts by remember { mutableStateOf(false) }
+
+    if (showSave) SaveDraftDialog(state.customer?.name.orEmpty(), { viewModel.saveDraft(it); showSave = false }, { showSave = false })
+    if (showDrafts) DraftsDialog(drafts, state.lines.isEmpty(), viewModel::resumeDraft, viewModel::deleteDraft) { showDrafts = false }
 
     Column(modifier = Modifier.fillMaxSize().background(Brand.Bg)) {
         Column(Modifier.fillMaxWidth().background(Brand.Navy).padding(top = 44.dp, start = 20.dp, end = 20.dp, bottom = 16.dp)) {
-            Text("Cart", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-            Text("${state.lines.sumOf { it.qty }} items", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(Modifier.weight(1f)) {
+                    Text("Cart", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                    Text("${state.lines.sumOf { it.qty }} items", color = Color.White.copy(alpha = 0.6f), fontSize = 13.sp)
+                }
+                if (state.lines.isNotEmpty()) HeaderAction("Save draft") { showSave = true }
+                HeaderAction("Drafts (${drafts.size})") { showDrafts = true }
+            }
         }
 
         if (state.lines.isEmpty()) {
@@ -116,6 +131,14 @@ fun CartScreen(
         }
         }
     }
+}
+
+@Composable
+private fun HeaderAction(label: String, onClick: () -> Unit) {
+    Text(
+        label, color = Color.White, fontSize = 13.sp, fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable { onClick() }.padding(horizontal = 10.dp, vertical = 6.dp),
+    )
 }
 
 @Composable

@@ -2,7 +2,9 @@ package com.eventmpos.mpos.ui.cart
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eventmpos.mpos.data.cart.CartDraft
 import com.eventmpos.mpos.data.cart.CartKey
+import com.eventmpos.mpos.data.cart.CartRepository
 import com.eventmpos.mpos.data.cart.CartStore
 import com.eventmpos.mpos.data.session.SessionStore
 import com.eventmpos.mpos.domain.member.SelectedCustomer
@@ -53,6 +55,7 @@ class CartViewModel @Inject constructor(
     private val productRepository: ProductRepository,
     private val promotionRepository: PromotionRepository,
     private val orderRepository: OrderRepository,
+    private val cartRepository: CartRepository,
     sessionStore: SessionStore,
 ) : ViewModel() {
 
@@ -91,6 +94,13 @@ class CartViewModel @Inject constructor(
                 submitted = submitted.value,
             )
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), CartUiState())
+
+    val drafts: StateFlow<List<CartDraft>> = cartRepository.observeDrafts(eventId)
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    fun saveDraft(label: String) = viewModelScope.launch { cartRepository.saveDraft(label) }
+    fun resumeDraft(id: String) = viewModelScope.launch { cartRepository.resume(id) }
+    fun deleteDraft(id: String) = viewModelScope.launch { cartRepository.delete(id) }
 
     fun increment(cartKey: String) = cartStore.adjust(cartKey, 1)
     fun decrement(cartKey: String) = cartStore.adjust(cartKey, -1)

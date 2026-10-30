@@ -10,8 +10,8 @@ import javax.inject.Singleton
 
 /**
  * Entirely-local cart state (per .cursorrules: no server calls while browsing/adjusting). Holds
- * productId→qty and the selected customer for the current sale. Survives navigation but not process
- * death — a deliberate "draft to resume" is persisted separately (see CartRepository.saveDraft).
+ * productId→qty and the selected customer for the current sale. [CartRepository] autosaves it to
+ * Room (so it survives process death) and parks/resumes named drafts.
  */
 /** Encodes a cart line's product + optional variant into a single map key: "productId|variantId". */
 object CartKey {
@@ -45,6 +45,12 @@ class CartStore @Inject constructor() {
     fun remove(cartKey: String) = _items.update { it - cartKey }
 
     fun setCustomer(c: SelectedCustomer?) { _customer.value = c }
+
+    /** Replace the whole cart (resuming a draft / restoring the autosaved cart). */
+    fun replace(items: Map<String, Int>, customer: SelectedCustomer?) {
+        _items.value = items
+        _customer.value = customer
+    }
 
     fun clear() {
         _items.value = emptyMap()
