@@ -1,11 +1,9 @@
 # OS
 .DS_Store
 
-# ---- Backend (Gradle / Kotlin) ----
-backend/.gradle/
-backend/build/
-backend/!gradle/wrapper/gradle-wrapper.jar
-backend/out/
+# ---- Backend (Go) ----
+backend-go/server
+backend-go/.env
 
 # ---- Web (Node / Vite) ----
 web/node_modules/

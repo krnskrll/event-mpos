@@ -16,7 +16,7 @@ Event-based Android Mobile POS for retail beauty events.
 event-mpos/
 ├── android/          # Android mPOS app (Kotlin)
 ├── backend-go/       # Go API (Gin, GORM, golang-migrate, native WebSocket)
-├── backend/          # Legacy Kotlin/Spring Boot API — no longer run; removed once its tests are ported to Go
+├── testdata/         # Fixtures shared by backend and Android tests (promotion parity)
 ├── web/              # React web dashboard
 └── prompts/          # Cursor development prompts (one per epic)
 ```
