@@ -2,12 +2,15 @@ package com.eventmpos.mpos.core.notification
 
 import com.eventmpos.mpos.core.format.rupiah
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -49,7 +52,10 @@ class OrderNotifier @Inject constructor(@ApplicationContext private val context:
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .build()
-        // notify() throws if POST_NOTIFICATIONS was denied (API 33+); swallow — it's non-essential.
+        // POST_NOTIFICATIONS is a runtime permission on API 33+; skip quietly if the BA declined it.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
+            ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED
+        ) return
         runCatching { NotificationManagerCompat.from(context).notify(idempotencyKey.hashCode(), notification) }
     }
 

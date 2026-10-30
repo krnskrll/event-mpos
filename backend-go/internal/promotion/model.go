@@ -139,6 +139,8 @@ type PromotionSnapshotDto struct {
 	MinSubtotal *decimal.Decimal `json:"minSubtotal,omitempty"`
 	StartsAt    *time.Time       `json:"startsAt,omitempty"`
 	EndsAt      *time.Time       `json:"endsAt,omitempty"`
+	// Priority breaks ties between equal discounts; the device engine needs it to match the server.
+	Priority int `json:"priority"`
 }
 
 type QuoteLine struct {
@@ -172,6 +174,6 @@ func (p *Promotion) ToSnapshotDto() PromotionSnapshotDto {
 		ID: p.ID, Name: p.Name, Type: p.Type,
 		PercentOff: p.PercentOff, AmountOff: p.AmountOff, Scope: p.Scope,
 		ProductIDs: p.ProductIDs(), MinQty: p.MinQty, MinSubtotal: p.MinSubtotal,
-		StartsAt: p.StartsAt, EndsAt: p.EndsAt,
+		StartsAt: p.StartsAt, EndsAt: p.EndsAt, Priority: p.Priority,
 	}
 }

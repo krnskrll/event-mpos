@@ -12,20 +12,22 @@ import (
 // Service records order activity into the append-only OrderAuditLog, resolving the actor's name at
 // write time. Purely additive — never updates or deletes.
 type Service struct {
-	db    *gorm.DB
-	users *user.Service
+	db *gorm.DB
 }
 
-func NewService(db *gorm.DB, users *user.Service) *Service {
-	return &Service{db: db, users: users}
+func NewService(db *gorm.DB) *Service {
+	return &Service{db: db}
 }
 
-func (s *Service) actorName(userID *uuid.UUID) string {
+// actorName resolves the actor's display name through the caller's transaction. It must not use a
+// separate pool connection: the caller may hold stock row locks, and if every pooled connection is
+// held by a transaction waiting on those locks, a second connection never frees up (deadlock).
+func (s *Service) actorName(tx *gorm.DB, userID *uuid.UUID) string {
 	if userID == nil {
 		return "system"
 	}
-	u, err := s.users.FindByID(*userID)
-	if err != nil || u == nil {
+	var u user.User
+	if err := tx.Select("full_name").Where("id = ?", *userID).Take(&u).Error; err != nil {
 		return "system"
 	}
 	return u.FullName
@@ -38,7 +40,7 @@ func (s *Service) RecordOrderCreated(tx *gorm.DB, eventID, orderID uuid.UUID, or
 	detail := "Order created"
 	return tx.Create(&OrderAuditLog{
 		EventID: eventID, OrderID: orderID, OrderReference: orderReference,
-		Action: ActionOrderCreated, ActorUserID: actorUserID, ActorName: s.actorName(actorUserID),
+		Action: ActionOrderCreated, ActorUserID: actorUserID, ActorName: s.actorName(tx, actorUserID),
 		ToStatus: &to, Detail: &detail,
 	}).Error
 }
@@ -48,7 +50,7 @@ func (s *Service) RecordStatusChange(tx *gorm.DB, eventID, orderID uuid.UUID, or
 	detail := "Status " + from + " → " + to
 	return tx.Create(&OrderAuditLog{
 		EventID: eventID, OrderID: orderID, OrderReference: orderReference,
-		Action: ActionStatusChanged, ActorUserID: actorUserID, ActorName: s.actorName(actorUserID),
+		Action: ActionStatusChanged, ActorUserID: actorUserID, ActorName: s.actorName(tx, actorUserID),
 		FromStatus: &from, ToStatus: &to, Detail: &detail,
 	}).Error
 }

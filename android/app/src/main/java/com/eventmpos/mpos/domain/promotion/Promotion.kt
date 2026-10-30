@@ -18,6 +18,8 @@ data class Promotion(
     val minSubtotal: Double?,
     val startsAtEpochMs: Long?,
     val endsAtEpochMs: Long?,
+    /** Tie-breaker between equal discounts (higher wins), as on the server. */
+    val priority: Int = 0,
 ) {
     /** Human description for the promotions screen. */
     fun describe(): String {

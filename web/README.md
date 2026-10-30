@@ -18,7 +18,7 @@ npm install
 npm run dev
 ```
 Opens http://localhost:5173. API calls to `/api/*` are proxied to `http://localhost:8080`
-(the backend) — so start the backend first (see `../backend/README.md`).
+(the Go backend) — so start it first with `docker compose up --build` from the repo root.
 
 Sign in with the seeded accounts (e.g. `admin@eventmpos.local` / `Admin123!`).
 

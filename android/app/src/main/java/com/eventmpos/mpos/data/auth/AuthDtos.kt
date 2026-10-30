@@ -100,6 +100,7 @@ data class PromotionDto(
     val minSubtotal: Double? = null,
     val startsAt: String? = null,
     val endsAt: String? = null,
+    val priority: Int = 0,
 )
 
 @Serializable
