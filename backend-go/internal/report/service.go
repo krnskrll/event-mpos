@@ -40,11 +40,14 @@ type EndOfEventReport struct {
 	GeneratedAt time.Time         `json:"generatedAt"`
 	TotalOrders int               `json:"totalOrders"`
 	// CancelledOrders are excluded from every other total (orders, items, revenue, discount).
-	CancelledOrders int                `json:"cancelledOrders"`
-	TotalItems      int                `json:"totalItems"`
-	TotalRevenue    decimal.Decimal    `json:"totalRevenue"`
-	TotalDiscount   decimal.Decimal    `json:"totalDiscount"`
-	Products        []ProductReportRow `json:"products"`
+	CancelledOrders int `json:"cancelledOrders"`
+	// Orders uploaded after the event closed (D2) and orders that sold past the allocation (D1).
+	LateSyncedOrders    int                `json:"lateSyncedOrders"`
+	StockConflictOrders int                `json:"stockConflictOrders"`
+	TotalItems          int                `json:"totalItems"`
+	TotalRevenue        decimal.Decimal    `json:"totalRevenue"`
+	TotalDiscount       decimal.Decimal    `json:"totalDiscount"`
+	Products            []ProductReportRow `json:"products"`
 }
 
 type Service struct {
@@ -86,8 +89,15 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 	}
 	sales := map[uuid.UUID]*agg{}
 	var salesOrder []uuid.UUID // preserve first-seen order
+	lateSynced, conflicts := 0, 0
 	for i := range orders {
 		o := &orders[i]
+		if o.LateSynced {
+			lateSynced++
+		}
+		if o.StockConflict {
+			conflicts++
+		}
 		totalRevenue = totalRevenue.Add(o.Total)
 		totalDiscount = totalDiscount.Add(o.Discount)
 		for _, it := range o.Items {
@@ -154,7 +164,7 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 
 	return &EndOfEventReport{
 		EventID: ev.ID, EventCode: ev.Code, EventName: ev.Name, Status: ev.Status,
-		GeneratedAt: time.Now().UTC(), TotalOrders: len(orders), CancelledOrders: int(cancelled), TotalItems: totalItems,
+		GeneratedAt: time.Now().UTC(), TotalOrders: len(orders), CancelledOrders: int(cancelled), LateSyncedOrders: lateSynced, StockConflictOrders: conflicts, TotalItems: totalItems,
 		TotalRevenue: totalRevenue.Round(2), TotalDiscount: totalDiscount.Round(2), Products: rows,
 	}, nil
 }

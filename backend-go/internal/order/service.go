@@ -77,9 +77,9 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 		}
 		return nil, err
 	}
-	if ev.Status != event.StatusActive {
-		return nil, common.NewAppError(http.StatusConflict,
-			"Event "+ev.Code+" is "+string(ev.Status)+" — cannot accept orders")
+	lateSynced, err := acceptsOrders(&ev, req.ClientCreatedAt)
+	if err != nil {
+		return nil, err
 	}
 
 	// 2) build line items from the catalogue (server-authoritative prices)
@@ -162,6 +162,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 		ReferenceID: "", CustomerName: strings.TrimSpace(req.Customer.Name), CustomerQr: req.Customer.QRCode,
 		CustomerTier: req.Customer.Tier, Subtotal: subtotal, Discount: discount, Total: total,
 		PromotionID: promoID, PromotionName: promoName, Status: StatusNew,
+		DeviceID: req.DeviceID, ClientCreatedAt: req.ClientCreatedAt, LateSynced: lateSynced,
 	}
 
 	// 3+5+6) atomic tx: stock decrement (row locks) → daily number → persist + audit
@@ -171,16 +172,22 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 	sort.Slice(lockOrder, func(i, j int) bool { return lockOrder[i].ProductID.String() < lockOrder[j].ProductID.String() })
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
 		for _, line := range lockOrder {
-			if err := s.stock.Decrement(tx, eventID, line.ProductID, line.Qty); err != nil {
+			if req.OrderNumber != nil { // already confirmed on the device: never reject, flag oversells
+				oversold, err := s.stock.Reserve(tx, eventID, line.ProductID, line.Qty)
+				if err != nil {
+					return err
+				}
+				order.StockConflict = order.StockConflict || oversold
+			} else if err := s.stock.Decrement(tx, eventID, line.ProductID, line.Qty); err != nil {
 				return err
 			}
 		}
-		number, err := s.nextOrderNumber(tx, eventID, dateKey)
+		number, businessDate, err := s.orderNumber(tx, eventID, dateKey, req)
 		if err != nil {
 			return err
 		}
 		order.OrderNumber = number
-		order.ReferenceID = fmt.Sprintf("ORD-%s-%s-%03d", dateKey, ev.Code, number)
+		order.ReferenceID = fmt.Sprintf("ORD-%s-%s-%03d", businessDate, ev.Code, number)
 		for _, d := range drafts {
 			order.Items = append(order.Items, OrderItem{
 				ProductID: d.productID, VariantID: d.variantID, VariantName: d.variantName,
@@ -190,7 +197,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 		if err := tx.Create(&order).Error; err != nil {
 			return err
 		}
-		return s.audit.RecordOrderCreated(tx, eventID, order.ID, order.ReferenceID, &baUserID)
+		return s.audit.RecordOrderCreated(tx, eventID, order.ID, order.ReferenceID, &baUserID, createdDetail(&order))
 	})
 	if txErr != nil {
 		// concurrent submit with the same idempotency key won the race — return its order
@@ -198,6 +205,8 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 			if existing, e := s.findByIdempotencyKey(req.IdempotencyKey); e == nil && existing != nil {
 				return s.toConfirmation(existing, true)
 			}
+			// Otherwise the reference (event + date + number) is taken: a device reused a number.
+			return nil, common.NewAppError(http.StatusConflict, "Order number already used")
 		}
 		return nil, txErr
 	}
@@ -365,7 +374,98 @@ func (s *Service) findByIdempotencyKey(key string) (*Order, error) {
 	return &o, nil
 }
 
+// createdDetail is the ORDER_CREATED audit text; it carries the late-sync / stock-conflict markers the
+// report's audit trail shows per order.
+func createdDetail(o *Order) string {
+	d := "Order created"
+	if o.LateSynced {
+		d += " · late-synced after event close"
+	}
+	if o.StockConflict {
+		d += " · stock conflict"
+	}
+	return d
+}
+
+// lateSyncGrace is how long after closing an event still takes orders confirmed before the close (D2).
+const lateSyncGrace = 24 * time.Hour
+
+// NumberBlockSize is how many order numbers a device gets per block (it asks for more below 10 left).
+const NumberBlockSize = 50
+
+// acceptsOrders applies decision D2: an ACTIVE event takes orders; a CLOSED one only takes orders the
+// device created before closed_at and uploads within 24h of closing — those are marked late-synced.
+func acceptsOrders(ev *event.Event, clientCreatedAt *time.Time) (lateSynced bool, err error) {
+	if ev.Status == event.StatusActive {
+		return false, nil
+	}
+	if ev.Status == event.StatusClosed && ev.ClosedAt != nil {
+		if clientCreatedAt != nil && clientCreatedAt.Before(*ev.ClosedAt) && time.Since(*ev.ClosedAt) <= lateSyncGrace {
+			return true, nil
+		}
+		return false, common.NewAppError(http.StatusConflict, "Event "+ev.Code+" closed at "+ev.ClosedAt.Format(time.RFC3339)+
+			"; only orders created before closing and uploaded within 24 hours are accepted")
+	}
+	return false, common.NewAppError(http.StatusConflict, "Event "+ev.Code+" is "+string(ev.Status)+" — cannot accept orders")
+}
+
+// orderNumber returns the order's daily number and business date: the device's own number when it
+// confirmed the order itself (it must lie in one of the device's blocks), else the next server number.
+func (s *Service) orderNumber(tx *gorm.DB, eventID uuid.UUID, today string, req SubmitOrderRequest) (int, string, error) {
+	if req.OrderNumber == nil {
+		n, err := s.nextOrderNumber(tx, eventID, today)
+		return n, today, err
+	}
+	n, deviceID := *req.OrderNumber, ""
+	if req.DeviceID != nil {
+		deviceID = *req.DeviceID
+	}
+	var b NumberBlock
+	err := tx.Where("device_id = ? AND event_id = ? AND range_start <= ? AND range_end >= ?", deviceID, eventID, n, n).Take(&b).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return 0, "", common.NewAppError(http.StatusBadRequest, fmt.Sprintf("Order number %d is not in a block issued to this device", n))
+	}
+	if err != nil {
+		return 0, "", err
+	}
+	err = tx.Model(&b).Update("next_unused", gorm.Expr("GREATEST(next_unused, ?)", n+1)).Error
+	return n, b.BusinessDate, err
+}
+
+// IssueNumberBlock reserves the next NumberBlockSize numbers of today's sequence for a device. The
+// range comes off the same locked sequence row as server-assigned numbers, so they never collide.
+func (s *Service) IssueNumberBlock(eventID uuid.UUID, deviceID string) (*NumberBlockResponse, error) {
+	var ev event.Event
+	if err := s.db.First(&ev, "id = ?", eventID).Error; err != nil {
+		return nil, common.NewAppError(http.StatusNotFound, "Event not found")
+	}
+	if ev.Status != event.StatusActive {
+		return nil, common.NewAppError(http.StatusConflict, "Event "+ev.Code+" is "+string(ev.Status)+" — no new order numbers")
+	}
+	today := time.Now().In(s.jakarta).Format("20060102")
+	var b NumberBlock
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		end, err := s.advanceSequence(tx, eventID, today, NumberBlockSize)
+		if err != nil {
+			return err
+		}
+		start := end - NumberBlockSize + 1
+		b = NumberBlock{DeviceID: deviceID, EventID: eventID, BusinessDate: today, RangeStart: start, RangeEnd: end, NextUnused: start, CreatedAt: time.Now().UTC()}
+		return tx.Create(&b).Error
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &NumberBlockResponse{EventID: eventID, BusinessDate: today, RangeStart: b.RangeStart, RangeEnd: b.RangeEnd}, nil
+}
+
 func (s *Service) nextOrderNumber(tx *gorm.DB, eventID uuid.UUID, dateKey string) (int, error) {
+	return s.advanceSequence(tx, eventID, dateKey, 1)
+}
+
+// advanceSequence moves the event's daily sequence forward by n under its row lock and returns the
+// new last number.
+func (s *Service) advanceSequence(tx *gorm.DB, eventID uuid.UUID, dateKey string, n int) (int, error) {
 	// Ensure the row exists without aborting the tx on a concurrent create.
 	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).
 		Create(&OrderDailySequence{EventID: eventID, DateKey: dateKey, LastNumber: 0}).Error; err != nil {
@@ -376,7 +476,7 @@ func (s *Service) nextOrderNumber(tx *gorm.DB, eventID uuid.UUID, dateKey string
 		Where("event_id = ? AND date_key = ?", eventID, dateKey).First(&seq).Error; err != nil {
 		return 0, err
 	}
-	seq.LastNumber++
+	seq.LastNumber += n
 	if err := tx.Save(&seq).Error; err != nil {
 		return 0, err
 	}
@@ -395,7 +495,7 @@ func (s *Service) toWarehouseView(o *Order) (*WarehouseOrderView, error) {
 	return &WarehouseOrderView{
 		ID: o.ID, OrderNumber: o.OrderNumber, OrderNumberDisplay: fmt.Sprintf("#%03d", o.OrderNumber),
 		ReferenceID: o.ReferenceID, CustomerName: o.CustomerName, BaName: baName, Items: items,
-		Status: o.Status, Total: o.Total, CreatedAt: o.CreatedAt,
+		Status: o.Status, Total: o.Total, CreatedAt: o.CreatedAt, StockConflict: o.StockConflict, LateSynced: o.LateSynced,
 	}, nil
 }
 
@@ -418,6 +518,6 @@ func (s *Service) toConfirmation(o *Order, duplicate bool) (*OrderConfirmation, 
 		CustomerName: o.CustomerName, CustomerTier: o.CustomerTier, Items: items,
 		Subtotal: o.Subtotal, Discount: o.Discount, Total: o.Total, PromotionName: o.PromotionName,
 		CreatedAt: o.CreatedAt, CashierNote: "Please proceed to the cashier to complete payment.",
-		Duplicate: duplicate,
+		Duplicate: duplicate, StockConflict: o.StockConflict, LateSynced: o.LateSynced,
 	}, nil
 }

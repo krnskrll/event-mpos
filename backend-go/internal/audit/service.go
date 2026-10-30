@@ -37,9 +37,8 @@ func (s *Service) actorName(tx *gorm.DB, userID *uuid.UUID) string {
 
 // RecordOrderCreated writes an ORDER_CREATED entry using the provided tx (same transaction as the
 // order create).
-func (s *Service) RecordOrderCreated(tx *gorm.DB, eventID, orderID uuid.UUID, orderReference string, actorUserID *uuid.UUID) error {
+func (s *Service) RecordOrderCreated(tx *gorm.DB, eventID, orderID uuid.UUID, orderReference string, actorUserID *uuid.UUID, detail string) error {
 	to := "NEW"
-	detail := "Order created"
 	return tx.Create(&OrderAuditLog{
 		EventID: eventID, OrderID: orderID, OrderReference: orderReference,
 		Action: ActionOrderCreated, ActorUserID: actorUserID, ActorName: s.actorName(tx, actorUserID),

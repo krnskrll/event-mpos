@@ -67,7 +67,12 @@ type Order struct {
 	PromotionName  *string         `gorm:"column:promotion_name"`
 	Status         OrderStatus     `gorm:"type:varchar(20);not null"`
 	Items          []OrderItem     `gorm:"foreignKey:OrderID;constraint:OnDelete:CASCADE"`
-	CreatedAt      time.Time       `gorm:"column:created_at;not null"`
+	// Set for orders confirmed on a device with a number from its block (EPIC-12 C1/C2).
+	DeviceID        *string    `gorm:"column:device_id"`
+	ClientCreatedAt *time.Time `gorm:"column:client_created_at"`
+	StockConflict   bool       `gorm:"column:stock_conflict;not null;default:false"` // sold past the allocation
+	LateSynced      bool       `gorm:"column:late_synced;not null;default:false"`    // uploaded after the event closed
+	CreatedAt       time.Time  `gorm:"column:created_at;not null"`
 }
 
 func (Order) TableName() string { return "orders" }
@@ -106,6 +111,40 @@ func (i *OrderItem) BeforeCreate(_ *gorm.DB) error {
 }
 
 // OrderDailySequence is a per-event, per-day counter for the human order number (#042).
+// NumberBlock is a range of one day's order numbers reserved for a device, so it can confirm orders
+// offline with final numbers. Carved from OrderDailySequence under its row lock; never reused.
+type NumberBlock struct {
+	ID           uuid.UUID `gorm:"type:uuid;primaryKey"`
+	DeviceID     string    `gorm:"column:device_id;not null;index:idx_number_block_device,priority:1"`
+	EventID      uuid.UUID `gorm:"column:event_id;type:uuid;not null;index:idx_number_block_device,priority:2"`
+	BusinessDate string    `gorm:"column:business_date;not null"`
+	RangeStart   int       `gorm:"column:range_start;not null"`
+	RangeEnd     int       `gorm:"column:range_end;not null"`
+	NextUnused   int       `gorm:"column:next_unused;not null"` // highest uploaded number + 1 (informational)
+	CreatedAt    time.Time `gorm:"column:created_at;not null"`
+}
+
+func (NumberBlock) TableName() string { return "device_number_block" }
+
+func (b *NumberBlock) BeforeCreate(_ *gorm.DB) error {
+	if b.ID == uuid.Nil {
+		b.ID = uuid.New()
+	}
+	return nil
+}
+
+// NumberBlockRequest / NumberBlockResponse: POST /api/me/events/{id}/number-blocks.
+type NumberBlockRequest struct {
+	DeviceID string `json:"deviceId" binding:"required"`
+}
+
+type NumberBlockResponse struct {
+	EventID      uuid.UUID `json:"eventId"`
+	BusinessDate string    `json:"businessDate"`
+	RangeStart   int       `json:"rangeStart"`
+	RangeEnd     int       `json:"rangeEnd"`
+}
+
 type OrderDailySequence struct {
 	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
 	EventID    uuid.UUID `gorm:"column:event_id;type:uuid;not null;uniqueIndex:uk_seq_event_date"`
@@ -141,6 +180,10 @@ type SubmitOrderRequest struct {
 	IdempotencyKey string             `json:"idempotencyKey" binding:"required"`
 	Customer       CustomerInfo       `json:"customer"`
 	Lines          []OrderLineRequest `json:"lines"`
+	// Offline-confirmed orders carry the device's final number (from its block) and creation time.
+	DeviceID        *string    `json:"deviceId"`
+	OrderNumber     *int       `json:"orderNumber"`
+	ClientCreatedAt *time.Time `json:"clientCreatedAt"`
 }
 
 // ---- response DTOs ----
@@ -173,6 +216,8 @@ type OrderConfirmation struct {
 	CreatedAt          time.Time       `json:"createdAt"`
 	CashierNote        string          `json:"cashierNote"`
 	Duplicate          bool            `json:"duplicate"`
+	StockConflict      bool            `json:"stockConflict"`
+	LateSynced         bool            `json:"lateSynced"`
 }
 
 type OrderSummary struct {
@@ -205,6 +250,8 @@ type WarehouseOrderView struct {
 	Status             OrderStatus     `json:"status"`
 	Total              decimal.Decimal `json:"total"`
 	CreatedAt          time.Time       `json:"createdAt"`
+	StockConflict      bool            `json:"stockConflict"`
+	LateSynced         bool            `json:"lateSynced"`
 }
 
 type CancelOrderRequest struct {
