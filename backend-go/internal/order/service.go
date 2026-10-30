@@ -202,6 +202,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 		return nil, txErr
 	}
 
+	s.stock.InvalidateSummary(eventID)
 	if s.broadcast != nil {
 		if view, err := s.toWarehouseView(&order); err == nil {
 			s.broadcast(eventID, *view)

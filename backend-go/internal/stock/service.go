@@ -19,10 +19,15 @@ import (
 
 // Service holds stock allocation + the oversell-proof decrement — the Go analogue of Kotlin StockService.
 type Service struct {
-	db *gorm.DB
+	db      *gorm.DB
+	summary *summaryCache
 }
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func NewService(db *gorm.DB) *Service { return &Service{db: db, summary: newSummaryCache(SummaryTTL)} }
+
+// InvalidateSummary drops the cached stock summaries for an event. Call it after any committed
+// change to the event's stock (order submit/cancel, allocation edit).
+func (s *Service) InvalidateSummary(eventID uuid.UUID) { s.summary.invalidate(eventID) }
 
 // ---- admin allocation ----
 
@@ -89,6 +94,7 @@ func (s *Service) SetAllocation(eventID, productID uuid.UUID, allocatedQty int) 
 	if err := s.db.Save(alloc).Error; err != nil {
 		return nil, err
 	}
+	s.InvalidateSummary(eventID)
 	row := AllocationRow{ProductID: p.ID, SKU: p.SKU, Name: p.Name, WarehouseStock: p.WarehouseStock,
 		AllocatedQty: alloc.AllocatedQty, SoldQty: alloc.SoldQty, Remaining: alloc.Remaining()}
 	return &row, nil
@@ -104,12 +110,44 @@ func (s *Service) ForceAllocate(eventID, productID uuid.UUID, allocatedQty int) 
 		alloc = &EventStockAllocation{EventID: eventID, ProductID: productID}
 	}
 	alloc.AllocatedQty = allocatedQty
-	return s.db.Save(alloc).Error
+	if err := s.db.Save(alloc).Error; err != nil {
+		return err
+	}
+	s.InvalidateSummary(eventID)
+	return nil
 }
 
 // ---- views ----
 
+// LevelsForEvent is the warehouse stock summary (served from the summary cache).
 func (s *Service) LevelsForEvent(eventID uuid.UUID) ([]StockLevelRow, error) {
+	key := summaryKey{eventID, kindWarehouse}
+	v, ok, gen := s.summary.get(key)
+	if ok {
+		return v.([]StockLevelRow), nil
+	}
+	rows, err := s.levelsForEvent(eventID)
+	if err == nil {
+		s.summary.put(key, rows, gen)
+	}
+	return rows, err
+}
+
+// BaLevelsForEvent is the compact BA stock summary (served from the summary cache).
+func (s *Service) BaLevelsForEvent(eventID uuid.UUID) ([]BaStockLevel, error) {
+	key := summaryKey{eventID, kindBa}
+	v, ok, gen := s.summary.get(key)
+	if ok {
+		return v.([]BaStockLevel), nil
+	}
+	rows, err := s.baLevelsForEvent(eventID)
+	if err == nil {
+		s.summary.put(key, rows, gen)
+	}
+	return rows, err
+}
+
+func (s *Service) levelsForEvent(eventID uuid.UUID) ([]StockLevelRow, error) {
 	products, err := s.productsByID()
 	if err != nil {
 		return nil, err
@@ -134,7 +172,7 @@ func (s *Service) LevelsForEvent(eventID uuid.UUID) ([]StockLevelRow, error) {
 	return rows, nil
 }
 
-func (s *Service) BaLevelsForEvent(eventID uuid.UUID) ([]BaStockLevel, error) {
+func (s *Service) baLevelsForEvent(eventID uuid.UUID) ([]BaStockLevel, error) {
 	var allocs []EventStockAllocation
 	if err := s.db.Where("event_id = ?", eventID).Find(&allocs).Error; err != nil {
 		return nil, err
