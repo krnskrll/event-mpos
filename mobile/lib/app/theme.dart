@@ -49,4 +49,16 @@ final appTheme = ThemeData(
     onSurfaceVariant: Brand.textMuted,
     error: Brand.danger,
   ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: Brand.fieldBg,
+    hintStyle: const TextStyle(color: Brand.textFaint),
+    enabledBorder: _fieldBorder(Brand.fieldBorder),
+    focusedBorder: _fieldBorder(Brand.navy),
+  ),
+);
+
+OutlineInputBorder _fieldBorder(Color color) => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(12),
+  borderSide: BorderSide(color: color),
 );

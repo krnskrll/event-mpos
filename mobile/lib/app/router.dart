@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../core/secure/token_storage.dart';
 import '../data/auth/auth_repository.dart';
 import '../data/session/session.dart';
+import '../features/catalogue/catalogue_screen.dart';
+import '../features/catalogue/product_detail_screen.dart';
 import '../features/events/event_selection_screen.dart';
 import '../features/login/login_screen.dart';
 import '../features/sync/sync_screen.dart';
@@ -27,11 +29,16 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(path: '/events', builder: (_, _) => const EventSelectionScreen()),
       GoRoute(path: '/sync', builder: (_, _) => const SyncScreen()),
       GoRoute(path: '/home', builder: (_, _) => const _HomePlaceholder()),
+      GoRoute(
+        path: '/catalogue',
+        builder: (_, _) => const CatalogueScreen(),
+        routes: [GoRoute(path: ':id', builder: (_, state) => ProductDetailScreen(state.pathParameters['id']!))],
+      ),
     ],
   );
 });
 
-// Placeholder until the catalogue (Phase 4) and home (Phase 9) land.
+// Placeholder until the home screen and bottom bar land in Phase 9.
 class _HomePlaceholder extends ConsumerWidget {
   const _HomePlaceholder();
 
@@ -48,6 +55,8 @@ class _HomePlaceholder extends ConsumerWidget {
               style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 24),
+            BrandButton(text: 'Browse products', onPressed: () => context.push('/catalogue')),
+            const SizedBox(height: 12),
             BrandButton(text: 'Sign Out', onPressed: () => ref.read(authRepositoryProvider).logout()),
           ],
         ),

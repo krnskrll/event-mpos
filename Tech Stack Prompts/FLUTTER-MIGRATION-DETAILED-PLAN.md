@@ -4,7 +4,7 @@
 - **Unchanged:** `backend-go/`, `web/`, DB schema, `testdata/promotion-cases.json`, Android `applicationId`.
 - **Repo:** stays a monorepo; Flutter app goes in `mobile/`.
 - **Source of truth:** current `android/` on `main` + `docs/EPIC-*-verification.md`.
-- **Status:** Phases 1–3 done (PR #9, #10, #11); Phase 0 spike waits for devices.
+- **Status:** Phases 1–4 done (PR #9–#12); Phase 0 spike waits for devices.
 
 ---
 
