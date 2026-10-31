@@ -1,3 +1,4 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
@@ -79,3 +80,27 @@ class SectionCard extends StatelessWidget {
     );
   }
 }
+
+/// Product photo, or a neutral tile when there is none.
+class ProductImage extends StatelessWidget {
+  const ProductImage(this.url, {super.key});
+
+  final String? url;
+
+  @override
+  Widget build(BuildContext context) {
+    const placeholder = ColoredBox(
+      color: Brand.navActiveBg,
+      child: Center(child: Icon(Icons.image_outlined, color: Brand.textGhost, size: 40)),
+    );
+    if (url == null || url!.isEmpty) return placeholder;
+    return CachedNetworkImage(imageUrl: url!, fit: BoxFit.cover, errorWidget: (_, _, _) => placeholder);
+  }
+}
+
+/// Stock badge text and colours shared by the grid and the detail screen.
+({String label, Color color}) stockStatus(int remaining) => switch (remaining) {
+  <= 0 => (label: 'Out of stock', color: Brand.danger),
+  <= 10 => (label: '$remaining left', color: Brand.warn),
+  _ => (label: '$remaining left', color: Brand.ready),
+};

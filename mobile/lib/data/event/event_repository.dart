@@ -31,6 +31,17 @@ class EventRepository {
     return (await query.getSingleOrNull())?.version;
   }
 
+  /// Pull-to-refresh: compares the cheap snapshot hash first and downloads only when it moved.
+  Future<void> refreshSnapshot(String eventId) async {
+    try {
+      final res = await _dio.get('api/me/events/$eventId/snapshot/hash');
+      if (res.data['snapshotHash'] == await cachedVersion(eventId)) return;
+    } on DioException catch (e) {
+      throw ApiFailure.from(e, 'Refresh');
+    }
+    await syncSnapshot(eventId);
+  }
+
   /// Downloads the event snapshot into the local DB. Sends the cached version so the server can
   /// answer "unchanged". A 409 (event no longer active) still completes: the cached data stays usable.
   Future<void> syncSnapshot(String eventId) async {
