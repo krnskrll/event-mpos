@@ -6,20 +6,21 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Opened in `main` before the app starts, then provided as an override.
 final tokenStorageProvider = Provider<TokenStorage>((_) => throw UnimplementedError());
 
-/// Access + refresh tokens in Keystore/Keychain, cached in memory. Notifies on sign-in/out.
+/// The signed-in account (tokens + name) in Keystore/Keychain, cached in memory. Notifies on sign-in/out.
 class TokenStorage extends ChangeNotifier {
-  TokenStorage._(this._store, this._access, this._refresh);
+  TokenStorage._(this._store, this._values);
 
   static const _accessKey = 'access_token';
   static const _refreshKey = 'refresh_token';
+  static const _userKey = 'user_name';
 
   final FlutterSecureStorage _store;
-  String? _access;
-  String? _refresh;
+  final Map<String, String> _values;
 
-  String? get accessToken => _access;
-  String? get refreshToken => _refresh;
-  bool get isLoggedIn => _access != null && _refresh != null;
+  String? get accessToken => _values[_accessKey];
+  String? get refreshToken => _values[_refreshKey];
+  String? get userName => _values[_userKey];
+  bool get isLoggedIn => accessToken != null && refreshToken != null;
 
   /// iOS keeps Keychain entries after an uninstall, so a fresh install starts signed out.
   static Future<TokenStorage> open([FlutterSecureStorage store = const FlutterSecureStorage()]) async {
@@ -28,20 +29,22 @@ class TokenStorage extends ChangeNotifier {
       await store.deleteAll();
       await prefs.setBool('installed', true);
     }
-    return TokenStorage._(store, await store.read(key: _accessKey), await store.read(key: _refreshKey));
+    return TokenStorage._(store, {...await store.readAll()});
   }
 
-  Future<void> save(String access, String refresh) async {
-    await _store.write(key: _accessKey, value: access);
-    await _store.write(key: _refreshKey, value: refresh);
-    _access = access;
-    _refresh = refresh;
+  /// [userName] is set at login; a token refresh keeps the stored one.
+  Future<void> save(String access, String refresh, {String? userName}) async {
+    final values = {_accessKey: access, _refreshKey: refresh, _userKey: ?userName};
+    for (final MapEntry(:key, :value) in values.entries) {
+      await _store.write(key: key, value: value);
+    }
+    _values.addAll(values);
     notifyListeners();
   }
 
   Future<void> clear() async {
     await _store.deleteAll();
-    _access = _refresh = null;
+    _values.clear();
     notifyListeners();
   }
 }

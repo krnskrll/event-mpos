@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
+import '../../core/network/api_failure.dart';
 import '../../data/auth/auth_repository.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
@@ -38,7 +39,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
     try {
       await ref.read(authRepositoryProvider).login(email, _password.text);
-    } on LoginFailure catch (e) {
+    } on ApiFailure catch (e) {
       if (mounted) {
         setState(() {
           _loading = false;
