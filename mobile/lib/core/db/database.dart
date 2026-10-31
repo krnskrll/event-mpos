@@ -6,16 +6,9 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [
-  EventSnapshots,
-  Products,
-  Members,
-  Promotions,
-  PendingOrders,
-  Receipts,
-  CartDrafts,
-  NumberBlocks,
-])
+@DriftDatabase(
+  tables: [EventSnapshots, Products, Members, Promotions, PendingOrders, Receipts, CartDrafts, NumberBlocks],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'mpos'));
 
