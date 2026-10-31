@@ -9,26 +9,33 @@ import 'package:shared_preferences/shared_preferences.dart';
 /// Token storage backed by in-memory platform mocks.
 Future<TokenStorage> fakeTokens({String? access, String? refresh, bool freshInstall = false}) async {
   SharedPreferences.setMockInitialValues({if (!freshInstall) 'installed': true});
-  FlutterSecureStorage.setMockInitialValues({
-    'access_token': ?access,
-    'refresh_token': ?refresh,
-  });
+  FlutterSecureStorage.setMockInitialValues({'access_token': ?access, 'refresh_token': ?refresh});
   return TokenStorage.open();
 }
 
-/// Answers like the backend: protected calls need [validToken]; refresh rotates it.
+/// Answers like the backend: [routes] are canned `(status, body)` replies by path; other protected
+/// calls need [validToken]; refresh rotates it.
 class FakeServer implements HttpClientAdapter {
   String validToken = 'fresh';
   bool rejectRefresh = false;
   int refreshCalls = 0;
-  int? loginStatus;
+  final routes = <String, (int, Object)>{
+    'api/auth/login': (
+      200,
+      {
+        'accessToken': 'fresh',
+        'refreshToken': 'r1',
+        'user': {'fullName': 'Bella Advisor'},
+      },
+    ),
+  };
+  final requests = <RequestOptions>[];
 
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? _, Future<void>? _) async {
+    requests.add(options);
+    if (routes[options.path] case (final status, final body)) return _json(status, body);
     switch (options.path) {
-      case 'api/auth/login':
-        final status = loginStatus ?? 200;
-        return _json(status, status == 200 ? {'accessToken': 'fresh', 'refreshToken': 'r1'} : {});
       case 'api/auth/refresh':
         refreshCalls++;
         if (rejectRefresh) return _json(401, {});

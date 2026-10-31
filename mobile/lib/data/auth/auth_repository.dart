@@ -2,16 +2,12 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/network/api_client.dart';
+import '../../core/network/api_failure.dart';
 import '../../core/secure/token_storage.dart';
 
 final authRepositoryProvider = Provider(
   (ref) => AuthRepository(ref.watch(dioProvider), ref.watch(tokenStorageProvider)),
 );
-
-class LoginFailure implements Exception {
-  const LoginFailure(this.message);
-  final String message;
-}
 
 class AuthRepository {
   AuthRepository(this._dio, this._tokens);
@@ -22,13 +18,9 @@ class AuthRepository {
   Future<void> login(String email, String password) async {
     try {
       final res = await _dio.post('api/auth/login', data: {'email': email, 'password': password});
-      await _tokens.save(res.data['accessToken'], res.data['refreshToken']);
+      await _tokens.save(res.data['accessToken'], res.data['refreshToken'], userName: res.data['user']['fullName']);
     } on DioException catch (e) {
-      throw LoginFailure(switch (e.response?.statusCode) {
-        null => "Can't reach the server. Check the venue network.",
-        401 => 'Invalid email or password',
-        final code => 'Login failed ($code)',
-      });
+      throw ApiFailure.from(e, 'Login', {401: 'Invalid email or password'});
     }
   }
 
