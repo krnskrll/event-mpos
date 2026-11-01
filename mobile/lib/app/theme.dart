@@ -43,10 +43,24 @@ final appTheme = ThemeData(
     onPrimary: Colors.white,
     secondary: Brand.teal,
     onSecondary: Colors.white,
+    secondaryContainer: Brand.navActiveBg, // tonal buttons, selected tab
+    onSecondaryContainer: Brand.navy,
     surface: Brand.card,
     onSurface: Brand.text,
     surfaceContainerHighest: Brand.cardBorder,
     onSurfaceVariant: Brand.textMuted,
     error: Brand.danger,
   ),
+  inputDecorationTheme: InputDecorationTheme(
+    filled: true,
+    fillColor: Brand.fieldBg,
+    hintStyle: const TextStyle(color: Brand.textFaint),
+    enabledBorder: _fieldBorder(Brand.fieldBorder),
+    focusedBorder: _fieldBorder(Brand.navy),
+  ),
+);
+
+OutlineInputBorder _fieldBorder(Color color) => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(12),
+  borderSide: BorderSide(color: color),
 );

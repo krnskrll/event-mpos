@@ -32,6 +32,14 @@ class TokenStorage extends ChangeNotifier {
     return TokenStorage._(store, {...await store.readAll()});
   }
 
+  /// Re-reads storage: the background upload job may have rotated the tokens meanwhile.
+  Future<void> reload() async {
+    final stored = await _store.readAll();
+    _values
+      ..clear()
+      ..addAll(stored);
+  }
+
   /// [userName] is set at login; a token refresh keeps the stored one.
   Future<void> save(String access, String refresh, {String? userName}) async {
     final values = {_accessKey: access, _refreshKey: refresh, _userKey: ?userName};

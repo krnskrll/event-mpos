@@ -73,4 +73,15 @@ void main() {
     server.routes[_path] = (409, {'message': 'Event is closed'});
     await repo.syncSnapshot('EV01');
   });
+
+  test('refresh downloads the snapshot only when the server hash moved', () async {
+    await repo.syncSnapshot('EV01');
+    server.routes['$_path/hash'] = (200, {'snapshotHash': 'v1'});
+    await repo.refreshSnapshot('EV01');
+    expect(server.requests.last.path, '$_path/hash');
+
+    server.routes['$_path/hash'] = (200, {'snapshotHash': 'v2'});
+    await repo.refreshSnapshot('EV01');
+    expect(server.requests.last.path, _path);
+  });
 }

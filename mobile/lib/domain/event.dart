@@ -19,6 +19,9 @@ class AssignedEvent {
     status: EventStatus.values.asNameMap()[(json['status'] as String?)?.toLowerCase()] ?? EventStatus.draft,
   );
 
+  AssignedEvent withStatus(EventStatus status) =>
+      AssignedEvent(id: id, code: code, name: name, startDate: startDate, endDate: endDate, status: status);
+
   final String id;
   final String code;
   final String name;

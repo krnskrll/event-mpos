@@ -10,10 +10,19 @@ part 'database.g.dart';
   tables: [EventSnapshots, Products, Members, Promotions, PendingOrders, Receipts, CartDrafts, NumberBlocks],
 )
 class AppDatabase extends _$AppDatabase {
-  AppDatabase([QueryExecutor? executor]) : super(executor ?? driftDatabase(name: 'mpos'));
+  // Shared so the background upload isolate and the app use one connection.
+  AppDatabase([QueryExecutor? executor])
+    : super(executor ?? driftDatabase(name: 'mpos', native: const DriftNativeOptions(shareAcrossIsolates: true)));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+    onUpgrade: (m, from, to) async {
+      if (from < 2) await m.addColumn(pendingOrders, pendingOrders.claimedAt);
+    },
+  );
 }
 
 final databaseProvider = Provider<AppDatabase>((ref) {

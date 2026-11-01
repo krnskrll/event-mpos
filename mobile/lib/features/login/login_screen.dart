@@ -109,7 +109,6 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final border = OutlineInputBorder(borderRadius: BorderRadius.circular(12));
     return Padding(
       padding: const EdgeInsets.only(top: 12),
       child: Column(
@@ -127,12 +126,6 @@ class _Field extends StatelessWidget {
             autocorrect: false,
             textInputAction: password ? TextInputAction.done : TextInputAction.next,
             onSubmitted: (_) => onSubmitted?.call(),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: Brand.fieldBg,
-              enabledBorder: border.copyWith(borderSide: const BorderSide(color: Brand.fieldBorder)),
-              focusedBorder: border.copyWith(borderSide: const BorderSide(color: Brand.navy)),
-            ),
           ),
         ],
       ),

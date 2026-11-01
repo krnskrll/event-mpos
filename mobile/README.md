@@ -23,7 +23,7 @@ flutter run --dart-define=API_BASE_URL=http://<mac-lan-ip>:8080/   # real device
 ## Check
 
 ```bash
-flutter analyze && flutter test
+flutter analyze && flutter test   # see docs/FLUTTER-verification.md
 dart run build_runner build          # after changing drift tables (commit the .g.dart output)
 ```
 
@@ -31,9 +31,10 @@ dart run build_runner build          # after changing drift tables (commit the .
 
 ```
 lib/
-  app/        router, theme
-  core/       config, network, db, format
-  domain/     pure Dart models + rules        (from Phase 2)
-  data/       repositories                    (from Phase 2)
-  features/   one folder per screen           (from Phase 2)
+  app/        router, shell, theme, shared widgets
+  core/       config, network, db, printers (Sunmi, Bluetooth), notifications
+  domain/     pure Dart models + rules (promotion engine, receipt formatter, cart pricing)
+  data/       repositories, order upload, background sync
+  features/   one folder per screen
+android/…/MainActivity.kt   Sunmi printer + scanner bridge
 ```
