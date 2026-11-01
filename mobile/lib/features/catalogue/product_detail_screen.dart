@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
 import '../../core/format/money.dart';
+import '../../data/cart/cart_notifier.dart';
 import '../../data/product/product_repository.dart';
 import '../../data/session/session.dart';
 import '../../domain/product.dart';
@@ -24,12 +25,15 @@ class ProductDetailScreen extends ConsumerStatefulWidget {
 
 class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
   ProductVariant? _variant;
+  int _qty = 1;
+  bool _added = false;
 
   @override
   Widget build(BuildContext context) {
     final product = ref.watch(_productProvider(widget.productId)).value;
     // Default to the first shade once the product loads.
     final variant = _variant ?? product?.variants.firstOrNull;
+    final cartCount = ref.watch(cartProvider.select((c) => c.count));
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -43,37 +47,97 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
               children: [
                 ProductImage(product?.imageUrl),
                 SafeArea(
-                  child: Align(
-                    alignment: Alignment.topLeft,
-                    child: Padding(
-                      padding: const EdgeInsets.all(12),
-                      child: IconButton.filled(
-                        onPressed: context.pop,
-                        icon: const Icon(Icons.arrow_back, color: Brand.navy),
-                        style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.9)),
-                      ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _CircleButton(Icons.arrow_back, context.pop),
+                        _CircleButton(Icons.shopping_cart_outlined, () => context.go('/cart'), badge: cartCount),
+                      ],
                     ),
                   ),
                 ),
               ],
             ),
           ),
-          if (product != null)
+          if (product != null) ...[
             Expanded(
-              child: _Details(product, variant: variant, onVariant: (v) => setState(() => _variant = v)),
+              child: _Details(
+                product,
+                variant: variant,
+                onVariant: (v) => setState(() {
+                  _variant = v;
+                  _added = false;
+                }),
+                qty: _qty,
+                onQty: (q) => setState(() => _qty = q),
+              ),
             ),
+            SafeArea(
+              top: false,
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: BrandButton(
+                  text: product.outOfStock
+                      ? 'Out of Stock'
+                      : _added
+                      ? 'Added to Cart ✓'
+                      : 'Add to Cart · ${rupiah((variant?.price ?? product.price) * _qty)}',
+                  color: _added ? Brand.teal : Brand.navy,
+                  onPressed: product.outOfStock
+                      ? null
+                      : () {
+                          ref.read(cartProvider.notifier).add(product.id, variantId: variant?.id, qty: _qty);
+                          setState(() => _added = true);
+                        },
+                ),
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 }
 
+class _CircleButton extends StatelessWidget {
+  const _CircleButton(this.icon, this.onPressed, {this.badge = 0});
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final int badge;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton.filled(
+      onPressed: onPressed,
+      icon: Badge(
+        isLabelVisible: badge > 0,
+        label: Text('$badge'),
+        backgroundColor: Brand.teal,
+        child: Icon(icon, color: Brand.navy),
+      ),
+      style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.9)),
+    );
+  }
+}
+
 class _Details extends StatelessWidget {
-  const _Details(this.product, {required this.variant, required this.onVariant});
+  const _Details(
+    this.product, {
+    required this.variant,
+    required this.onVariant,
+    required this.qty,
+    required this.onQty,
+  });
 
   final Product product;
   final ProductVariant? variant;
   final ValueChanged<ProductVariant> onVariant;
+  final int qty;
+  final ValueChanged<int> onQty;
 
   @override
   Widget build(BuildContext context) {
@@ -141,6 +205,31 @@ class _Details extends StatelessWidget {
             ],
           ),
         ],
+        const SizedBox(height: 20),
+        const Text('Quantity', style: label),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            IconButton.filledTonal(onPressed: qty > 1 ? () => onQty(qty - 1) : null, icon: const Icon(Icons.remove)),
+            SizedBox(
+              width: 44,
+              child: Text(
+                '$qty',
+                textAlign: TextAlign.center,
+                style: const TextStyle(color: Brand.navy, fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+            ),
+            IconButton.filledTonal(
+              onPressed: qty < product.remainingStock ? () => onQty(qty + 1) : null,
+              icon: const Icon(Icons.add),
+            ),
+            const SizedBox(width: 12),
+            Text(
+              product.outOfStock ? 'Unavailable' : 'max ${product.remainingStock}',
+              style: const TextStyle(color: Brand.textFaint, fontSize: 13),
+            ),
+          ],
+        ),
         const SizedBox(height: 20),
         Card(
           margin: EdgeInsets.zero,

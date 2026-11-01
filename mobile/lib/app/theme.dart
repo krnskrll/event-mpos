@@ -43,6 +43,8 @@ final appTheme = ThemeData(
     onPrimary: Colors.white,
     secondary: Brand.teal,
     onSecondary: Colors.white,
+    secondaryContainer: Brand.navActiveBg, // tonal buttons, selected tab
+    onSecondaryContainer: Brand.navy,
     surface: Brand.card,
     onSurface: Brand.text,
     surfaceContainerHighest: Brand.cardBorder,

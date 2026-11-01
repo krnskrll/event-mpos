@@ -83,7 +83,7 @@ class PendingOrders extends Table {
   TextColumn get customerQr => text().nullable()();
   TextColumn get customerTier => text().nullable()();
   TextColumn get linesJson => text()();
-  TextColumn get status => text()(); // PENDING | CONFIRMED | FAILED
+  TextColumn get status => text()(); // PENDING | UPLOADING | CONFIRMED | FAILED | CANCELLED
   DateTimeColumn get createdAt => dateTime()();
   TextColumn get orderNumberDisplay => text().nullable()();
   TextColumn get referenceId => text().nullable()();
@@ -91,6 +91,7 @@ class PendingOrders extends Table {
   TextColumn get errorMessage => text().nullable()();
   IntColumn get orderNumber => integer().nullable()();
   TextColumn get serverOrderId => text().nullable()();
+  DateTimeColumn get claimedAt => dateTime().nullable()(); // set while an upload is in flight
 
   @override
   Set<Column> get primaryKey => {idempotencyKey};

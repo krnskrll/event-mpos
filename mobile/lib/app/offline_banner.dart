@@ -30,7 +30,7 @@ class OfflineBanner extends ConsumerWidget {
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Offline — keep selling; orders sync when reconnected',
+                            'Offline — keep selling; orders get final numbers and print now, and sync when reconnected',
                             style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
                           ),
                         ),

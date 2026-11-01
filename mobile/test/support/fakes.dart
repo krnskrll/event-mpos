@@ -13,6 +13,11 @@ Future<TokenStorage> fakeTokens({String? access, String? refresh, bool freshInst
   return TokenStorage.open();
 }
 
+Future<SharedPreferences> fakePrefs() async {
+  SharedPreferences.setMockInitialValues({});
+  return SharedPreferences.getInstance();
+}
+
 /// Answers like the backend: [routes] are canned `(status, body)` replies by path; other protected
 /// calls need [validToken]; refresh rotates it.
 class FakeServer implements HttpClientAdapter {
@@ -30,10 +35,12 @@ class FakeServer implements HttpClientAdapter {
     ),
   };
   final requests = <RequestOptions>[];
+  Duration delay = Duration.zero;
 
   @override
   Future<ResponseBody> fetch(RequestOptions options, Stream<Uint8List>? _, Future<void>? _) async {
     requests.add(options);
+    await Future.delayed(delay);
     if (routes[options.path] case (final status, final body)) return _json(status, body);
     switch (options.path) {
       case 'api/auth/refresh':

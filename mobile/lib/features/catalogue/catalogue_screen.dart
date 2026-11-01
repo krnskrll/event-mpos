@@ -7,14 +7,13 @@ import '../../app/widgets.dart';
 import '../../core/connectivity.dart';
 import '../../core/format/money.dart';
 import '../../core/network/api_failure.dart';
+import '../../core/printer/sunmi.dart';
+import '../../data/cart/cart_notifier.dart';
 import '../../data/event/event_repository.dart';
 import '../../data/product/product_repository.dart';
 import '../../data/session/session.dart';
 import '../../domain/product.dart';
-
-final productsProvider = StreamProvider.autoDispose(
-  (ref) => ref.watch(productRepositoryProvider).watchProducts(ref.watch(sessionEventProvider)!.id),
-);
+import '../scan/barcode_scan_screen.dart';
 
 class CatalogueScreen extends ConsumerStatefulWidget {
   const CatalogueScreen({super.key});
@@ -44,8 +43,19 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
     }
   }
 
+  /// A read from the Sunmi hardware scanner opens the same sheet as a camera scan.
+  Future<void> _onHardwareScan(String code) async {
+    final product = await ref.read(productRepositoryProvider).findByCode(ref.read(sessionEventProvider)!.id, code);
+    if (!mounted) return;
+    product == null
+        ? ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('No product for "$code"')))
+        : showModalBottomSheet(context: context, builder: (_) => ProductSheet(product));
+  }
+
   @override
   Widget build(BuildContext context) {
+    ref.listen(sunmiScansProvider, (_, scan) => scan.whenData(_onHardwareScan));
+    final customer = ref.watch(cartProvider.select((c) => c.customer));
     final products = ref.watch(productsProvider).value ?? const <Product>[];
     final brands = {for (final p in products) ?p.brand}.toList()..sort();
     final shown = products.where(_matches).toList();
@@ -86,15 +96,47 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-              child: TextField(
-                onChanged: (v) => setState(() => _query = v.trim()),
-                decoration: InputDecoration(
-                  hintText: 'Search product…',
-                  prefixIcon: const Icon(Icons.search, color: Brand.textFaint),
-                  isDense: true,
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      onChanged: (v) => setState(() => _query = v.trim()),
+                      decoration: const InputDecoration(
+                        hintText: 'Search product…',
+                        prefixIcon: Icon(Icons.search, color: Brand.textFaint),
+                        isDense: true,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  IconButton.filled(
+                    onPressed: () => context.push('/scan'),
+                    icon: const Icon(Icons.qr_code_scanner),
+                    style: IconButton.styleFrom(backgroundColor: Brand.navy),
+                  ),
+                  IconButton.filled(
+                    onPressed: () => context.push('/customer'),
+                    icon: Icon(Icons.qr_code_2, color: customer != null ? Brand.teal : Brand.textMuted),
+                    style: IconButton.styleFrom(backgroundColor: customer != null ? Brand.tealSoft : Brand.cardBorder),
+                  ),
+                ],
               ),
             ),
+            if (customer != null)
+              Container(
+                width: double.infinity,
+                margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: Brand.tealSoft,
+                  border: Border.all(color: Brand.tealBorder),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '✓ Customer linked: ${customer.name}',
+                  style: const TextStyle(color: Brand.ready, fontSize: 13, fontWeight: FontWeight.w600),
+                ),
+              ),
             SizedBox(
               height: 48,
               child: ListView(
@@ -164,7 +206,7 @@ class _ProductCard extends StatelessWidget {
           side: const BorderSide(color: Brand.cardBorder),
         ),
         child: InkWell(
-          onTap: product.outOfStock ? null : () => context.push('/catalogue/${product.id}'),
+          onTap: product.outOfStock ? null : () => context.push('/product/${product.id}'),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [

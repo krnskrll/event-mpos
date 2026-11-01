@@ -26,7 +26,8 @@ class AuthInterceptor extends QueuedInterceptor {
     final request = err.requestOptions;
     if (err.response?.statusCode != 401 || _isAuthCall(request)) return handler.next(err);
 
-    // Skip the refresh when an earlier 401 in the queue already got a new token.
+    // Skip the refresh when an earlier 401 (or the background job) already got a new token.
+    await _tokens.reload();
     final current = _tokens.accessToken;
     final alreadyRefreshed = current != null && request.headers['Authorization'] != 'Bearer $current';
     if (!alreadyRefreshed && !await _refresh()) return handler.next(err);
