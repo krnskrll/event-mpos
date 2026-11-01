@@ -10,3 +10,6 @@ analyzer:
 linter:
   rules:
     prefer_single_quotes: true
+
+formatter:
+  page_width: 120
