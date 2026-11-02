@@ -379,7 +379,7 @@ List<Widget> _steps(BuildContext context, WidgetRef ref, OrderRecord order) {
         ref.isOnline ? 'Uploading now' : 'Waiting for internet · sends by itself',
         _StepKind.waiting,
       ),
-      OrderState.confirmed => ('Sent to server', order.referenceId ?? '', _StepKind.done),
+      OrderState.confirmed => ('Processing', order.referenceId ?? '', _StepKind.done),
       OrderState.failed => ('Not accepted by the server', order.error ?? 'Rejected', _StepKind.failed),
       OrderState.cancelled => ('Cancelled', 'Stock returned', _StepKind.warning),
     },

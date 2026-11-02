@@ -32,7 +32,7 @@ class ReceiptScreen extends ConsumerWidget {
       if (order?.total != null) rupiah(order!.total!),
     ].join(' · ');
     final (status, ink, soft) = switch (order?.state) {
-      OrderState.confirmed => ('Sent to server', Brand.successInk, Brand.successSoft),
+      OrderState.confirmed => ('Processing', Brand.successInk, Brand.successSoft),
       OrderState.failed => ('Not accepted by the server', Brand.errorInk, Brand.errorSoft),
       OrderState.cancelled => ('Cancelled', Brand.slate, Brand.sunken),
       _ => ('Sending to server', Brand.infoInk, Brand.infoSoft),
