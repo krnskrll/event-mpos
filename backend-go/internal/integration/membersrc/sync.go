@@ -1,7 +1,6 @@
-package sync
+package membersrc
 
 import (
-	"errors"
 	"log"
 	"strconv"
 	"strings"
@@ -9,7 +8,8 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/member"
+	memberiface "github.com/krnskrll/event-mpos/internal/member/iface"
+	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 )
 
 // Status is a single-row (id=1) record of the most recent member sync.
@@ -39,11 +39,12 @@ type Result struct {
 type Service struct {
 	source       Source
 	db           *gorm.DB
+	members      memberiface.Members
 	regionFilter string
 }
 
-func NewService(source Source, db *gorm.DB, regionFilter string) *Service {
-	return &Service{source: source, db: db, regionFilter: regionFilter}
+func NewService(source Source, db *gorm.DB, members memberiface.Members, regionFilter string) *Service {
+	return &Service{source: source, db: db, members: members, regionFilter: regionFilter}
 }
 
 func (s *Service) Sync() Result {
@@ -62,33 +63,15 @@ func (s *Service) Sync() Result {
 	created, updated := 0, 0
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
 		for _, rec := range filtered {
-			var existing member.Member
-			err := tx.Where("member_code = ?", rec.MemberCode).First(&existing).Error
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				m := member.Member{
-					MemberCode: rec.MemberCode, QRCode: rec.QRCode, Name: rec.Name,
-					Tier: rec.Tier, Region: rec.Region, Phone: rec.Phone, Active: rec.Active,
-				}
-				if err := tx.Create(&m).Error; err != nil {
-					return err
-				}
-				created++
-				continue
-			}
+			isNew, err := s.members.Upsert(tx, rec)
 			if err != nil {
 				return err
 			}
-			existing.QRCode = rec.QRCode
-			existing.Name = rec.Name
-			existing.Tier = rec.Tier
-			existing.Region = rec.Region
-			existing.Phone = rec.Phone
-			existing.Active = rec.Active
-			existing.UpdatedAt = time.Now().UTC()
-			if err := tx.Save(&existing).Error; err != nil {
-				return err
+			if isNew {
+				created++
+			} else {
+				updated++
 			}
-			updated++
 		}
 		return nil
 	})
@@ -140,4 +123,9 @@ func (s *Service) saveStatus(result Result) {
 		st.Message = &msg
 	}
 	s.db.Save(&st)
+}
+
+func (s *Service) LastRun() syncconfigiface.LastRun {
+	st := s.Status()
+	return syncconfigiface.LastRun{At: st.LastSyncAt, Result: st.LastResult, Count: st.MemberCount, Source: st.Source, Message: st.Message}
 }

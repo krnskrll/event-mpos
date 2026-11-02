@@ -1,4 +1,4 @@
-package member
+package service
 
 import (
 	"errors"
@@ -6,40 +6,44 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"gorm.io/gorm"
 
+	"github.com/krnskrll/event-mpos/internal/member/iface"
+	"github.com/krnskrll/event-mpos/internal/member/repository"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 )
 
-// Service holds member directory logic — the Go analogue of Kotlin MemberService.
 type Service struct {
 	db *gorm.DB
 }
 
+var _ iface.Members = (*Service)(nil)
+
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 
-func (s *Service) List() ([]MemberResponse, error) {
-	var members []Member
+func (s *Service) List() ([]iface.MemberResponse, error) {
+	var members []repository.Member
 	if err := s.db.Order("member_code").Find(&members).Error; err != nil {
 		return nil, err
 	}
-	out := make([]MemberResponse, 0, len(members))
+	out := make([]iface.MemberResponse, 0, len(members))
 	for i := range members {
 		out = append(out, members[i].ToResponse())
 	}
 	return out, nil
 }
 
-func (s *Service) activeMembers() ([]Member, error) {
-	var members []Member
+func (s *Service) activeMembers() ([]repository.Member, error) {
+	var members []repository.Member
 	if err := s.db.Where("active = ?", true).Find(&members).Error; err != nil {
 		return nil, err
 	}
 	return members, nil
 }
 
-// ActiveSnapshotMembers returns active members as compact snapshot DTOs (event.MemberProvider).
 func (s *Service) ActiveSnapshotMembers() ([]any, error) {
 	members, err := s.activeMembers()
 	if err != nil {
@@ -53,8 +57,8 @@ func (s *Service) ActiveSnapshotMembers() ([]any, error) {
 }
 
 // ByQr is the exact QR lookup — the online fallback when a member isn't in the device cache.
-func (s *Service) ByQr(qrCode string) (*MemberResponse, error) {
-	var m Member
+func (s *Service) ByQr(qrCode string) (*iface.MemberResponse, error) {
+	var m repository.Member
 	err := s.db.Where("qr_code = ?", strings.TrimSpace(qrCode)).First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && !m.Active) {
 		return nil, common.NewAppError(http.StatusNotFound, "No active member for QR '"+qrCode+"'")
@@ -82,15 +86,18 @@ func (s *Service) Fingerprint() (string, error) {
 	return strconv.Itoa(len(members)) + ":" + strconv.FormatInt(int64(common.JavaStringHashCode(material)), 10), nil
 }
 
-// FindByMemberCode returns the member with the given code, or nil (used by sync).
-func (s *Service) FindByMemberCode(code string) (*Member, error) {
-	var m Member
-	err := s.db.Where("member_code = ?", code).First(&m).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
+func (s *Service) Upsert(tx database.Tx, rec iface.MemberRecord) (bool, error) {
+	var m repository.Member
+	err := tx.Where("member_code = ?", rec.MemberCode).First(&m).Error
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return false, err
 	}
-	if err != nil {
-		return nil, err
+	created := err != nil
+	m.MemberCode, m.QRCode, m.Name, m.Tier = rec.MemberCode, rec.QRCode, rec.Name, rec.Tier
+	m.Region, m.Phone, m.Active = rec.Region, rec.Phone, rec.Active
+	if created {
+		return true, tx.Create(&m).Error
 	}
-	return &m, nil
+	m.UpdatedAt = time.Now().UTC()
+	return false, tx.Save(&m).Error
 }

@@ -9,6 +9,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/product"
+	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 )
 
 // SyncStatus is a single-row record (id=1) of the most recent ERP sync.
@@ -172,4 +173,9 @@ func barcodesChanged(current []product.ProductBarcode, incoming []Barcode) bool 
 		}
 	}
 	return false
+}
+
+func (s *SyncService) LastRun() syncconfigiface.LastRun {
+	st := s.Status()
+	return syncconfigiface.LastRun{At: st.LastSyncAt, Result: st.LastResult, Count: st.ProductCount, Source: st.Source, Message: st.Message}
 }

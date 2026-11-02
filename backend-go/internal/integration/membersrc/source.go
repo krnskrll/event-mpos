@@ -1,6 +1,6 @@
-// Package sync is the pluggable boundary to the external member system — same swap-without-rewrite
-// design as the ERP product source. Selected by app.member.source: mock (default) | file | rest.
-package sync
+// Package membersrc is the pluggable boundary to the external member system — same swap-without-rewrite
+// design as the ERP product source. Selected by app.memberiface.source: mock (default) | file | rest.
+package membersrc
 
 import (
 	"bufio"
@@ -11,19 +11,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/krnskrll/event-mpos/internal/member"
+	memberiface "github.com/krnskrll/event-mpos/internal/member/iface"
 )
 
-// Record is a normalized member record from the external system, regardless of transport.
-type Record struct {
-	MemberCode string
-	QRCode     string
-	Name       string
-	Tier       member.MemberTier
-	Region     *string
-	Active     bool
-	Phone      *string
-}
+type Record = memberiface.MemberRecord
 
 // Source pulls the full current member list from the external system.
 type Source interface {
@@ -43,16 +34,16 @@ func NewSource(kind, filePath, restURL string) Source {
 	}
 }
 
-func parseTier(s string) member.MemberTier {
-	switch member.MemberTier(strings.ToUpper(strings.TrimSpace(s))) {
-	case member.TierSilver:
-		return member.TierSilver
-	case member.TierGold:
-		return member.TierGold
-	case member.TierPlatinum:
-		return member.TierPlatinum
+func parseTier(s string) memberiface.MemberTier {
+	switch memberiface.MemberTier(strings.ToUpper(strings.TrimSpace(s))) {
+	case memberiface.TierSilver:
+		return memberiface.TierSilver
+	case memberiface.TierGold:
+		return memberiface.TierGold
+	case memberiface.TierPlatinum:
+		return memberiface.TierPlatinum
 	default:
-		return member.TierStandard
+		return memberiface.TierStandard
 	}
 }
 
@@ -74,12 +65,12 @@ func (MockSource) Description() string { return "mock" }
 
 func (MockSource) FetchMembers() ([]Record, error) {
 	return []Record{
-		{MemberCode: "M00001", QRCode: "MBR-00001", Name: "Aisha Rahman", Tier: member.TierPlatinum, Region: strptr("Central"), Active: true},
-		{MemberCode: "M00002", QRCode: "MBR-00002", Name: "Bryan Tan", Tier: member.TierGold, Region: strptr("Central"), Active: true},
-		{MemberCode: "M00003", QRCode: "MBR-00003", Name: "Chloe Lim", Tier: member.TierSilver, Region: strptr("North"), Active: true},
-		{MemberCode: "M00004", QRCode: "MBR-00004", Name: "Devan Nair", Tier: member.TierStandard, Region: strptr("South"), Active: true},
-		{MemberCode: "M00005", QRCode: "MBR-00005", Name: "Elena Wong", Tier: member.TierGold, Region: strptr("Central"), Active: true},
-		{MemberCode: "M00006", QRCode: "MBR-00006", Name: "Former Customer", Tier: member.TierStandard, Region: strptr("East"), Active: false},
+		{MemberCode: "M00001", QRCode: "MBR-00001", Name: "Aisha Rahman", Tier: memberiface.TierPlatinum, Region: strptr("Central"), Active: true},
+		{MemberCode: "M00002", QRCode: "MBR-00002", Name: "Bryan Tan", Tier: memberiface.TierGold, Region: strptr("Central"), Active: true},
+		{MemberCode: "M00003", QRCode: "MBR-00003", Name: "Chloe Lim", Tier: memberiface.TierSilver, Region: strptr("North"), Active: true},
+		{MemberCode: "M00004", QRCode: "MBR-00004", Name: "Devan Nair", Tier: memberiface.TierStandard, Region: strptr("South"), Active: true},
+		{MemberCode: "M00005", QRCode: "MBR-00005", Name: "Elena Wong", Tier: memberiface.TierGold, Region: strptr("Central"), Active: true},
+		{MemberCode: "M00006", QRCode: "MBR-00006", Name: "Former Customer", Tier: memberiface.TierStandard, Region: strptr("East"), Active: false},
 	}, nil
 }
 

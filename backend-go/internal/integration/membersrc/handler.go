@@ -1,4 +1,4 @@
-package sync
+package membersrc
 
 import (
 	"net/http"

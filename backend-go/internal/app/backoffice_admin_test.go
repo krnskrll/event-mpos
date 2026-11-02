@@ -9,7 +9,7 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/audit"
 	"github.com/krnskrll/event-mpos/internal/order"
-	"github.com/krnskrll/event-mpos/internal/syncconfig"
+	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
@@ -34,24 +34,24 @@ func TestAdminCanEditRoleAndDeactivateUser(t *testing.T) {
 
 func TestSyncConfigValidatesCronAndPersists(t *testing.T) {
 	a := testutil.NewApp(t)
-	before, err := a.SyncConfig.Get(syncconfig.TypeERP)
+	before, err := a.SyncConfig.Get(syncconfigiface.TypeERP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = a.SyncConfig.Update(syncconfig.TypeERP, before.Enabled, before.Cron) })
+	t.Cleanup(func() { _, _ = a.SyncConfig.Update(syncconfigiface.TypeERP, before.Enabled, before.Cron) })
 
-	cfg, err := a.SyncConfig.Update(syncconfig.TypeERP, true, "0 0 */2 * * *")
+	cfg, err := a.SyncConfig.Update(syncconfigiface.TypeERP, true, "0 0 */2 * * *")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !cfg.Enabled || cfg.Cron != "0 0 */2 * * *" {
 		t.Errorf("saved %+v", cfg)
 	}
-	reread, _ := a.SyncConfig.Get(syncconfig.TypeERP)
+	reread, _ := a.SyncConfig.Get(syncconfigiface.TypeERP)
 	if reread.Cron != "0 0 */2 * * *" {
 		t.Errorf("not persisted: %+v", reread)
 	}
-	if _, err := a.SyncConfig.Update(syncconfig.TypeMember, true, "not a cron"); testutil.StatusOf(err) != http.StatusBadRequest {
+	if _, err := a.SyncConfig.Update(syncconfigiface.TypeMember, true, "not a cron"); testutil.StatusOf(err) != http.StatusBadRequest {
 		t.Errorf("bad cron: got %v, want 400", err)
 	}
 }

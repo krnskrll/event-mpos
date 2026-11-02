@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/event"
-	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
+	membersrc "github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/security"
 	"github.com/krnskrll/event-mpos/internal/product"
@@ -27,7 +27,7 @@ import (
 //	admin@eventmpos.local / Admin123!  (ADMIN)
 //	ba@eventmpos.local    / Ba123456!  (BA)
 //	wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, stockSvc *stock.Service, promoSvc *promotion.Service) error {
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stock.Service, promoSvc *promotion.Service) error {
 	var count int64
 	if err := db.Model(&userrepo.User{}).Count(&count).Error; err != nil {
 		return err

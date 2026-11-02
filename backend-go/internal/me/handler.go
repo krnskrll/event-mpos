@@ -11,7 +11,7 @@ import (
 
 	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/event"
-	"github.com/krnskrll/event-mpos/internal/member"
+	memberiface "github.com/krnskrll/event-mpos/internal/member/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/product"
@@ -38,14 +38,14 @@ type SnapshotHashResponse struct {
 type Handler struct {
 	events     *event.Service
 	products   *product.Service
-	members    *member.Service
+	members    memberiface.Members
 	stock      *stock.Service
 	promotions *promotion.Service
 	orders     *order.Service
 	receipts   *receipt.Service
 }
 
-func NewHandler(events *event.Service, products *product.Service, members *member.Service, stk *stock.Service, promotions *promotion.Service, orders *order.Service, receipts *receipt.Service) *Handler {
+func NewHandler(events *event.Service, products *product.Service, members memberiface.Members, stk *stock.Service, promotions *promotion.Service, orders *order.Service, receipts *receipt.Service) *Handler {
 	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions, orders: orders, receipts: receipts}
 }
 

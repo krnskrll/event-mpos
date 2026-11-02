@@ -1,19 +1,19 @@
-package member
+package handler
 
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/krnskrll/event-mpos/internal/member/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
-// Handler exposes the admin member directory under /api/admin/members.
 type Handler struct {
-	svc *Service
+	svc *service.Service
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) List(c *gin.Context) {
 	members, err := h.svc.List()

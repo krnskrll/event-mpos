@@ -12,9 +12,10 @@ import (
 	authhandler "github.com/krnskrll/event-mpos/internal/auth/handler"
 	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
 	"github.com/krnskrll/event-mpos/internal/event"
+	"github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	"github.com/krnskrll/event-mpos/internal/me"
-	"github.com/krnskrll/event-mpos/internal/member"
-	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
+	memberhandler "github.com/krnskrll/event-mpos/internal/member/handler"
+	membersvc "github.com/krnskrll/event-mpos/internal/member/service"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
@@ -25,7 +26,8 @@ import (
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/report"
 	"github.com/krnskrll/event-mpos/internal/stock"
-	"github.com/krnskrll/event-mpos/internal/syncconfig"
+	synchandler "github.com/krnskrll/event-mpos/internal/syncconfig/handler"
+	syncsvc "github.com/krnskrll/event-mpos/internal/syncconfig/service"
 	userhandler "github.com/krnskrll/event-mpos/internal/user/handler"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 	usersvc "github.com/krnskrll/event-mpos/internal/user/service"
@@ -40,16 +42,16 @@ type App struct {
 	Events     *event.Service
 	Products   *product.Service
 	ERPSync    *erp.SyncService
-	Members    *member.Service
-	MemberSync *membersync.Service
+	Members    *membersvc.Service
+	MemberSync *membersrc.Service
 	Stock      *stock.Service
 	Promotions *promotion.Service
 	Audit      *audit.Service
 	Receipts   *receipt.Service
 	Orders     *order.Service
 	Reports    *report.Service
-	SyncConfig *syncconfig.Service
-	Scheduler  *syncconfig.Scheduler
+	SyncConfig *syncsvc.Service
+	Scheduler  *syncsvc.Scheduler
 	Hub        *realtime.Hub
 }
 
@@ -69,9 +71,9 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Products = product.NewService(db)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
 	a.ERPSync = erp.NewSyncService(erpSource, db)
-	a.Members = member.NewService(db)
-	memberSource := membersync.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
-	a.MemberSync = membersync.NewService(memberSource, db, cfg.MemberRegionFilter)
+	a.Members = membersvc.NewService(db)
+	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
+	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
 	a.Stock = stock.NewService(db)
 	a.Promotions = promotion.NewService(db)
 	a.Audit = audit.NewService(db, a.Users)
@@ -87,11 +89,11 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 
 	// Reporting + runtime-editable sync schedules with a dynamic cron scheduler.
 	a.Reports = report.NewService(db)
-	a.SyncConfig = syncconfig.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
+	a.SyncConfig = syncsvc.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
 	if err := a.SyncConfig.SeedDefaults(); err != nil {
 		return nil, err
 	}
-	a.Scheduler = syncconfig.NewScheduler(a.SyncConfig,
+	a.Scheduler = syncsvc.NewScheduler(a.SyncConfig,
 		func() { a.ERPSync.Sync() },
 		func() { a.MemberSync.Sync() },
 	)
@@ -115,14 +117,14 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	eventHandler := event.NewHandler(a.Events)
 	productHandler := product.NewHandler(a.Products)
 	erpHandler := erp.NewHandler(a.ERPSync)
-	memberHandler := member.NewHandler(a.Members)
-	memberSyncHandler := membersync.NewHandler(a.MemberSync)
+	memberHandler := memberhandler.NewHandler(a.Members)
+	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
 	stockAdminHandler := stock.NewAdminHandler(a.Stock)
 	warehouseStockHandler := stock.NewWarehouseHandler(a.Stock, a.Events)
 	promotionHandler := promotion.NewHandler(a.Promotions)
 	warehouseOrderHandler := order.NewWarehouseHandler(a.Orders)
 	reportHandler := report.NewHandler(a.Reports, a.Audit)
-	syncConfigHandler := syncconfig.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)
+	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)
 	meHandler := me.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
 
 	gin.SetMode(gin.ReleaseMode)
