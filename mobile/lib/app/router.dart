@@ -9,6 +9,7 @@ import '../features/customer/customer_screen.dart';
 import '../features/events/event_selection_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/login/login_screen.dart';
+import '../features/orders/order_detail.dart';
 import '../features/orders/orders_screen.dart';
 import '../features/printer/printer_screen.dart';
 import '../features/receipt/receipt_screen.dart';
@@ -52,6 +53,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       _route('/cart', (_) => const CartScreen()),
       _route('/scan', (_) => const BarcodeScanScreen()),
       _route('/customer', (_) => const CustomerScreen()),
+      _route('/order/:key', (s) => OrderDetailScreen(s.pathParameters['key']!)),
       _route('/receipt/:key', (s) => ReceiptScreen(s.pathParameters['key']!)),
       _route('/printer', (_) => const PrinterScreen()),
     ],

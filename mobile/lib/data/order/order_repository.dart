@@ -72,6 +72,9 @@ class OrderRepository {
             orderNumberDisplay: Value(display),
             referenceId: Value(reference),
             total: Value(priced.total.toDouble()),
+            subtotal: Value(priced.subtotal.toDouble()),
+            discount: Value(priced.discount.toDouble()),
+            promotionName: Value(priced.promotionName),
           ),
         );
     for (final line in lines) {
@@ -151,6 +154,15 @@ class OrderRepository {
       error: r.errorMessage,
       createdAt: r.createdAt,
       canCancel: state == OrderState.confirmed && r.serverOrderId != null,
+      customerTier: r.customerTier,
+      customerQr: r.customerQr,
+      lines: [
+        for (final l in jsonDecode(r.linesJson) as List)
+          (productId: l['productId'] as String, variantId: l['variantId'] as String?, qty: l['qty'] as int),
+      ],
+      subtotal: r.subtotal,
+      discount: r.discount,
+      promotionName: r.promotionName,
     );
   }
 

@@ -409,7 +409,7 @@ class _RecentOrders extends ConsumerWidget {
           : [
               for (final o in orders)
                 InkWell(
-                  onTap: () => context.push('/receipt/${o.key}'),
+                  onTap: () => context.push('/order/${o.key}'),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     child: Row(

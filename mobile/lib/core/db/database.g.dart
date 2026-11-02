@@ -1783,6 +1783,33 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _subtotalMeta = const VerificationMeta('subtotal');
+  @override
+  late final GeneratedColumn<double> subtotal = GeneratedColumn<double>(
+    'subtotal',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _discountMeta = const VerificationMeta('discount');
+  @override
+  late final GeneratedColumn<double> discount = GeneratedColumn<double>(
+    'discount',
+    aliasedName,
+    true,
+    type: DriftSqlType.double,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _promotionNameMeta = const VerificationMeta('promotionName');
+  @override
+  late final GeneratedColumn<String> promotionName = GeneratedColumn<String>(
+    'promotion_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     idempotencyKey,
@@ -1800,6 +1827,9 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
     orderNumber,
     serverOrderId,
     claimedAt,
+    subtotal,
+    discount,
+    promotionName,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1876,6 +1906,18 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
     if (data.containsKey('claimed_at')) {
       context.handle(_claimedAtMeta, claimedAt.isAcceptableOrUnknown(data['claimed_at']!, _claimedAtMeta));
     }
+    if (data.containsKey('subtotal')) {
+      context.handle(_subtotalMeta, subtotal.isAcceptableOrUnknown(data['subtotal']!, _subtotalMeta));
+    }
+    if (data.containsKey('discount')) {
+      context.handle(_discountMeta, discount.isAcceptableOrUnknown(data['discount']!, _discountMeta));
+    }
+    if (data.containsKey('promotion_name')) {
+      context.handle(
+        _promotionNameMeta,
+        promotionName.isAcceptableOrUnknown(data['promotion_name']!, _promotionNameMeta),
+      );
+    }
     return context;
   }
 
@@ -1906,6 +1948,9 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
       orderNumber: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}order_number']),
       serverOrderId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}server_order_id']),
       claimedAt: attachedDatabase.typeMapping.read(DriftSqlType.dateTime, data['${effectivePrefix}claimed_at']),
+      subtotal: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}subtotal']),
+      discount: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}discount']),
+      promotionName: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}promotion_name']),
     );
   }
 
@@ -1931,6 +1976,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
   final int? orderNumber;
   final String? serverOrderId;
   final DateTime? claimedAt;
+  final double? subtotal;
+  final double? discount;
+  final String? promotionName;
   const PendingOrderRow({
     required this.idempotencyKey,
     required this.eventId,
@@ -1947,6 +1995,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     this.orderNumber,
     this.serverOrderId,
     this.claimedAt,
+    this.subtotal,
+    this.discount,
+    this.promotionName,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -1984,6 +2035,15 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     if (!nullToAbsent || claimedAt != null) {
       map['claimed_at'] = Variable<DateTime>(claimedAt);
     }
+    if (!nullToAbsent || subtotal != null) {
+      map['subtotal'] = Variable<double>(subtotal);
+    }
+    if (!nullToAbsent || discount != null) {
+      map['discount'] = Variable<double>(discount);
+    }
+    if (!nullToAbsent || promotionName != null) {
+      map['promotion_name'] = Variable<String>(promotionName);
+    }
     return map;
   }
 
@@ -2004,6 +2064,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       orderNumber: orderNumber == null && nullToAbsent ? const Value.absent() : Value(orderNumber),
       serverOrderId: serverOrderId == null && nullToAbsent ? const Value.absent() : Value(serverOrderId),
       claimedAt: claimedAt == null && nullToAbsent ? const Value.absent() : Value(claimedAt),
+      subtotal: subtotal == null && nullToAbsent ? const Value.absent() : Value(subtotal),
+      discount: discount == null && nullToAbsent ? const Value.absent() : Value(discount),
+      promotionName: promotionName == null && nullToAbsent ? const Value.absent() : Value(promotionName),
     );
   }
 
@@ -2025,6 +2088,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       orderNumber: serializer.fromJson<int?>(json['orderNumber']),
       serverOrderId: serializer.fromJson<String?>(json['serverOrderId']),
       claimedAt: serializer.fromJson<DateTime?>(json['claimedAt']),
+      subtotal: serializer.fromJson<double?>(json['subtotal']),
+      discount: serializer.fromJson<double?>(json['discount']),
+      promotionName: serializer.fromJson<String?>(json['promotionName']),
     );
   }
   @override
@@ -2046,6 +2112,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       'orderNumber': serializer.toJson<int?>(orderNumber),
       'serverOrderId': serializer.toJson<String?>(serverOrderId),
       'claimedAt': serializer.toJson<DateTime?>(claimedAt),
+      'subtotal': serializer.toJson<double?>(subtotal),
+      'discount': serializer.toJson<double?>(discount),
+      'promotionName': serializer.toJson<String?>(promotionName),
     };
   }
 
@@ -2065,6 +2134,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     Value<int?> orderNumber = const Value.absent(),
     Value<String?> serverOrderId = const Value.absent(),
     Value<DateTime?> claimedAt = const Value.absent(),
+    Value<double?> subtotal = const Value.absent(),
+    Value<double?> discount = const Value.absent(),
+    Value<String?> promotionName = const Value.absent(),
   }) => PendingOrderRow(
     idempotencyKey: idempotencyKey ?? this.idempotencyKey,
     eventId: eventId ?? this.eventId,
@@ -2081,6 +2153,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     orderNumber: orderNumber.present ? orderNumber.value : this.orderNumber,
     serverOrderId: serverOrderId.present ? serverOrderId.value : this.serverOrderId,
     claimedAt: claimedAt.present ? claimedAt.value : this.claimedAt,
+    subtotal: subtotal.present ? subtotal.value : this.subtotal,
+    discount: discount.present ? discount.value : this.discount,
+    promotionName: promotionName.present ? promotionName.value : this.promotionName,
   );
   PendingOrderRow copyWithCompanion(PendingOrdersCompanion data) {
     return PendingOrderRow(
@@ -2099,6 +2174,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       orderNumber: data.orderNumber.present ? data.orderNumber.value : this.orderNumber,
       serverOrderId: data.serverOrderId.present ? data.serverOrderId.value : this.serverOrderId,
       claimedAt: data.claimedAt.present ? data.claimedAt.value : this.claimedAt,
+      subtotal: data.subtotal.present ? data.subtotal.value : this.subtotal,
+      discount: data.discount.present ? data.discount.value : this.discount,
+      promotionName: data.promotionName.present ? data.promotionName.value : this.promotionName,
     );
   }
 
@@ -2119,7 +2197,10 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
           ..write('errorMessage: $errorMessage, ')
           ..write('orderNumber: $orderNumber, ')
           ..write('serverOrderId: $serverOrderId, ')
-          ..write('claimedAt: $claimedAt')
+          ..write('claimedAt: $claimedAt, ')
+          ..write('subtotal: $subtotal, ')
+          ..write('discount: $discount, ')
+          ..write('promotionName: $promotionName')
           ..write(')'))
         .toString();
   }
@@ -2141,6 +2222,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     orderNumber,
     serverOrderId,
     claimedAt,
+    subtotal,
+    discount,
+    promotionName,
   );
   @override
   bool operator ==(Object other) =>
@@ -2160,7 +2244,10 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
           other.errorMessage == this.errorMessage &&
           other.orderNumber == this.orderNumber &&
           other.serverOrderId == this.serverOrderId &&
-          other.claimedAt == this.claimedAt);
+          other.claimedAt == this.claimedAt &&
+          other.subtotal == this.subtotal &&
+          other.discount == this.discount &&
+          other.promotionName == this.promotionName);
 }
 
 class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
@@ -2179,6 +2266,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
   final Value<int?> orderNumber;
   final Value<String?> serverOrderId;
   final Value<DateTime?> claimedAt;
+  final Value<double?> subtotal;
+  final Value<double?> discount;
+  final Value<String?> promotionName;
   final Value<int> rowid;
   const PendingOrdersCompanion({
     this.idempotencyKey = const Value.absent(),
@@ -2196,6 +2286,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     this.orderNumber = const Value.absent(),
     this.serverOrderId = const Value.absent(),
     this.claimedAt = const Value.absent(),
+    this.subtotal = const Value.absent(),
+    this.discount = const Value.absent(),
+    this.promotionName = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PendingOrdersCompanion.insert({
@@ -2214,6 +2307,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     this.orderNumber = const Value.absent(),
     this.serverOrderId = const Value.absent(),
     this.claimedAt = const Value.absent(),
+    this.subtotal = const Value.absent(),
+    this.discount = const Value.absent(),
+    this.promotionName = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : idempotencyKey = Value(idempotencyKey),
        eventId = Value(eventId),
@@ -2237,6 +2333,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     Expression<int>? orderNumber,
     Expression<String>? serverOrderId,
     Expression<DateTime>? claimedAt,
+    Expression<double>? subtotal,
+    Expression<double>? discount,
+    Expression<String>? promotionName,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2255,6 +2354,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
       if (orderNumber != null) 'order_number': orderNumber,
       if (serverOrderId != null) 'server_order_id': serverOrderId,
       if (claimedAt != null) 'claimed_at': claimedAt,
+      if (subtotal != null) 'subtotal': subtotal,
+      if (discount != null) 'discount': discount,
+      if (promotionName != null) 'promotion_name': promotionName,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2275,6 +2377,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     Value<int?>? orderNumber,
     Value<String?>? serverOrderId,
     Value<DateTime?>? claimedAt,
+    Value<double?>? subtotal,
+    Value<double?>? discount,
+    Value<String?>? promotionName,
     Value<int>? rowid,
   }) {
     return PendingOrdersCompanion(
@@ -2293,6 +2398,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
       orderNumber: orderNumber ?? this.orderNumber,
       serverOrderId: serverOrderId ?? this.serverOrderId,
       claimedAt: claimedAt ?? this.claimedAt,
+      subtotal: subtotal ?? this.subtotal,
+      discount: discount ?? this.discount,
+      promotionName: promotionName ?? this.promotionName,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2345,6 +2453,15 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     if (claimedAt.present) {
       map['claimed_at'] = Variable<DateTime>(claimedAt.value);
     }
+    if (subtotal.present) {
+      map['subtotal'] = Variable<double>(subtotal.value);
+    }
+    if (discount.present) {
+      map['discount'] = Variable<double>(discount.value);
+    }
+    if (promotionName.present) {
+      map['promotion_name'] = Variable<String>(promotionName.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2369,6 +2486,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
           ..write('orderNumber: $orderNumber, ')
           ..write('serverOrderId: $serverOrderId, ')
           ..write('claimedAt: $claimedAt, ')
+          ..write('subtotal: $subtotal, ')
+          ..write('discount: $discount, ')
+          ..write('promotionName: $promotionName, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -4325,6 +4445,9 @@ typedef $$PendingOrdersTableCreateCompanionBuilder = PendingOrdersCompanion Func
   Value<int?> orderNumber,
   Value<String?> serverOrderId,
   Value<DateTime?> claimedAt,
+  Value<double?> subtotal,
+  Value<double?> discount,
+  Value<String?> promotionName,
   Value<int> rowid,
 });
 typedef $$PendingOrdersTableUpdateCompanionBuilder = PendingOrdersCompanion Function({
@@ -4343,6 +4466,9 @@ typedef $$PendingOrdersTableUpdateCompanionBuilder = PendingOrdersCompanion Func
   Value<int?> orderNumber,
   Value<String?> serverOrderId,
   Value<DateTime?> claimedAt,
+  Value<double?> subtotal,
+  Value<double?> discount,
+  Value<String?> promotionName,
   Value<int> rowid,
 });
 
@@ -4398,6 +4524,15 @@ class $$PendingOrdersTableFilterComposer extends Composer<_$AppDatabase, $Pendin
 
   ColumnFilters<DateTime> get claimedAt =>
       $composableBuilder(column: $table.claimedAt, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get subtotal =>
+      $composableBuilder(column: $table.subtotal, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<double> get discount =>
+      $composableBuilder(column: $table.discount, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get promotionName =>
+      $composableBuilder(column: $table.promotionName, builder: (column) => ColumnFilters(column));
 }
 
 class $$PendingOrdersTableOrderingComposer extends Composer<_$AppDatabase, $PendingOrdersTable> {
@@ -4452,6 +4587,15 @@ class $$PendingOrdersTableOrderingComposer extends Composer<_$AppDatabase, $Pend
 
   ColumnOrderings<DateTime> get claimedAt =>
       $composableBuilder(column: $table.claimedAt, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get subtotal =>
+      $composableBuilder(column: $table.subtotal, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<double> get discount =>
+      $composableBuilder(column: $table.discount, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get promotionName =>
+      $composableBuilder(column: $table.promotionName, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PendingOrdersTableAnnotationComposer extends Composer<_$AppDatabase, $PendingOrdersTable> {
@@ -4498,6 +4642,13 @@ class $$PendingOrdersTableAnnotationComposer extends Composer<_$AppDatabase, $Pe
       $composableBuilder(column: $table.serverOrderId, builder: (column) => column);
 
   GeneratedColumn<DateTime> get claimedAt => $composableBuilder(column: $table.claimedAt, builder: (column) => column);
+
+  GeneratedColumn<double> get subtotal => $composableBuilder(column: $table.subtotal, builder: (column) => column);
+
+  GeneratedColumn<double> get discount => $composableBuilder(column: $table.discount, builder: (column) => column);
+
+  GeneratedColumn<String> get promotionName =>
+      $composableBuilder(column: $table.promotionName, builder: (column) => column);
 }
 
 class $$PendingOrdersTableTableManager
@@ -4540,6 +4691,9 @@ class $$PendingOrdersTableTableManager
                 Value<int?> orderNumber = const Value.absent(),
                 Value<String?> serverOrderId = const Value.absent(),
                 Value<DateTime?> claimedAt = const Value.absent(),
+                Value<double?> subtotal = const Value.absent(),
+                Value<double?> discount = const Value.absent(),
+                Value<String?> promotionName = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingOrdersCompanion(
                 idempotencyKey: idempotencyKey,
@@ -4557,6 +4711,9 @@ class $$PendingOrdersTableTableManager
                 orderNumber: orderNumber,
                 serverOrderId: serverOrderId,
                 claimedAt: claimedAt,
+                subtotal: subtotal,
+                discount: discount,
+                promotionName: promotionName,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4576,6 +4733,9 @@ class $$PendingOrdersTableTableManager
                 Value<int?> orderNumber = const Value.absent(),
                 Value<String?> serverOrderId = const Value.absent(),
                 Value<DateTime?> claimedAt = const Value.absent(),
+                Value<double?> subtotal = const Value.absent(),
+                Value<double?> discount = const Value.absent(),
+                Value<String?> promotionName = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingOrdersCompanion.insert(
                 idempotencyKey: idempotencyKey,
@@ -4593,6 +4753,9 @@ class $$PendingOrdersTableTableManager
                 orderNumber: orderNumber,
                 serverOrderId: serverOrderId,
                 claimedAt: claimedAt,
+                subtotal: subtotal,
+                discount: discount,
+                promotionName: promotionName,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
