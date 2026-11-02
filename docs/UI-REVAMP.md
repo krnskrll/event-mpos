@@ -19,7 +19,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | Phase | Scope | Mockup | Build |
 |---|---|---|---|
 | 1 Foundation | Tokens, Lato, type scale, component themes, shared widgets, wording | ✅ | ✅ PR #15 |
-| 2 Selling | Tablet products + order panel, phone grid + cart bar, product sheet, cart | ✅ | ✅ PR #16 |
+| 2 Selling | Tablet products + order panel, phone grid + cart bar, product sheet, cart | ✅ | ✅ PR #17 |
 | 3 Shell + Home | Floating forest rail, phone bottom bar, Home dashboard, status in top bar | — | — |
 | 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | — | — |
 | 5 Entry flow | Login, events, sync | — | — |
