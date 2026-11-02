@@ -19,8 +19,10 @@ void main() {
 
     await numbers.topUp('EV01');
     expect(server.requests.single.data, {'deviceId': numbers.deviceId});
+    expect(await numbers.remaining('EV01'), 2);
     expect((await numbers.next('EV01')).number, 41);
     expect(await numbers.next('EV01'), (number: 42, businessDate: '20261031'));
     await expectLater(numbers.next('EV01'), throwsA(isA<NoOrderNumbers>()));
+    expect(await numbers.remaining('EV01'), 0);
   });
 }

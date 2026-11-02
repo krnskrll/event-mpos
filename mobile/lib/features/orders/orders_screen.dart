@@ -21,7 +21,8 @@ const _filters = <(String, OrderState?)>[
   ('Cancelled', OrderState.cancelled),
 ];
 
-({String label, Color color, Color background}) _badge(OrderState state) => switch (state) {
+/// Status pill text and colours, shared by Orders and Home.
+({String label, Color color, Color background}) orderBadge(OrderState state) => switch (state) {
   OrderState.pending => (label: 'Sending', color: Brand.infoInk, background: Brand.infoSoft),
   OrderState.confirmed => (label: 'Confirmed', color: Brand.successInk, background: Brand.successSoft),
   OrderState.failed => (label: 'Failed', color: Brand.errorInk, background: Brand.errorSoft),
@@ -120,7 +121,7 @@ class _OrderRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final badge = _badge(order.state);
+    final badge = orderBadge(order.state);
     final time =
         '${order.createdAt.hour.toString().padLeft(2, '0')}:${order.createdAt.minute.toString().padLeft(2, '0')}';
     return Card(

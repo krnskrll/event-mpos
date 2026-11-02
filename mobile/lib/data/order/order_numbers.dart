@@ -46,8 +46,7 @@ class OrderNumbers {
   Future<void> topUp(String eventId) => _topUp ??= _fetchBlock(eventId).whenComplete(() => _topUp = null);
 
   Future<void> _fetchBlock(String eventId) async {
-    final remaining = (await _openBlocks(eventId)).fold(0, (sum, b) => sum + b.rangeEnd - b.nextUnused + 1);
-    if (remaining >= _lowWater) return;
+    if (await remaining(eventId) >= _lowWater) return;
     try {
       final block = (await _dio.post('api/me/events/$eventId/number-blocks', data: {'deviceId': deviceId})).data;
       await _db
@@ -65,6 +64,10 @@ class OrderNumbers {
       return;
     }
   }
+
+  /// Numbers this device can still hand out for [eventId], online or offline.
+  Future<int> remaining(String eventId) async =>
+      (await _openBlocks(eventId)).fold<int>(0, (sum, b) => sum + b.rangeEnd - b.nextUnused + 1);
 
   Future<List<NumberBlockRow>> _openBlocks(String eventId) =>
       (_db.select(_db.numberBlocks)

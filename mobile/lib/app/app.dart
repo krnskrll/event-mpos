@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'offline_banner.dart';
 import 'router.dart';
 import 'theme.dart';
 
@@ -22,7 +21,7 @@ class MposApp extends ConsumerWidget {
           systemNavigationBarColor: Brand.canvas,
           systemNavigationBarIconBrightness: Brightness.dark,
         ),
-        child: OfflineBanner(child: child!),
+        child: child!,
       ),
     );
   }
