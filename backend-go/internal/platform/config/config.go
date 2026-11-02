@@ -16,7 +16,7 @@ type Config struct {
 	// Serves both GORM (app runtime) and golang-migrate (schema), so upscaling is a URL swap.
 	DBUrl string
 
-	// Schema migrations directory (golang-migrate). Falls back to GORM AutoMigrate if absent.
+	// Schema migrations directory (golang-migrate).
 	MigrationsPath string
 
 	// HTTP
