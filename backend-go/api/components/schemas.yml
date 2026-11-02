@@ -1,0 +1,574 @@
+openapi: 3.0.3
+info:
+  title: POS shared schemas
+  version: "1.0.0"
+paths: {}
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string }
+    ErrorResponse:
+      type: object
+      required: [timestamp, status, error, message, path]
+      properties:
+        timestamp: { type: string, format: date-time }
+        status: { type: integer }
+        error: { type: string }
+        message: { type: string }
+        path: { type: string }
+    MeResponse:
+      type: object
+      required: [id, email, fullName, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        fullName: { type: string }
+        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
+    SnapshotHashResponse:
+      type: object
+      required: [snapshotHash, checkedAt]
+      properties:
+        snapshotHash: { type: string }
+        checkedAt: { type: string, format: date-time }
+    UserResponse:
+      type: object
+      required: [id, email, fullName, role, active, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        fullName: { type: string }
+        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+    CreateUserRequest:
+      type: object
+      required: [email, password, fullName, role]
+      properties:
+        email: { type: string }
+        password: { type: string }
+        fullName: { type: string }
+        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
+    UpdateUserRequest:
+      type: object
+      properties:
+        fullName: { type: string, nullable: true }
+        role: { type: string, enum: [ADMIN, BA, WAREHOUSE], nullable: true }
+        active: { type: boolean, nullable: true }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+    RefreshRequest:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+    TokenResponse:
+      type: object
+      required: [accessToken, refreshToken, expiresInSeconds, user]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresInSeconds: { type: integer, format: int64 }
+        user: { $ref: '#/components/schemas/UserSummary' }
+    UserSummary:
+      type: object
+      required: [id, email, fullName, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string }
+        fullName: { type: string }
+        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
+    EventResponse:
+      type: object
+      required: [id, code, name, status]
+      properties:
+        id: { type: string, format: uuid }
+        code: { type: string }
+        name: { type: string }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+        status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+        closedAt: { type: string, format: date-time }
+    CreateEventRequest:
+      type: object
+      required: [code, name]
+      properties:
+        code: { type: string }
+        name: { type: string }
+        startDate: { type: string, format: date, nullable: true }
+        endDate: { type: string, format: date, nullable: true }
+    UpdateEventRequest:
+      type: object
+      properties:
+        name: { type: string, nullable: true }
+        startDate: { type: string, format: date, nullable: true }
+        endDate: { type: string, format: date, nullable: true }
+    ChangeStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+    AssignBaRequest:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        eventId: { type: string, format: uuid }
+    EventSnapshot:
+      type: object
+      required: [event, version, products, stock, members, promotions, memberCount]
+      properties:
+        event: { $ref: '#/components/schemas/EventResponse' }
+        version: { type: string }
+        products: { type: array, items: { $ref: '#/components/schemas/ProductSnapshotDto' } }
+        stock: { type: array, items: {} }
+        members: { type: array, items: { $ref: '#/components/schemas/MemberSnapshotDto' } }
+        promotions: { type: array, items: { $ref: '#/components/schemas/PromotionSnapshotDto' } }
+        memberCount: { type: integer }
+    SnapshotStatus:
+      type: object
+      required: [changed, version]
+      properties:
+        changed: { type: boolean }
+        version: { type: string }
+    ProductResponse:
+      type: object
+      required: [id, sku, name, price, source, active, warehouseStock, barcodes, variants, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        brand: { type: string }
+        price: { type: number }
+        imageUrl: { type: string }
+        source: { type: string, enum: [ERP, MANUAL] }
+        active: { type: boolean }
+        warehouseStock: { type: integer }
+        barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeDto' } }
+        variants: { type: array, items: { $ref: '#/components/schemas/VariantDto' } }
+        updatedAt: { type: string, format: date-time }
+    BarcodeDto:
+      type: object
+      required: [barcode]
+      properties:
+        barcode: { type: string }
+        label: { type: string }
+    VariantDto:
+      type: object
+      required: [id, name, sku, price, active]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        sku: { type: string }
+        price: { type: number }
+        active: { type: boolean }
+    BarcodeInput:
+      type: object
+      properties:
+        barcode: { type: string }
+        label: { type: string, nullable: true }
+    CreateProductRequest:
+      type: object
+      required: [sku, name]
+      properties:
+        sku: { type: string }
+        name: { type: string }
+        brand: { type: string, nullable: true }
+        price: { type: number }
+        imageUrl: { type: string, nullable: true }
+        barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeInput' } }
+    UpdateProductRequest:
+      type: object
+      properties:
+        name: { type: string, nullable: true }
+        brand: { type: string, nullable: true }
+        price: { type: number, nullable: true }
+        imageUrl: { type: string, nullable: true }
+        active: { type: boolean, nullable: true }
+        barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeInput' } }
+    EventProductResponse:
+      type: object
+      required: [product, available]
+      properties:
+        product: { $ref: '#/components/schemas/ProductResponse' }
+        available: { type: boolean }
+    SetAvailabilityRequest:
+      type: object
+      required: [available]
+      properties:
+        available: { type: boolean, nullable: true }
+    ProductSnapshotDto:
+      type: object
+      required: [id, sku, name, price, barcodes, variants, remainingStock]
+      properties:
+        id: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        brand: { type: string }
+        price: { type: number }
+        imageUrl: { type: string }
+        barcodes: { type: array, items: { type: string } }
+        variants: { type: array, items: { $ref: '#/components/schemas/VariantSnapshotDto' } }
+        remainingStock: { type: integer }
+    VariantSnapshotDto:
+      type: object
+      required: [id, name, price]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        price: { type: number }
+    MemberResponse:
+      type: object
+      required: [id, memberCode, qrCode, name, tier, active, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        memberCode: { type: string }
+        qrCode: { type: string }
+        name: { type: string }
+        tier: { type: string, enum: [STANDARD, SILVER, GOLD, PLATINUM] }
+        region: { type: string }
+        active: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+    MemberSnapshotDto:
+      type: object
+      required: [qrCode, name, tier]
+      properties:
+        qrCode: { type: string }
+        name: { type: string }
+        tier: { type: string, enum: [STANDARD, SILVER, GOLD, PLATINUM] }
+    AllocationRow:
+      type: object
+      required: [productId, sku, name, warehouseStock, allocatedQty, soldQty, remaining]
+      properties:
+        productId: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        warehouseStock: { type: integer }
+        allocatedQty: { type: integer }
+        soldQty: { type: integer }
+        remaining: { type: integer }
+    SetAllocationRequest:
+      type: object
+      properties:
+        allocatedQty: { type: integer }
+    StockLevelRow:
+      type: object
+      required: [productId, sku, name, allocatedQty, soldQty, remaining, lowStock]
+      properties:
+        productId: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        allocatedQty: { type: integer }
+        soldQty: { type: integer }
+        remaining: { type: integer }
+        lowStock: { type: boolean }
+    BaStockLevel:
+      type: object
+      required: [productId, remaining, lowStock]
+      properties:
+        productId: { type: string, format: uuid }
+        remaining: { type: integer }
+        lowStock: { type: boolean }
+    PromotionResponse:
+      type: object
+      required: [id, eventId, name, type, scope, productIds, active, priority]
+      properties:
+        id: { type: string, format: uuid }
+        eventId: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [PERCENTAGE, FIXED, BUNDLE] }
+        percentOff: { type: number }
+        amountOff: { type: number }
+        scope: { type: string, enum: [ALL, SPECIFIC] }
+        productIds: { type: array, items: { type: string, format: uuid } }
+        minQty: { type: integer }
+        minSubtotal: { type: number }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        active: { type: boolean }
+        priority: { type: integer }
+    PromotionRequest:
+      type: object
+      required: [name, type]
+      properties:
+        name: { type: string }
+        type: { type: string, enum: [PERCENTAGE, FIXED, BUNDLE] }
+        percentOff: { type: number, nullable: true }
+        amountOff: { type: number, nullable: true }
+        scope: { type: string, enum: [ALL, SPECIFIC], nullable: true }
+        productIds: { type: array, items: { type: string, format: uuid } }
+        minQty: { type: integer, nullable: true }
+        minSubtotal: { type: number, nullable: true }
+        startsAt: { type: string, format: date-time, nullable: true }
+        endsAt: { type: string, format: date-time, nullable: true }
+        active: { type: boolean, nullable: true }
+        priority: { type: integer, nullable: true }
+    PromotionSnapshotDto:
+      type: object
+      required: [id, name, type, scope, productIds, priority]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [PERCENTAGE, FIXED, BUNDLE] }
+        percentOff: { type: number }
+        amountOff: { type: number }
+        scope: { type: string, enum: [ALL, SPECIFIC] }
+        productIds: { type: array, items: { type: string, format: uuid } }
+        minQty: { type: integer }
+        minSubtotal: { type: number }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+        priority: { type: integer }
+    QuoteLine:
+      type: object
+      required: [productId, qty]
+      properties:
+        productId: { type: string, format: uuid }
+        qty: { type: integer }
+    QuoteRequest:
+      type: object
+      properties:
+        lines: { type: array, items: { $ref: '#/components/schemas/QuoteLine' } }
+    QuoteResponse:
+      type: object
+      required: [subtotal, discount, total]
+      properties:
+        subtotal: { type: number }
+        discount: { type: number }
+        total: { type: number }
+        appliedPromotionId: { type: string, format: uuid }
+        appliedPromotionName: { type: string }
+    NumberBlockRequest:
+      type: object
+      required: [deviceId]
+      properties:
+        deviceId: { type: string }
+    NumberBlockResponse:
+      type: object
+      required: [eventId, businessDate, rangeStart, rangeEnd]
+      properties:
+        eventId: { type: string, format: uuid }
+        businessDate: { type: string }
+        rangeStart: { type: integer }
+        rangeEnd: { type: integer }
+    CustomerInfo:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        qrCode: { type: string, nullable: true }
+        tier: { type: string, nullable: true }
+    OrderLineRequest:
+      type: object
+      properties:
+        productId: { type: string, format: uuid }
+        qty: { type: integer }
+        variantId: { type: string, format: uuid, nullable: true }
+    SubmitOrderRequest:
+      type: object
+      required: [idempotencyKey]
+      properties:
+        idempotencyKey: { type: string }
+        customer: { $ref: '#/components/schemas/CustomerInfo' }
+        lines: { type: array, items: { $ref: '#/components/schemas/OrderLineRequest' } }
+        deviceId: { type: string, nullable: true }
+        orderNumber: { type: integer, nullable: true }
+        clientCreatedAt: { type: string, format: date-time, nullable: true }
+    OrderItemView:
+      type: object
+      required: [productId, sku, name, unitPrice, qty, lineTotal]
+      properties:
+        productId: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        unitPrice: { type: number }
+        qty: { type: integer }
+        lineTotal: { type: number }
+        variantName: { type: string }
+    OrderConfirmation:
+      type: object
+      required: [id, orderNumber, orderNumberDisplay, referenceId, status, eventCode, eventName, customerName, items, subtotal, discount, total, createdAt, cashierNote, duplicate, stockConflict, lateSynced]
+      properties:
+        id: { type: string, format: uuid }
+        orderNumber: { type: integer }
+        orderNumberDisplay: { type: string }
+        referenceId: { type: string }
+        status: { type: string, enum: [NEW, PACKING, READY, COLLECTED, CANCELLED] }
+        eventCode: { type: string }
+        eventName: { type: string }
+        customerName: { type: string }
+        customerTier: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/OrderItemView' } }
+        subtotal: { type: number }
+        discount: { type: number }
+        total: { type: number }
+        promotionName: { type: string }
+        createdAt: { type: string, format: date-time }
+        cashierNote: { type: string }
+        duplicate: { type: boolean }
+        stockConflict: { type: boolean }
+        lateSynced: { type: boolean }
+    OrderSummary:
+      type: object
+      required: [id, orderNumberDisplay, referenceId, status, customerName, total, itemCount, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderNumberDisplay: { type: string }
+        referenceId: { type: string }
+        status: { type: string, enum: [NEW, PACKING, READY, COLLECTED, CANCELLED] }
+        customerName: { type: string }
+        total: { type: number }
+        itemCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+    WarehouseItem:
+      type: object
+      required: [name, sku, qty]
+      properties:
+        name: { type: string }
+        sku: { type: string }
+        qty: { type: integer }
+    WarehouseOrderView:
+      type: object
+      required: [id, orderNumber, orderNumberDisplay, referenceId, customerName, baName, items, status, total, createdAt, stockConflict, lateSynced]
+      properties:
+        id: { type: string, format: uuid }
+        orderNumber: { type: integer }
+        orderNumberDisplay: { type: string }
+        referenceId: { type: string }
+        customerName: { type: string }
+        baName: { type: string }
+        items: { type: array, items: { $ref: '#/components/schemas/WarehouseItem' } }
+        status: { type: string, enum: [NEW, PACKING, READY, COLLECTED, CANCELLED] }
+        total: { type: number }
+        createdAt: { type: string, format: date-time }
+        stockConflict: { type: boolean }
+        lateSynced: { type: boolean }
+    CancelOrderRequest:
+      type: object
+      properties:
+        reason: { type: string, nullable: true }
+    AdvanceStatusRequest:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [NEW, PACKING, READY, COLLECTED, CANCELLED] }
+    AuditEntryResponse:
+      type: object
+      required: [id, orderId, orderReference, action, actorName, at]
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        orderReference: { type: string }
+        action: { type: string, enum: [ORDER_CREATED, STATUS_CHANGED, RECEIPT_PRINTED, ORDER_CANCELLED] }
+        actorName: { type: string }
+        fromStatus: { type: string }
+        toStatus: { type: string }
+        detail: { type: string }
+        at: { type: string, format: date-time }
+    AuditPage:
+      type: object
+      required: [items, page, size, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/AuditEntryResponse' } }
+        page: { type: integer }
+        size: { type: integer }
+        total: { type: integer, format: int64 }
+    ProductReportRow:
+      type: object
+      required: [productId, sku, name, unitsSold, revenue, allocated, sold, remaining]
+      properties:
+        productId: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        unitsSold: { type: integer }
+        revenue: { type: number }
+        allocated: { type: integer }
+        sold: { type: integer }
+        remaining: { type: integer }
+    EndOfEventReport:
+      type: object
+      required: [eventId, eventCode, eventName, status, generatedAt, totalOrders, cancelledOrders, lateSyncedOrders, stockConflictOrders, totalItems, totalRevenue, totalDiscount, products]
+      properties:
+        eventId: { type: string, format: uuid }
+        eventCode: { type: string }
+        eventName: { type: string }
+        status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+        generatedAt: { type: string, format: date-time }
+        totalOrders: { type: integer }
+        cancelledOrders: { type: integer }
+        lateSyncedOrders: { type: integer }
+        stockConflictOrders: { type: integer }
+        totalItems: { type: integer }
+        totalRevenue: { type: number }
+        totalDiscount: { type: number }
+        products: { type: array, items: { $ref: '#/components/schemas/ProductReportRow' } }
+    UpdateSyncConfigRequest:
+      type: object
+      required: [cron]
+      properties:
+        enabled: { type: boolean }
+        cron: { type: string }
+    SyncTypeView:
+      type: object
+      required: [type, enabled, cron, updatedAt, count]
+      properties:
+        type: { type: string, enum: [ERP, MEMBER] }
+        enabled: { type: boolean }
+        cron: { type: string }
+        updatedAt: { type: string, format: date-time }
+        lastSyncAt: { type: string, format: date-time }
+        lastResult: { type: string }
+        count: { type: integer }
+        source: { type: string }
+        message: { type: string }
+    SyncOverview:
+      type: object
+      required: [erp, member]
+      properties:
+        erp: { $ref: '#/components/schemas/SyncTypeView' }
+        member: { $ref: '#/components/schemas/SyncTypeView' }
+    ErpSyncResult:
+      type: object
+      required: [ok, created, updated, total, source]
+      properties:
+        ok: { type: boolean }
+        created: { type: integer }
+        updated: { type: integer }
+        total: { type: integer }
+        source: { type: string }
+        message: { type: string }
+    ErpSyncStatus:
+      type: object
+      required: [id, productCount]
+      properties:
+        id: { type: integer }
+        lastSyncAt: { type: string, format: date-time }
+        lastResult: { type: string }
+        productCount: { type: integer }
+        source: { type: string }
+        message: { type: string }
+    MemberSyncResult:
+      type: object
+      required: [ok, created, updated, total, source]
+      properties:
+        ok: { type: boolean }
+        created: { type: integer }
+        updated: { type: integer }
+        total: { type: integer }
+        source: { type: string }
+        message: { type: string }
+    MemberSyncStatus:
+      type: object
+      required: [id, memberCount]
+      properties:
+        id: { type: integer }
+        lastSyncAt: { type: string, format: date-time }
+        lastResult: { type: string }
+        memberCount: { type: integer }
+        source: { type: string }
+        message: { type: string }

@@ -41,6 +41,8 @@ jobs:
         with:
           go-version-file: backend-go/go.mod
           cache-dependency-path: backend-go/go.sum
+      - name: Generate code (oapi-codegen)
+        run: make generate
       - name: go vet
         run: go vet ./...
       - name: Apply migrations

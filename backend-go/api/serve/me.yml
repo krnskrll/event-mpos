@@ -1,0 +1,205 @@
+openapi: 3.0.3
+info:
+  title: POS me API
+  version: "1.0.0"
+tags:
+  - name: me
+paths:
+  /api/me:
+    get:
+      tags: [me]
+      operationId: getMe
+      summary: "The authenticated user"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MeResponse' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/event:
+    get:
+      tags: [me]
+      operationId: getMyEvent
+      summary: "The BA's active event (null when none)"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events:
+    get:
+      tags: [me]
+      operationId: listMyEvents
+      summary: "Every event the BA has been assigned to"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events/{eventId}/snapshot:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [me]
+      operationId: getSnapshot
+      summary: "Event snapshot for offline selling; returns SnapshotStatus when ?version is current"
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - { name: version, in: query, required: false, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { oneOf: [{ $ref: '../components/schemas.yml#/components/schemas/EventSnapshot' }, { $ref: '../components/schemas.yml#/components/schemas/SnapshotStatus' }] } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events/{eventId}/snapshot/hash:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [me]
+      operationId: getSnapshotHash
+      summary: "Current snapshot version"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/SnapshotHashResponse' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events/{eventId}/products/by-barcode/{barcode}:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string } }
+      - { name: barcode, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [me]
+      operationId: getProductByBarcode
+      summary: "Product available for this event by barcode"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ProductResponse' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events/{eventId}/stock:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [me]
+      operationId: getMyStock
+      summary: "Remaining stock per product"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/BaStockLevel' } } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events/{eventId}/promotions/quote:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [me]
+      operationId: quoteCart
+      summary: "Authoritative cart quote with the best promotion"
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/QuoteRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/QuoteResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events/{eventId}/orders:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [me]
+      operationId: submitOrder
+      summary: "Submit an order (online, or confirmed offline with a device number)"
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/SubmitOrderRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/OrderConfirmation' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    get:
+      tags: [me]
+      operationId: listMyOrders
+      summary: "The BA's order history for an event"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/OrderSummary' } } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events/{eventId}/number-blocks:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [me]
+      operationId: issueNumberBlock
+      summary: "Reserve a block of order numbers for a device"
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/NumberBlockRequest' } } }
+      responses:
+        '201': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/NumberBlockResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/orders/{orderId}:
+    parameters:
+      - { name: orderId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [me]
+      operationId: getMyOrder
+      summary: "One order with its lines"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/OrderConfirmation' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/orders/{orderId}/receipts:
+    parameters:
+      - { name: orderId, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [me]
+      operationId: logReceiptPrint
+      summary: "Record a receipt print or reprint"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: OK }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/members:
+    get:
+      tags: [me]
+      operationId: listSnapshotMembers
+      summary: "Active members in the compact device shape"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/MemberSnapshotDto' } } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/members/by-qr/{qrCode}:
+    parameters:
+      - { name: qrCode, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [me]
+      operationId: getMemberByQr
+      summary: "Active member by QR code"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberResponse' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }

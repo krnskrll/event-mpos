@@ -43,6 +43,9 @@ func (s *Scheduler) Start() {
 }
 
 // Reschedule replaces a type's cron entry (called after a config update).
+// Stop halts scheduling and waits for a running sync to finish.
+func (s *Scheduler) Stop() { <-s.c.Stop().Done() }
+
 func (s *Scheduler) Reschedule(t iface.SyncType, cronExpr string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()

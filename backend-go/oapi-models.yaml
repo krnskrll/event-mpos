@@ -1,0 +1,7 @@
+package: models
+output: generated/api/models/models.gen.go
+generate:
+  models: true
+output-options:
+  # schemas.yml has no paths, so the pruner would drop every schema.
+  skip-prune: true

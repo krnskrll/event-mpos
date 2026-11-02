@@ -43,6 +43,11 @@ type Config struct {
 	MemberRegionFilter  string
 	MemberScheduledSync bool
 	MemberSyncCron      string
+
+	// Bhoomy connector: mock | http
+	BhoomyMode         string
+	BhoomyURL          string
+	BhoomyServiceToken string
 }
 
 // Load reads configuration from the environment, applying the same defaults as the Kotlin backend.
@@ -75,6 +80,10 @@ func Load() *Config {
 		MemberRegionFilter:  getenv("MEMBER_REGION_FILTER", ""),
 		MemberScheduledSync: getbool("MEMBER_SCHEDULED", false),
 		MemberSyncCron:      getenv("MEMBER_SYNC_CRON", "0 0 2 * * *"),
+
+		BhoomyMode:         getenv("BHOOMY_MODE", "mock"),
+		BhoomyURL:          getenv("BHOOMY_URL", ""),
+		BhoomyServiceToken: getenv("BHOOMY_SERVICE_TOKEN", ""),
 	}
 }
 
