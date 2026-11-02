@@ -1,0 +1,14 @@
+openapi: 3.0.3
+info:
+  title: POS health API
+  version: "1.0.0"
+tags:
+  - name: health
+paths:
+  /api/health:
+    get:
+      tags: [health]
+      operationId: getHealth
+      summary: "Liveness check"
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/HealthResponse' } } } }

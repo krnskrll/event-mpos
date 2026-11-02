@@ -33,3 +33,6 @@ android/captures/
 
 # UI design reference (Figma export), not part of the product
 /Mobile POS Phase 1/
+
+# Generated code (oapi-codegen). Rebuilt by `make generate` (backend-go/Makefile).
+backend-go/generated/
