@@ -17,7 +17,7 @@ import (
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	"github.com/krnskrll/event-mpos/internal/receipt"
-	"github.com/krnskrll/event-mpos/internal/stock"
+	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
@@ -39,13 +39,13 @@ type Handler struct {
 	events     eventiface.Events
 	products   productiface.Products
 	members    memberiface.Members
-	stock      *stock.Service
+	stock      stockiface.Stock
 	promotions promotioniface.Promotions
 	orders     *order.Service
 	receipts   *receipt.Service
 }
 
-func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk *stock.Service, promotions promotioniface.Promotions, orders *order.Service, receipts *receipt.Service) *Handler {
+func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk stockiface.Stock, promotions promotioniface.Promotions, orders *order.Service, receipts *receipt.Service) *Handler {
 	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions, orders: orders, receipts: receipts}
 }
 

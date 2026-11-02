@@ -1,4 +1,4 @@
-package stock
+package handler
 
 import (
 	"net/http"
@@ -8,14 +8,16 @@ import (
 
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/stock/iface"
+	"github.com/krnskrll/event-mpos/internal/stock/service"
 )
 
 // AdminHandler: view + set per-event allocations (under /api/admin).
 type AdminHandler struct {
-	svc *Service
+	svc *service.Service
 }
 
-func NewAdminHandler(svc *Service) *AdminHandler { return &AdminHandler{svc: svc} }
+func NewAdminHandler(svc *service.Service) *AdminHandler { return &AdminHandler{svc: svc} }
 
 func (h *AdminHandler) Allocations(c *gin.Context) {
 	eventID, err := uuid.Parse(c.Param("id"))
@@ -42,7 +44,7 @@ func (h *AdminHandler) SetAllocation(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid product id")
 		return
 	}
-	var req SetAllocationRequest
+	var req iface.SetAllocationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -61,11 +63,11 @@ func (h *AdminHandler) SetAllocation(c *gin.Context) {
 
 // WarehouseHandler: pick an event + near-real-time remaining stock (under /api/warehouse).
 type WarehouseHandler struct {
-	svc    *Service
+	svc    *service.Service
 	events eventiface.Events
 }
 
-func NewWarehouseHandler(svc *Service, events eventiface.Events) *WarehouseHandler {
+func NewWarehouseHandler(svc *service.Service, events eventiface.Events) *WarehouseHandler {
 	return &WarehouseHandler{svc: svc, events: events}
 }
 

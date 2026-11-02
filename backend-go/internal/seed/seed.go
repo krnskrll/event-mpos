@@ -19,7 +19,7 @@ import (
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
-	"github.com/krnskrll/event-mpos/internal/stock"
+	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 	userrepo "github.com/krnskrll/event-mpos/internal/user/repository"
 )
@@ -29,7 +29,7 @@ import (
 //	admin@eventmpos.local / Admin123!  (ADMIN)
 //	ba@eventmpos.local    / Ba123456!  (BA)
 //	wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stock.Service, promoSvc *promotionsvc.Service) error {
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stocksvc.Service, promoSvc *promotionsvc.Service) error {
 	var count int64
 	if err := db.Model(&userrepo.User{}).Count(&count).Error; err != nil {
 		return err

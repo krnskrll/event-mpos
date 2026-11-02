@@ -17,7 +17,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
-	"github.com/krnskrll/event-mpos/internal/stock"
+	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
 )
 
 type ProductReportRow struct {
@@ -53,10 +53,11 @@ type Service struct {
 	db       *gorm.DB
 	events   eventiface.Events
 	products productiface.Products
+	stock    stockiface.Stock
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products) *Service {
-	return &Service{db: db, events: events, products: products}
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock) *Service {
+	return &Service{db: db, events: events, products: products, stock: stk}
 }
 
 func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
@@ -113,11 +114,11 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 		}
 	}
 
-	var allocs []stock.EventStockAllocation
-	if err := s.db.Where("event_id = ?", eventID).Find(&allocs).Error; err != nil {
+	allocs, err := s.stock.Allocations(eventID)
+	if err != nil {
 		return nil, err
 	}
-	allocByProduct := map[uuid.UUID]*stock.EventStockAllocation{}
+	allocByProduct := map[uuid.UUID]*stockiface.Allocation{}
 	var allocOrder []uuid.UUID
 	for i := range allocs {
 		allocByProduct[allocs[i].ProductID] = &allocs[i]
@@ -155,7 +156,7 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 			}
 		}
 		if al != nil {
-			row.Allocated, row.Sold, row.Remaining = al.AllocatedQty, al.SoldQty, al.Remaining()
+			row.Allocated, row.Sold, row.Remaining = al.AllocatedQty, al.SoldQty, al.Remaining
 		}
 		rows = append(rows, row)
 	}

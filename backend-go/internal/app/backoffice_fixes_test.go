@@ -14,7 +14,7 @@ import (
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/receipt"
-	"github.com/krnskrll/event-mpos/internal/stock"
+	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
@@ -241,7 +241,7 @@ func TestStockSummaryCacheIsInvalidatedByOrders(t *testing.T) {
 	}
 
 	// A write that bypasses the service is not seen until the entry is invalidated or expires.
-	a.DB.Model(&stock.EventStockAllocation{}).Where("event_id = ?", ev.ID).Update("sold_qty", 1)
+	a.DB.Model(&stockrepo.EventStockAllocation{}).Where("event_id = ?", ev.ID).Update("sold_qty", 1)
 	if b, w := remaining(); b != 10 || w != 10 {
 		t.Errorf("cache not used: remaining %d/%d, want the cached 10", b, w)
 	}

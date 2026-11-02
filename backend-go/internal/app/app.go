@@ -29,7 +29,8 @@ import (
 	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/report"
-	"github.com/krnskrll/event-mpos/internal/stock"
+	stockhandler "github.com/krnskrll/event-mpos/internal/stock/handler"
+	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
 	synchandler "github.com/krnskrll/event-mpos/internal/syncconfig/handler"
 	syncsvc "github.com/krnskrll/event-mpos/internal/syncconfig/service"
 	userhandler "github.com/krnskrll/event-mpos/internal/user/handler"
@@ -48,7 +49,7 @@ type App struct {
 	ERPSync    *erp.SyncService
 	Members    *membersvc.Service
 	MemberSync *membersrc.Service
-	Stock      *stock.Service
+	Stock      *stocksvc.Service
 	Promotions *promotionsvc.Service
 	Audit      *audit.Service
 	Receipts   *receipt.Service
@@ -78,7 +79,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Members = membersvc.NewService(db)
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
-	a.Stock = stock.NewService(db, a.Events, a.Products)
+	a.Stock = stocksvc.NewService(db, a.Events, a.Products)
 	a.Promotions = promotionsvc.NewService(db, a.Products)
 	a.Audit = audit.NewService(db, a.Users)
 	a.Receipts = receipt.NewService(db, a.Audit)
@@ -92,7 +93,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	})
 
 	// Reporting + runtime-editable sync schedules with a dynamic cron scheduler.
-	a.Reports = report.NewService(db, a.Events, a.Products)
+	a.Reports = report.NewService(db, a.Events, a.Products, a.Stock)
 	a.SyncConfig = syncsvc.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
 	if err := a.SyncConfig.SeedDefaults(); err != nil {
 		return nil, err
@@ -123,8 +124,8 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	erpHandler := erp.NewHandler(a.ERPSync)
 	memberHandler := memberhandler.NewHandler(a.Members)
 	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
-	stockAdminHandler := stock.NewAdminHandler(a.Stock)
-	warehouseStockHandler := stock.NewWarehouseHandler(a.Stock, a.Events)
+	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock)
+	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
 	promotionHandler := promotionhandler.NewHandler(a.Promotions)
 	warehouseOrderHandler := order.NewWarehouseHandler(a.Orders)
 	reportHandler := report.NewHandler(a.Reports, a.Audit)

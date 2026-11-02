@@ -1,4 +1,4 @@
-package stock
+package service
 
 import (
 	"errors"
@@ -14,16 +14,20 @@ import (
 
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
+	"github.com/krnskrll/event-mpos/internal/stock/iface"
+	"github.com/krnskrll/event-mpos/internal/stock/repository"
 )
 
-// Service holds stock allocation + the oversell-proof decrement — the Go analogue of Kotlin StockService.
 type Service struct {
 	events   eventiface.Events
 	products productiface.Products
 	db       *gorm.DB
 	summary  *summaryCache
 }
+
+var _ iface.Stock = (*Service)(nil)
 
 func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products) *Service {
 	return &Service{db: db, events: events, products: products, summary: newSummaryCache(SummaryTTL)}
@@ -35,7 +39,7 @@ func (s *Service) InvalidateSummary(eventID uuid.UUID) { s.summary.invalidate(ev
 
 // ---- admin allocation ----
 
-func (s *Service) AllocationsForEvent(eventID uuid.UUID) ([]AllocationRow, error) {
+func (s *Service) AllocationsForEvent(eventID uuid.UUID) ([]iface.AllocationRow, error) {
 	products, err := s.products.All()
 	if err != nil {
 		return nil, err
@@ -44,11 +48,11 @@ func (s *Service) AllocationsForEvent(eventID uuid.UUID) ([]AllocationRow, error
 	if err != nil {
 		return nil, err
 	}
-	rows := make([]AllocationRow, 0, len(products))
+	rows := make([]iface.AllocationRow, 0, len(products))
 	for i := range products {
 		p := &products[i]
 		a := byProduct[p.ID]
-		row := AllocationRow{ProductID: p.ID, SKU: p.SKU, Name: p.Name, WarehouseStock: p.WarehouseStock}
+		row := iface.AllocationRow{ProductID: p.ID, SKU: p.SKU, Name: p.Name, WarehouseStock: p.WarehouseStock}
 		if a != nil {
 			row.AllocatedQty = a.AllocatedQty
 			row.SoldQty = a.SoldQty
@@ -60,7 +64,7 @@ func (s *Service) AllocationsForEvent(eventID uuid.UUID) ([]AllocationRow, error
 }
 
 // SetAllocation sets how much of a product is allocated to an event. Allowed only while DRAFT.
-func (s *Service) SetAllocation(eventID, productID uuid.UUID, allocatedQty int) (*AllocationRow, error) {
+func (s *Service) SetAllocation(eventID, productID uuid.UUID, allocatedQty int) (*iface.AllocationRow, error) {
 	ev, err := s.events.Get(eventID)
 	if err != nil {
 		return nil, err
@@ -85,7 +89,7 @@ func (s *Service) SetAllocation(eventID, productID uuid.UUID, allocatedQty int) 
 		return nil, err
 	}
 	if alloc == nil {
-		alloc = &EventStockAllocation{EventID: eventID, ProductID: productID}
+		alloc = &repository.EventStockAllocation{EventID: eventID, ProductID: productID}
 	}
 	if allocatedQty < alloc.SoldQty {
 		return nil, common.NewAppError(http.StatusBadRequest,
@@ -96,7 +100,7 @@ func (s *Service) SetAllocation(eventID, productID uuid.UUID, allocatedQty int) 
 		return nil, err
 	}
 	s.InvalidateSummary(eventID)
-	row := AllocationRow{ProductID: p.ID, SKU: p.SKU, Name: p.Name, WarehouseStock: p.WarehouseStock,
+	row := iface.AllocationRow{ProductID: p.ID, SKU: p.SKU, Name: p.Name, WarehouseStock: p.WarehouseStock,
 		AllocatedQty: alloc.AllocatedQty, SoldQty: alloc.SoldQty, Remaining: alloc.Remaining()}
 	return &row, nil
 }
@@ -108,7 +112,7 @@ func (s *Service) ForceAllocate(eventID, productID uuid.UUID, allocatedQty int) 
 		return err
 	}
 	if alloc == nil {
-		alloc = &EventStockAllocation{EventID: eventID, ProductID: productID}
+		alloc = &repository.EventStockAllocation{EventID: eventID, ProductID: productID}
 	}
 	alloc.AllocatedQty = allocatedQty
 	if err := s.db.Save(alloc).Error; err != nil {
@@ -121,11 +125,11 @@ func (s *Service) ForceAllocate(eventID, productID uuid.UUID, allocatedQty int) 
 // ---- views ----
 
 // LevelsForEvent is the warehouse stock summary (served from the summary cache).
-func (s *Service) LevelsForEvent(eventID uuid.UUID) ([]StockLevelRow, error) {
+func (s *Service) LevelsForEvent(eventID uuid.UUID) ([]iface.StockLevelRow, error) {
 	key := summaryKey{eventID, kindWarehouse}
 	v, ok, gen := s.summary.get(key)
 	if ok {
-		return v.([]StockLevelRow), nil
+		return v.([]iface.StockLevelRow), nil
 	}
 	rows, err := s.levelsForEvent(eventID)
 	if err == nil {
@@ -135,11 +139,11 @@ func (s *Service) LevelsForEvent(eventID uuid.UUID) ([]StockLevelRow, error) {
 }
 
 // BaLevelsForEvent is the compact BA stock summary (served from the summary cache).
-func (s *Service) BaLevelsForEvent(eventID uuid.UUID) ([]BaStockLevel, error) {
+func (s *Service) BaLevelsForEvent(eventID uuid.UUID) ([]iface.BaStockLevel, error) {
 	key := summaryKey{eventID, kindBa}
 	v, ok, gen := s.summary.get(key)
 	if ok {
-		return v.([]BaStockLevel), nil
+		return v.([]iface.BaStockLevel), nil
 	}
 	rows, err := s.baLevelsForEvent(eventID)
 	if err == nil {
@@ -148,23 +152,23 @@ func (s *Service) BaLevelsForEvent(eventID uuid.UUID) ([]BaStockLevel, error) {
 	return rows, err
 }
 
-func (s *Service) levelsForEvent(eventID uuid.UUID) ([]StockLevelRow, error) {
+func (s *Service) levelsForEvent(eventID uuid.UUID) ([]iface.StockLevelRow, error) {
 	products, err := s.productsByID()
 	if err != nil {
 		return nil, err
 	}
-	var allocs []EventStockAllocation
+	var allocs []repository.EventStockAllocation
 	if err := s.db.Where("event_id = ?", eventID).Find(&allocs).Error; err != nil {
 		return nil, err
 	}
-	rows := make([]StockLevelRow, 0, len(allocs))
+	rows := make([]iface.StockLevelRow, 0, len(allocs))
 	for i := range allocs {
 		a := &allocs[i]
 		p, ok := products[a.ProductID]
 		if !ok {
 			continue
 		}
-		rows = append(rows, StockLevelRow{
+		rows = append(rows, iface.StockLevelRow{
 			ProductID: p.ID, SKU: p.SKU, Name: p.Name, AllocatedQty: a.AllocatedQty,
 			SoldQty: a.SoldQty, Remaining: a.Remaining(), LowStock: lowStock(a.Remaining()),
 		})
@@ -173,15 +177,15 @@ func (s *Service) levelsForEvent(eventID uuid.UUID) ([]StockLevelRow, error) {
 	return rows, nil
 }
 
-func (s *Service) baLevelsForEvent(eventID uuid.UUID) ([]BaStockLevel, error) {
-	var allocs []EventStockAllocation
+func (s *Service) baLevelsForEvent(eventID uuid.UUID) ([]iface.BaStockLevel, error) {
+	var allocs []repository.EventStockAllocation
 	if err := s.db.Where("event_id = ?", eventID).Find(&allocs).Error; err != nil {
 		return nil, err
 	}
-	rows := make([]BaStockLevel, 0, len(allocs))
+	rows := make([]iface.BaStockLevel, 0, len(allocs))
 	for i := range allocs {
 		a := &allocs[i]
-		rows = append(rows, BaStockLevel{ProductID: a.ProductID, Remaining: a.Remaining(), LowStock: lowStock(a.Remaining())})
+		rows = append(rows, iface.BaStockLevel{ProductID: a.ProductID, Remaining: a.Remaining(), LowStock: lowStock(a.Remaining())})
 	}
 	return rows, nil
 }
@@ -201,7 +205,7 @@ func (s *Service) Remaining(eventID, productID uuid.UUID) (int, error) {
 // AllocationFingerprint is a fingerprint of allocation *configuration* (not soldQty), folded into
 // the snapshot version.
 func (s *Service) AllocationFingerprint(eventID uuid.UUID) (string, error) {
-	var allocs []EventStockAllocation
+	var allocs []repository.EventStockAllocation
 	if err := s.db.Where("event_id = ?", eventID).Find(&allocs).Error; err != nil {
 		return "", err
 	}
@@ -218,11 +222,11 @@ func (s *Service) AllocationFingerprint(eventID uuid.UUID) (string, error) {
 // Decrement atomically reserves qty of a product's event stock, holding a PESSIMISTIC_WRITE row lock
 // (SELECT ... FOR UPDATE) so concurrent submissions serialize and overselling is impossible. Must be
 // called inside a transaction; pass the order-creation tx so it commits/rolls back together.
-func (s *Service) Decrement(tx *gorm.DB, eventID, productID uuid.UUID, qty int) error {
+func (s *Service) Decrement(tx database.Tx, eventID, productID uuid.UUID, qty int) error {
 	if qty <= 0 {
 		return common.NewAppError(http.StatusBadRequest, "qty must be positive")
 	}
-	var alloc EventStockAllocation
+	var alloc repository.EventStockAllocation
 	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("event_id = ? AND product_id = ?", eventID, productID).First(&alloc).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -242,8 +246,8 @@ func (s *Service) Decrement(tx *gorm.DB, eventID, productID uuid.UUID, qty int) 
 // Reserve is Decrement for orders a device already confirmed offline: it never rejects. It reports
 // whether the sale oversold the allocation; remaining then goes negative so the shortfall stays
 // visible to the warehouse instead of the order being lost.
-func (s *Service) Reserve(tx *gorm.DB, eventID, productID uuid.UUID, qty int) (oversold bool, err error) {
-	var alloc EventStockAllocation
+func (s *Service) Reserve(tx database.Tx, eventID, productID uuid.UUID, qty int) (oversold bool, err error) {
+	var alloc repository.EventStockAllocation
 	err = tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("event_id = ? AND product_id = ?", eventID, productID).First(&alloc).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -259,8 +263,8 @@ func (s *Service) Reserve(tx *gorm.DB, eventID, productID uuid.UUID, qty int) (o
 
 // Restore returns qty of a product to the event's stock (order cancelled), under the same row lock
 // as Decrement. Must run inside the caller's transaction.
-func (s *Service) Restore(tx *gorm.DB, eventID, productID uuid.UUID, qty int) error {
-	var alloc EventStockAllocation
+func (s *Service) Restore(tx database.Tx, eventID, productID uuid.UUID, qty int) error {
+	var alloc repository.EventStockAllocation
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("event_id = ? AND product_id = ?", eventID, productID).First(&alloc).Error; err != nil {
 		return err
@@ -271,8 +275,8 @@ func (s *Service) Restore(tx *gorm.DB, eventID, productID uuid.UUID, qty int) er
 
 // ---- helpers ----
 
-func (s *Service) findAllocation(tx *gorm.DB, eventID, productID uuid.UUID) (*EventStockAllocation, error) {
-	var a EventStockAllocation
+func (s *Service) findAllocation(tx *gorm.DB, eventID, productID uuid.UUID) (*repository.EventStockAllocation, error) {
+	var a repository.EventStockAllocation
 	err := tx.Where("event_id = ? AND product_id = ?", eventID, productID).First(&a).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -283,12 +287,24 @@ func (s *Service) findAllocation(tx *gorm.DB, eventID, productID uuid.UUID) (*Ev
 	return &a, nil
 }
 
-func (s *Service) allocationsByProduct(eventID uuid.UUID) (map[uuid.UUID]*EventStockAllocation, error) {
-	var allocs []EventStockAllocation
+func (s *Service) Allocations(eventID uuid.UUID) ([]iface.Allocation, error) {
+	var allocs []repository.EventStockAllocation
 	if err := s.db.Where("event_id = ?", eventID).Find(&allocs).Error; err != nil {
 		return nil, err
 	}
-	m := make(map[uuid.UUID]*EventStockAllocation, len(allocs))
+	out := make([]iface.Allocation, 0, len(allocs))
+	for _, a := range allocs {
+		out = append(out, iface.Allocation{ProductID: a.ProductID, AllocatedQty: a.AllocatedQty, SoldQty: a.SoldQty, Remaining: a.Remaining()})
+	}
+	return out, nil
+}
+
+func (s *Service) allocationsByProduct(eventID uuid.UUID) (map[uuid.UUID]*repository.EventStockAllocation, error) {
+	var allocs []repository.EventStockAllocation
+	if err := s.db.Where("event_id = ?", eventID).Find(&allocs).Error; err != nil {
+		return nil, err
+	}
+	m := make(map[uuid.UUID]*repository.EventStockAllocation, len(allocs))
 	for i := range allocs {
 		m[allocs[i].ProductID] = &allocs[i]
 	}
@@ -306,3 +322,8 @@ func (s *Service) productsByID() (map[uuid.UUID]productiface.SaleProduct, error)
 	}
 	return m, nil
 }
+
+// LowStockThreshold — remaining in 1..threshold flags a low-stock warning (0 = out, not "low").
+const LowStockThreshold = 10
+
+func lowStock(remaining int) bool { return remaining >= 1 && remaining <= LowStockThreshold }

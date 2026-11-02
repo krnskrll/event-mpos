@@ -18,7 +18,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
-	"github.com/krnskrll/event-mpos/internal/stock"
+	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
@@ -26,7 +26,7 @@ type Service struct {
 	db         *gorm.DB
 	events     eventiface.Events
 	products   productiface.Products
-	stock      *stock.Service
+	stock      stockiface.Stock
 	promotions promotioniface.Promotions
 	audit      *audit.Service
 	users      useriface.Users
@@ -35,7 +35,7 @@ type Service struct {
 	broadcast func(eventID uuid.UUID, view WarehouseOrderView)
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk *stock.Service, promotions promotioniface.Promotions, aud *audit.Service, users useriface.Users) *Service {
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, promotions promotioniface.Promotions, aud *audit.Service, users useriface.Users) *Service {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
