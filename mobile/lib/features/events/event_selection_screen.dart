@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/logo.dart';
+import '../../app/status.dart';
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
 import '../../core/secure/token_storage.dart';
@@ -23,48 +25,85 @@ class EventSelectionScreen extends ConsumerWidget {
     }
 
     final name = ref.watch(tokenStorageProvider).userName ?? 'Cashier';
+    final wide = isWide(context);
     return Scaffold(
-      body: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ScreenHeader(
-            title: 'Hi, ${name.split(' ').first}',
-            subtitle: 'Choose the event you are selling at',
-            actions: [
-              TextButton(onPressed: () => ref.read(authRepositoryProvider).logout(), child: const Text('Log out')),
-            ],
-          ),
-          Expanded(
-            child: ref
-                .watch(_eventsProvider)
-                .when(
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (e, _) => Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        Text('$e', style: AppText.body.copyWith(color: Brand.errorInk)),
-                        const SizedBox(height: 12),
-                        BrandButton(text: 'Retry', onPressed: () => ref.invalidate(_eventsProvider)),
-                      ],
-                    ),
-                  ),
-                  data: (events) => events.isEmpty
-                      ? const EmptyState('No events assigned to you yet.', icon: Icons.event_busy_outlined)
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                          itemCount: events.length,
-                          separatorBuilder: (_, _) => const SizedBox(height: 12),
-                          itemBuilder: (_, i) => _EventCard(events[i], onStart: () => start(events[i])),
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 1000),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16, wide ? 28 : 16, 16, 0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      wide ? const BhoomyLogo(size: 44) : const UserAvatar(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Hi, ${name.split(' ').first}', style: AppText.title),
+                            Text("Choose where you're selling today", style: AppText.body.copyWith(color: Brand.slate)),
+                          ],
                         ),
-                ),
+                      ),
+                      wide
+                          ? OutlinedButton(
+                              onPressed: () => ref.read(authRepositoryProvider).logout(),
+                              style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
+                              child: const Text('Log out'),
+                            )
+                          : TextButton(
+                              onPressed: () => ref.read(authRepositoryProvider).logout(),
+                              child: const Text('Log out'),
+                            ),
+                      if (wide) ...[const SizedBox(width: 12), const UserAvatar()],
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  Expanded(
+                    child: ref
+                        .watch(_eventsProvider)
+                        .when(
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => Column(
+                            children: [
+                              Text('$e', style: AppText.body.copyWith(color: Brand.errorInk)),
+                              const SizedBox(height: 12),
+                              BrandButton(text: 'Try again', onPressed: () => ref.invalidate(_eventsProvider)),
+                            ],
+                          ),
+                          data: (events) => events.isEmpty
+                              ? const EmptyState(
+                                  'No events assigned to you yet.\nAsk your supervisor to add you to one.',
+                                  icon: Icons.event_busy_outlined,
+                                )
+                              : GridView.builder(
+                                  padding: const EdgeInsets.only(bottom: 16),
+                                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    crossAxisCount: wide ? 2 : 1,
+                                    mainAxisSpacing: 16,
+                                    crossAxisSpacing: 18,
+                                    mainAxisExtent: wide ? 268 : 232,
+                                  ),
+                                  itemCount: events.length,
+                                  itemBuilder: (_, i) => _EventCard(events[i], onStart: () => start(events[i])),
+                                ),
+                        ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
+        ),
       ),
     );
   }
 }
 
+/// Coloured top with status and code; name, dates, and the way in (only open events can start).
 class _EventCard extends StatelessWidget {
   const _EventCard(this.event, {required this.onStart});
 
@@ -73,46 +112,80 @@ class _EventCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final active = event.status == EventStatus.active;
-    return SectionCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          active
-              ? const Pill('Active', color: Brand.successInk, background: Brand.successSoft)
-              : Pill(
-                  event.status.name[0].toUpperCase() + event.status.name.substring(1),
-                  color: Brand.warningInk,
-                  background: Brand.warningSoft,
-                ),
-          const SizedBox(height: 10),
-          Text(event.name, style: AppText.subhead),
-          const SizedBox(height: 6),
-          _Meta(Icons.calendar_month_outlined, '${event.startDate ?? '—'} → ${event.endDate ?? '—'}'),
-          _Meta(Icons.place_outlined, event.code),
-          const SizedBox(height: 16),
-          BrandButton(text: active ? 'Start selling' : 'Not active yet', onPressed: active ? onStart : null),
-        ],
+    final now = DateTime.now();
+    final (status, band, shape, pillBg, pillFg, codeColor) = switch (event.status) {
+      EventStatus.active => ('Open now', Brand.forest, Brand.forestRaised, Brand.gold, Brand.onGold, Brand.greenTint),
+      EventStatus.draft => ('Upcoming', Brand.greenSoft, Brand.greenPale, Brand.goldSoft, Brand.goldInk, Brand.forest),
+      EventStatus.closed => ('Closed', Brand.sunken, Brand.divider, Brand.surface, Brand.slate, Brand.slate),
+    };
+    final (note, noteColor) = switch (event.status) {
+      EventStatus.active => (event.dayOf(now) ?? 'Open', Brand.successInk),
+      EventStatus.draft => (event.opensIn(now) ?? 'Not open yet', Brand.goldInk),
+      EventStatus.closed => ('Ended', Brand.slate),
+    };
+    final open = event.status == EventStatus.active;
+    return Container(
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        color: Brand.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Brand.cardLine),
+        boxShadow: AppShadows.card,
       ),
-    );
-  }
-}
-
-class _Meta extends StatelessWidget {
-  const _Meta(this.icon, this.text);
-
-  final IconData icon;
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(top: 2),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          Icon(icon, color: Brand.muted, size: 15),
-          const SizedBox(width: 6),
-          Text(text, style: AppText.caption),
+          Container(
+            height: 84,
+            decoration: BoxDecoration(color: band),
+            clipBehavior: Clip.hardEdge, // keep the decorative circle inside the band
+            padding: const EdgeInsets.all(16),
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned(right: -56, top: -76, child: CircleAvatar(radius: 85, backgroundColor: shape)),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Pill(status, color: pillFg, background: pillBg),
+                    const Spacer(),
+                    Text(event.code, style: AppText.label.copyWith(color: codeColor)),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    event.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AppText.heading.copyWith(fontWeight: FontWeight.w900),
+                  ),
+                  const SizedBox(height: 4),
+                  Text.rich(
+                    TextSpan(
+                      children: [
+                        TextSpan(text: '${event.dateRange} · '),
+                        TextSpan(
+                          text: note,
+                          style: TextStyle(color: noteColor, fontWeight: FontWeight.w700),
+                        ),
+                      ],
+                    ),
+                    style: AppText.caption.copyWith(color: Brand.slate, fontSize: 13),
+                  ),
+                  const Spacer(),
+                  BrandButton(text: open ? 'Start selling' : 'Not open yet', onPressed: open ? onStart : null),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

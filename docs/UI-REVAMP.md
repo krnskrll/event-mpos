@@ -17,6 +17,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | U9 | End session: tablet Home header and the avatar menu (all sizes); Orders tab shows a badge for orders still sending | 2026-11-02 |
 | U10 | Every order has a detail view (items, totals, progress) with a Details / Receipt switch; tablet shows it beside the list. An order the server has accepted reads **"Processing"** (not yet sent: "Sending to server"); never the platform name | 2026-11-02 |
 | U11 | Orders keep subtotal, discount and promotion name (database v3) so the detail shows what was charged | 2026-11-02 |
+| U12 | Sign-in: forest brand panel (tablet) / forest header + sheet (phone), show-password eye. Events: "Open now" / "Upcoming" cards with day or opening countdown. Setup: plain step names with counts | 2026-11-02 |
 
 ## Phases
 
@@ -26,7 +27,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | 2 Selling | Tablet products + order panel, phone grid + cart bar, product sheet, cart | ✅ | ✅ PR #17 |
 | 3 Shell + Home | Floating forest rail, phone bottom bar, Home dashboard, status in top bar | ✅ | ✅ PR #18 |
 | 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | ✅ | ✅ PR #20 |
-| 5 Entry flow | Login, events, sync | — | — |
+| 5 Entry flow | Login, events, sync | ✅ | ✅ PR #TBD |
 | 6 Utilities | Printer, customer scan, scanner, drafts | — | — |
 
 ## Tokens (`mobile/lib/app/theme.dart` → `Brand`)
@@ -125,3 +126,12 @@ Touch targets ≥ 44 px. Main action 56 px.
 | 4 | Phone detail: items, "10% off everything" discount, progress to "Processing", Reprint, Cancel | ✅ |
 | 5 | Details / Receipt switch shows the centred slip | ✅ |
 | 6 | Tablet: list beside the selected order's detail | ✅ |
+
+## Phase 5 checks (emulator, phone + tablet width — 2026-11-02)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Phone sign-in: forest header, light status bar, wrong password → red fields + "Invalid email or password" | ✅ |
+| 2 | Tablet sign-in: brand panel + card; sign in works | ✅ |
+| 3 | Events: "Open now" card with dates and status; two columns on tablet | ✅ |
+| 4 | Setup: steps tick through with "n of 5", then Home | ✅ |

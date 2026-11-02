@@ -109,14 +109,15 @@ Future<void> showSessionMenu(BuildContext context) => showModalBottomSheet(
                 subtitle: event == null ? null : Text('${event.name} · ${event.code}', style: AppText.caption),
               ),
               const Divider(),
-              ListTile(
-                leading: const Icon(Icons.print_outlined, color: Brand.green),
-                title: const Text('Printer'),
-                onTap: () {
-                  Navigator.pop(sheet);
-                  context.push('/printer');
-                },
-              ),
+              if (event != null) // the printer page belongs to a session
+                ListTile(
+                  leading: const Icon(Icons.print_outlined, color: Brand.green),
+                  title: const Text('Printer'),
+                  onTap: () {
+                    Navigator.pop(sheet);
+                    context.push('/printer');
+                  },
+                ),
               ListTile(
                 leading: const Icon(Icons.logout, color: Brand.errorInk),
                 title: Text('End session', style: AppText.body.copyWith(color: Brand.errorInk)),

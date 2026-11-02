@@ -6,6 +6,7 @@ abstract final class Brand {
   static const greenPressed = Color(0xFF22633F);
   static const greenSoft = Color(0xFFEDF6F0);
   static const greenTint = Color(0xFFA9D6BC);
+  static const greenPale = Color(0xFFD3EBDE); // body text on forest
   static const forest = Color(0xFF143A24);
   static const forestRaised = Color(0xFF1A4E30); // buttons on the forest rail
   static const greenLight = Color(0xFF54A87A); // status dot on forest

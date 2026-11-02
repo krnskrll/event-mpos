@@ -2,32 +2,36 @@ import 'package:flutter/material.dart';
 
 /// The Bhoomy mark (Brand Guidelines v2.0 §02), drawn from its 64×64 SVG so no SVG package is needed.
 class BhoomyLogo extends StatelessWidget {
-  const BhoomyLogo({super.key, this.size = 64, this.tile = true});
+  const BhoomyLogo({super.key, this.size = 64, this.tile = true, this.tileColor = const Color(0xFF143A24)});
 
   final double size;
 
   /// Draw the forest rounded tile behind the mark; turn off on dark backgrounds.
   final bool tile;
 
+  /// Lighter forest on forest backgrounds, so the tile still reads.
+  final Color tileColor;
+
   @override
   Widget build(BuildContext context) => Semantics(
     label: 'Bhoomy',
     image: true,
-    child: CustomPaint(size: Size.square(size), painter: _LogoPainter(tile)),
+    child: CustomPaint(size: Size.square(size), painter: _LogoPainter(tile, tileColor)),
   );
 }
 
 class _LogoPainter extends CustomPainter {
-  const _LogoPainter(this.tile);
+  const _LogoPainter(this.tile, this.tileColor);
 
   final bool tile;
+  final Color tileColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     canvas.scale(size.width / 64);
     Paint fill(int color) => Paint()..color = Color(color);
     if (tile) {
-      canvas.drawRRect(RRect.fromLTRBR(0, 0, 64, 64, const Radius.circular(18)), fill(0xFF143A24));
+      canvas.drawRRect(RRect.fromLTRBR(0, 0, 64, 64, const Radius.circular(18)), Paint()..color = tileColor);
     }
     final bloom = Path()
       ..moveTo(21, 19)
@@ -64,5 +68,5 @@ class _LogoPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_LogoPainter old) => old.tile != tile;
+  bool shouldRepaint(_LogoPainter old) => old.tile != tile || old.tileColor != tileColor;
 }
