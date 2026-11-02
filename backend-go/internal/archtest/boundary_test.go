@@ -12,16 +12,15 @@ import (
 
 const internalPrefix = "github.com/krnskrll/event-mpos/internal/"
 
-// enforce flips to true once every module sits behind its iface package (task T15).
-const enforce = false
-
-// exempt packages may wire concrete types together.
+// exempt packages wire concrete types together.
 var exempt = map[string]bool{"app": true, "seed": true, "testutil": true, "archtest": true}
 
-// TestModuleBoundaries: a module may import another module only through its iface package,
-// and iface/platform packages may not import concrete module code.
+// layerRank orders a module's packages; a package may only import lower-ranked layers of its module.
+var layerRank = map[string]int{"iface": 0, "repository": 1, "service": 2, "handler": 3}
+
+// TestModuleBoundaries: modules talk to each other only through iface packages, and layers inside
+// a module only depend downwards.
 func TestModuleBoundaries(t *testing.T) {
-	var violations []string
 	err := filepath.WalkDir("..", func(path string, d fs.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
 			return err
@@ -37,7 +36,7 @@ func TestModuleBoundaries(t *testing.T) {
 		for _, imp := range f.Imports {
 			p, _ := strconv.Unquote(imp.Path.Value)
 			if to, ok := strings.CutPrefix(p, internalPrefix); ok && !allowed(from, to) {
-				violations = append(violations, from+" -> "+to)
+				t.Errorf("%s must not import %s", from, to)
 			}
 		}
 		return nil
@@ -45,25 +44,46 @@ func TestModuleBoundaries(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, v := range violations {
-		if enforce {
-			t.Error(v)
-		} else {
-			t.Log(v)
-		}
-	}
 }
 
 func allowed(from, to string) bool {
-	if top(to) == "platform" || isIface(to) {
+	if top(to) == "platform" {
 		return true
 	}
-	if top(from) == "platform" || isIface(from) || top(from) == "integration" {
-		return false
+	if top(from) != top(to) {
+		// platform stays independent of modules, except realtime's token check.
+		return isIface(to) && (top(from) != "platform" || from == "platform/realtime")
 	}
-	return top(from) == top(to)
+	f, fok := layerRank[last(from)]
+	g, gok := layerRank[last(to)]
+	return !fok || !gok || g < f
 }
 
 func top(p string) string { return strings.SplitN(p, "/", 2)[0] }
 
+func last(p string) string { return p[strings.LastIndex(p, "/")+1:] }
+
 func isIface(p string) bool { return strings.HasSuffix(p, "/iface") }
+
+func TestAllowed(t *testing.T) {
+	cases := []struct {
+		from, to string
+		want     bool
+	}{
+		{"order/service", "stock/iface", true},
+		{"order/service", "stock/service", false},
+		{"order/service", "order/repository", true},
+		{"order/repository", "order/service", false},
+		{"order/iface", "order/repository", false},
+		{"order/handler", "order/service", true},
+		{"integration/erp", "product/iface", true},
+		{"integration/erp", "product/service", false},
+		{"platform/common", "user/iface", false},
+		{"platform/realtime", "auth/iface", true},
+	}
+	for _, c := range cases {
+		if got := allowed(c.from, c.to); got != c.want {
+			t.Errorf("allowed(%s, %s) = %v, want %v", c.from, c.to, got, c.want)
+		}
+	}
+}

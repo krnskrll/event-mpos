@@ -14,7 +14,7 @@ import (
 	auditrepo "github.com/krnskrll/event-mpos/internal/audit/repository"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
-	"github.com/krnskrll/event-mpos/internal/receipt"
+	receiptrepo "github.com/krnskrll/event-mpos/internal/receipt/repository"
 	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -177,7 +177,7 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	}
 	printCount := func() int {
 		var n int
-		a.DB.Model(&receipt.ReceiptLog{}).Where("order_id = ?", conf.ID).Pluck("print_count", &n)
+		a.DB.Model(&receiptrepo.ReceiptLog{}).Where("order_id = ?", conf.ID).Pluck("print_count", &n)
 		return n
 	}
 	if n := printCount(); n != 2 {

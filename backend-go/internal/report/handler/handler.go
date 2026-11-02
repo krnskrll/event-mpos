@@ -1,4 +1,4 @@
-package report
+package handler
 
 import (
 	"net/http"
@@ -9,15 +9,16 @@ import (
 
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/report/service"
 )
 
 // Handler exposes the admin reporting + audit surface under /api/admin.
 type Handler struct {
-	svc   *Service
+	svc   *service.Service
 	audit auditiface.Audit
 }
 
-func NewHandler(svc *Service, aud auditiface.Audit) *Handler {
+func NewHandler(svc *service.Service, aud auditiface.Audit) *Handler {
 	return &Handler{svc: svc, audit: aud}
 }
 

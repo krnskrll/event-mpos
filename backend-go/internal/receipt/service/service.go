@@ -1,6 +1,6 @@
-// Package receipt records that a receipt was printed for an order (printing happens on the device;
+// Package service records that a receipt was printed for an order (printing happens on the device;
 // this is the backend's minimal audit counter — one row per order, with a reprint counter).
-package receipt
+package service
 
 import (
 	"net/http"
@@ -13,24 +13,11 @@ import (
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/receipt/iface"
+	"github.com/krnskrll/event-mpos/internal/receipt/repository"
 )
 
-type ReceiptLog struct {
-	ID             uuid.UUID `gorm:"type:uuid;primaryKey"`
-	OrderID        uuid.UUID `gorm:"column:order_id;uniqueIndex;not null"`
-	PrintCount     int       `gorm:"column:print_count;not null"`
-	FirstPrintedAt time.Time `gorm:"column:first_printed_at;not null"`
-	LastPrintedAt  time.Time `gorm:"column:last_printed_at;not null"`
-}
-
-func (ReceiptLog) TableName() string { return "receipt_logs" }
-
-func (r *ReceiptLog) BeforeCreate(_ *gorm.DB) error {
-	if r.ID == uuid.Nil {
-		r.ID = uuid.New()
-	}
-	return nil
-}
+var _ iface.Receipts = (*Service)(nil)
 
 type Service struct {
 	db     *gorm.DB
@@ -56,7 +43,7 @@ func (s *Service) LogPrint(orderID, baUserID uuid.UUID) error {
 		}
 
 		now := time.Now().UTC()
-		row := ReceiptLog{OrderID: orderID, PrintCount: 1, FirstPrintedAt: now, LastPrintedAt: now}
+		row := repository.ReceiptLog{OrderID: orderID, PrintCount: 1, FirstPrintedAt: now, LastPrintedAt: now}
 		if err := tx.Clauses(clause.OnConflict{
 			Columns: []clause.Column{{Name: "order_id"}},
 			DoUpdates: clause.Assignments(map[string]any{
@@ -67,7 +54,7 @@ func (s *Service) LogPrint(orderID, baUserID uuid.UUID) error {
 			return err
 		}
 		var printCount int
-		if err := tx.Model(&ReceiptLog{}).Where("order_id = ?", orderID).Pluck("print_count", &printCount).Error; err != nil {
+		if err := tx.Model(&repository.ReceiptLog{}).Where("order_id = ?", orderID).Pluck("print_count", &printCount).Error; err != nil {
 			return err
 		}
 		return s.audit.RecordReceiptPrinted(tx, o.EventID, o.ID, o.ReferenceID, &baUserID, printCount)

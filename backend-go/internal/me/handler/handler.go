@@ -1,6 +1,6 @@
 // Package me exposes the BA-facing /api/me surface: identity, assigned event(s), and the event
 // snapshot. Extended by later phases (products/members/stock/promotions/orders/receipts).
-package me
+package handler
 
 import (
 	"net/http"
@@ -16,7 +16,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
-	"github.com/krnskrll/event-mpos/internal/receipt"
+	receiptiface "github.com/krnskrll/event-mpos/internal/receipt/iface"
 	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
@@ -42,10 +42,10 @@ type Handler struct {
 	stock      stockiface.Stock
 	promotions promotioniface.Promotions
 	orders     orderiface.Orders
-	receipts   *receipt.Service
+	receipts   receiptiface.Receipts
 }
 
-func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk stockiface.Stock, promotions promotioniface.Promotions, orders orderiface.Orders, receipts *receipt.Service) *Handler {
+func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk stockiface.Stock, promotions promotioniface.Promotions, orders orderiface.Orders, receipts receiptiface.Receipts) *Handler {
 	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions, orders: orders, receipts: receipts}
 }
 

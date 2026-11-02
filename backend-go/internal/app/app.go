@@ -16,7 +16,7 @@ import (
 	eventsvc "github.com/krnskrll/event-mpos/internal/event/service"
 	"github.com/krnskrll/event-mpos/internal/integration/erp"
 	"github.com/krnskrll/event-mpos/internal/integration/membersrc"
-	"github.com/krnskrll/event-mpos/internal/me"
+	mehandler "github.com/krnskrll/event-mpos/internal/me/handler"
 	memberhandler "github.com/krnskrll/event-mpos/internal/member/handler"
 	membersvc "github.com/krnskrll/event-mpos/internal/member/service"
 	orderhandler "github.com/krnskrll/event-mpos/internal/order/handler"
@@ -29,8 +29,9 @@ import (
 	productsvc "github.com/krnskrll/event-mpos/internal/product/service"
 	promotionhandler "github.com/krnskrll/event-mpos/internal/promotion/handler"
 	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
-	"github.com/krnskrll/event-mpos/internal/receipt"
-	"github.com/krnskrll/event-mpos/internal/report"
+	receiptsvc "github.com/krnskrll/event-mpos/internal/receipt/service"
+	reporthandler "github.com/krnskrll/event-mpos/internal/report/handler"
+	reportsvc "github.com/krnskrll/event-mpos/internal/report/service"
 	stockhandler "github.com/krnskrll/event-mpos/internal/stock/handler"
 	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
 	synchandler "github.com/krnskrll/event-mpos/internal/syncconfig/handler"
@@ -54,9 +55,9 @@ type App struct {
 	Stock      *stocksvc.Service
 	Promotions *promotionsvc.Service
 	Audit      *auditsvc.Service
-	Receipts   *receipt.Service
+	Receipts   *receiptsvc.Service
 	Orders     *ordersvc.Service
-	Reports    *report.Service
+	Reports    *reportsvc.Service
 	SyncConfig *syncsvc.Service
 	Scheduler  *syncsvc.Scheduler
 	Hub        *realtime.Hub
@@ -85,7 +86,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Promotions = promotionsvc.NewService(db, a.Products)
 	a.Audit = auditsvc.NewService(db, a.Users)
 	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
-	a.Receipts = receipt.NewService(db, a.Orders, a.Audit)
+	a.Receipts = receiptsvc.NewService(db, a.Orders, a.Audit)
 
 	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.
 	a.Hub = realtime.NewHub()
@@ -95,7 +96,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	})
 
 	// Reporting + runtime-editable sync schedules with a dynamic cron scheduler.
-	a.Reports = report.NewService(db, a.Events, a.Products, a.Stock, a.Orders)
+	a.Reports = reportsvc.NewService(a.Events, a.Products, a.Stock, a.Orders)
 	a.SyncConfig = syncsvc.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
 	if err := a.SyncConfig.SeedDefaults(); err != nil {
 		return nil, err
@@ -130,9 +131,9 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
 	promotionHandler := promotionhandler.NewHandler(a.Promotions)
 	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders)
-	reportHandler := report.NewHandler(a.Reports, a.Audit)
+	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit)
 	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)
-	meHandler := me.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
+	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()

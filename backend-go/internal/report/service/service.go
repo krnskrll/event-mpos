@@ -1,6 +1,6 @@
 // Package report produces end-of-event reporting: per-product units sold + revenue joined against
 // stock allocations, as JSON or a CSV export.
-package report
+package service
 
 import (
 	"net/http"
@@ -11,57 +11,27 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-	"gorm.io/gorm"
 
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
+	"github.com/krnskrll/event-mpos/internal/report/iface"
 	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
 )
 
-type ProductReportRow struct {
-	ProductID uuid.UUID       `json:"productId"`
-	SKU       string          `json:"sku"`
-	Name      string          `json:"name"`
-	UnitsSold int             `json:"unitsSold"`
-	Revenue   decimal.Decimal `json:"revenue"`
-	Allocated int             `json:"allocated"`
-	Sold      int             `json:"sold"`
-	Remaining int             `json:"remaining"`
-}
-
-type EndOfEventReport struct {
-	EventID     uuid.UUID              `json:"eventId"`
-	EventCode   string                 `json:"eventCode"`
-	EventName   string                 `json:"eventName"`
-	Status      eventiface.EventStatus `json:"status"`
-	GeneratedAt time.Time              `json:"generatedAt"`
-	TotalOrders int                    `json:"totalOrders"`
-	// CancelledOrders are excluded from every other total (orders, items, revenue, discount).
-	CancelledOrders int `json:"cancelledOrders"`
-	// Orders uploaded after the event closed (D2) and orders that sold past the allocation (D1).
-	LateSyncedOrders    int                `json:"lateSyncedOrders"`
-	StockConflictOrders int                `json:"stockConflictOrders"`
-	TotalItems          int                `json:"totalItems"`
-	TotalRevenue        decimal.Decimal    `json:"totalRevenue"`
-	TotalDiscount       decimal.Decimal    `json:"totalDiscount"`
-	Products            []ProductReportRow `json:"products"`
-}
-
 type Service struct {
-	db       *gorm.DB
 	events   eventiface.Events
 	products productiface.Products
 	stock    stockiface.Stock
 	orders   orderiface.Orders
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, orders orderiface.Orders) *Service {
-	return &Service{db: db, events: events, products: products, stock: stk, orders: orders}
+func NewService(events eventiface.Events, products productiface.Products, stk stockiface.Stock, orders orderiface.Orders) *Service {
+	return &Service{events: events, products: products, stock: stk, orders: orders}
 }
 
-func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
+func (s *Service) EndOfEvent(eventID uuid.UUID) (*iface.EndOfEventReport, error) {
 	ev, err := s.events.Get(eventID)
 	if err != nil {
 		return nil, err
@@ -136,11 +106,11 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 		}
 	}
 
-	rows := make([]ProductReportRow, 0, len(ids))
+	rows := make([]iface.ProductReportRow, 0, len(ids))
 	for _, pid := range ids {
 		a := sales[pid]
 		al := allocByProduct[pid]
-		row := ProductReportRow{ProductID: pid, Revenue: decimal.Zero.Round(2)}
+		row := iface.ProductReportRow{ProductID: pid, Revenue: decimal.Zero.Round(2)}
 		if a != nil {
 			row.SKU, row.Name, row.UnitsSold, row.Revenue = a.sku, a.name, a.qty, a.revenue.Round(2)
 		} else {
@@ -157,7 +127,7 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 	}
 	sort.SliceStable(rows, func(i, j int) bool { return rows[i].UnitsSold > rows[j].UnitsSold })
 
-	return &EndOfEventReport{
+	return &iface.EndOfEventReport{
 		EventID: ev.ID, EventCode: ev.Code, EventName: ev.Name, Status: ev.Status,
 		GeneratedAt: time.Now().UTC(), TotalOrders: len(orders), CancelledOrders: cancelled, LateSyncedOrders: lateSynced, StockConflictOrders: conflicts, TotalItems: totalItems,
 		TotalRevenue: totalRevenue.Round(2), TotalDiscount: totalDiscount.Round(2), Products: rows,
@@ -165,7 +135,7 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 }
 
 // ToCSV renders the report as CSV: a summary block, a blank line, then one row per product.
-func (s *Service) ToCSV(r *EndOfEventReport) string {
+func (s *Service) ToCSV(r *iface.EndOfEventReport) string {
 	var sb strings.Builder
 	line := func(s string) { sb.WriteString(s); sb.WriteString("\n") }
 	line("End-of-Event Report," + esc(r.EventCode+" — "+r.EventName))
