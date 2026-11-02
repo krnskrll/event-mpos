@@ -27,6 +27,10 @@ class Cart {
   bool get isEmpty => items.isEmpty && customer == null;
   int get count => items.values.fold(0, (sum, qty) => sum + qty);
 
+  /// Units of [productId] in the cart, across all its variants.
+  int qtyOf(String productId) =>
+      items.entries.where((e) => parseCartKey(e.key).productId == productId).fold(0, (sum, e) => sum + e.value);
+
   Map<String, dynamic> toJson() => {'items': items, 'customer': customer?.toJson()};
 }
 

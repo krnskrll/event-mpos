@@ -89,7 +89,7 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
                   ),
                 ),
               const SizedBox(height: 12),
-              BrandButton(text: 'New order', onPressed: () => context.go('/catalogue')),
+              BrandButton(text: 'New order', onPressed: () => context.go('/sell')),
               const SizedBox(height: 8),
               Row(
                 children: [
