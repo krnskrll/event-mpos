@@ -9,7 +9,8 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/audit"
-	"github.com/krnskrll/event-mpos/internal/auth"
+	authhandler "github.com/krnskrll/event-mpos/internal/auth/handler"
+	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/me"
 	"github.com/krnskrll/event-mpos/internal/member"
@@ -35,7 +36,7 @@ type App struct {
 	Router *gin.Engine
 
 	Users      *usersvc.Service
-	Auth       *auth.Service
+	Auth       *authsvc.Service
 	Events     *event.Service
 	Products   *product.Service
 	ERPSync    *erp.SyncService
@@ -57,13 +58,13 @@ type App struct {
 func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a := &App{}
 
-	jwtService, err := auth.NewJwtService(cfg.JWTSecret, cfg.AccessTokenTTLMin)
+	jwtService, err := authsvc.NewJwtService(cfg.JWTSecret, cfg.AccessTokenTTLMin)
 	if err != nil {
 		return nil, err
 	}
-	refreshService := auth.NewRefreshService(db, cfg.RefreshTokenTTLDays)
+	refreshService := authsvc.NewRefreshService(db, cfg.RefreshTokenTTLDays)
 	a.Users = usersvc.NewService(db)
-	a.Auth = auth.NewService(a.Users, jwtService, refreshService)
+	a.Auth = authsvc.NewService(a.Users, jwtService, refreshService)
 	a.Events = event.NewService(db, a.Users)
 	a.Products = product.NewService(db)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
@@ -108,8 +109,8 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	return a, nil
 }
 
-func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engine {
-	authHandler := auth.NewHandler(a.Auth)
+func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.Engine {
+	authHandler := authhandler.NewHandler(a.Auth)
 	userHandler := userhandler.NewHandler(a.Users)
 	eventHandler := event.NewHandler(a.Events)
 	productHandler := product.NewHandler(a.Products)
@@ -143,7 +144,7 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 
 		// Authenticated (any valid token)
 		authed := api.Group("")
-		authed.Use(auth.JWTMiddleware(jwtService))
+		authed.Use(authhandler.JWTMiddleware(jwtService))
 		authed.POST("/auth/logout", authHandler.Logout)
 
 		// BA-facing "me" surface (role enforced per-handler)
@@ -163,11 +164,11 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 		meGroup.GET("/events/:eventId/orders", meHandler.OrderHistory)
 		meGroup.GET("/orders/:orderId", meHandler.Order)
 		meGroup.POST("/orders/:orderId/receipts", meHandler.LogReceipt)
-		meGroup.POST("/orders/:orderId/cancel", auth.RequireRole(useriface.RoleBA), warehouseOrderHandler.Cancel)
+		meGroup.POST("/orders/:orderId/cancel", authhandler.RequireRole(useriface.RoleBA), warehouseOrderHandler.Cancel)
 
 		// Admin-only
 		admin := authed.Group("/admin")
-		admin.Use(auth.RequireRole(useriface.RoleAdmin))
+		admin.Use(authhandler.RequireRole(useriface.RoleAdmin))
 		admin.GET("/users", userHandler.List)
 		admin.POST("/users", userHandler.Create)
 		admin.PATCH("/users/:id", userHandler.Update)
@@ -201,7 +202,7 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 
 		// Warehouse-only
 		warehouse := authed.Group("/warehouse")
-		warehouse.Use(auth.RequireRole(useriface.RoleWarehouse, useriface.RoleAdmin))
+		warehouse.Use(authhandler.RequireRole(useriface.RoleWarehouse, useriface.RoleAdmin))
 		warehouse.GET("/events", warehouseStockHandler.Events)
 		warehouse.GET("/events/:eventId/stock", warehouseStockHandler.Levels)
 		warehouse.GET("/events/:eventId/orders", warehouseOrderHandler.Orders)

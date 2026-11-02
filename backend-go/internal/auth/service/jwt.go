@@ -1,4 +1,4 @@
-package auth
+package service
 
 import (
 	"encoding/base64"
@@ -7,6 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
+	"github.com/krnskrll/event-mpos/internal/auth/iface"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
@@ -17,6 +18,8 @@ type JwtService struct {
 	key       []byte
 	accessTTL time.Duration
 }
+
+var _ iface.TokenVerifier = (*JwtService)(nil)
 
 func NewJwtService(secretBase64 string, accessTTLMinutes int) (*JwtService, error) {
 	key, err := base64.StdEncoding.DecodeString(secretBase64)

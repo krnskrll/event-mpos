@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/auth"
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/member"
 	"github.com/krnskrll/event-mpos/internal/order"
@@ -50,7 +50,7 @@ func NewHandler(events *event.Service, products *product.Service, members *membe
 }
 
 func (h *Handler) Me(c *gin.Context) {
-	p, _ := auth.PrincipalFrom(c)
+	p, _ := authiface.PrincipalFrom(c)
 	c.JSON(http.StatusOK, MeResponse{ID: p.UserID, Email: p.Email, FullName: p.FullName, Role: p.Role})
 }
 
@@ -331,8 +331,8 @@ func (h *Handler) MemberByQr(c *gin.Context) {
 }
 
 // requireBa enforces that the caller is a BA (matches Kotlin's 400 for non-BA callers).
-func (h *Handler) requireBa(c *gin.Context) (auth.Principal, bool) {
-	p, _ := auth.PrincipalFrom(c)
+func (h *Handler) requireBa(c *gin.Context) (authiface.Principal, bool) {
+	p, _ := authiface.PrincipalFrom(c)
 	if p.Role != useriface.RoleBA {
 		common.AbortError(c, http.StatusBadRequest, "Only BA accounts are scoped to an event")
 		return p, false

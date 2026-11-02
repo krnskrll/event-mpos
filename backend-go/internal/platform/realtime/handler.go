@@ -7,7 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 
-	"github.com/krnskrll/event-mpos/internal/auth"
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 )
 
 // wsConn is the subset of *websocket.Conn used, so the hub can stay transport-agnostic in tests.
@@ -37,10 +37,10 @@ var upgrader = websocket.Upgrader{
 // Handler upgrades the warehouse dashboard's WebSocket, authenticating the JWT first.
 type Handler struct {
 	hub *Hub
-	jwt *auth.JwtService
+	jwt authiface.TokenVerifier
 }
 
-func NewHandler(hub *Hub, jwt *auth.JwtService) *Handler {
+func NewHandler(hub *Hub, jwt authiface.TokenVerifier) *Handler {
 	return &Handler{hub: hub, jwt: jwt}
 }
 

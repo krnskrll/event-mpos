@@ -1,22 +1,23 @@
-package auth
+package handler
 
 import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/krnskrll/event-mpos/internal/auth/iface"
+	"github.com/krnskrll/event-mpos/internal/auth/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
-// Handler exposes the /api/auth/* endpoints.
 type Handler struct {
-	svc *Service
+	svc *service.Service
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) Login(c *gin.Context) {
-	var req LoginRequest
+	var req iface.LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -30,7 +31,7 @@ func (h *Handler) Login(c *gin.Context) {
 }
 
 func (h *Handler) Refresh(c *gin.Context) {
-	var req RefreshRequest
+	var req iface.RefreshRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -45,7 +46,7 @@ func (h *Handler) Refresh(c *gin.Context) {
 
 // Logout revokes all refresh tokens for the caller; the access token expires on its own shortly.
 func (h *Handler) Logout(c *gin.Context) {
-	p, ok := PrincipalFrom(c)
+	p, ok := iface.PrincipalFrom(c)
 	if !ok {
 		common.AbortUnauthorized(c)
 		return

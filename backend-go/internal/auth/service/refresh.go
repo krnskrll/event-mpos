@@ -1,4 +1,4 @@
-package auth
+package service
 
 import (
 	"crypto/rand"
@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+
+	"github.com/krnskrll/event-mpos/internal/auth/repository"
 )
 
 // RefreshService manages opaque refresh tokens with rotation + revocation. The raw token is
@@ -38,7 +40,7 @@ func (s *RefreshService) issue(tx *gorm.DB, userID uuid.UUID) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	token := RefreshToken{
+	token := repository.RefreshToken{
 		UserID:    userID,
 		TokenHash: hashToken(raw),
 		ExpiresAt: time.Now().UTC().Add(s.ttl),
@@ -54,7 +56,7 @@ func (s *RefreshService) issue(tx *gorm.DB, userID uuid.UUID) (string, error) {
 func (s *RefreshService) Rotate(raw string) (*Rotation, error) {
 	var result *Rotation
 	err := s.db.Transaction(func(tx *gorm.DB) error {
-		var existing RefreshToken
+		var existing repository.RefreshToken
 		err := tx.Where("token_hash = ?", hashToken(raw)).First(&existing).Error
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil
@@ -83,7 +85,7 @@ func (s *RefreshService) Rotate(raw string) (*Rotation, error) {
 
 // RevokeAllForUser revokes every active refresh token owned by the user (used on logout).
 func (s *RefreshService) RevokeAllForUser(userID uuid.UUID) error {
-	return s.db.Model(&RefreshToken{}).
+	return s.db.Model(&repository.RefreshToken{}).
 		Where("user_id = ? AND revoked = ?", userID, false).
 		Update("revoked", true).Error
 }

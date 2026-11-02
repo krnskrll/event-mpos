@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/auth"
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
@@ -55,7 +55,7 @@ func (h *WarehouseHandler) Advance(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "status: must be one of NEW, PACKING, READY, COLLECTED")
 		return
 	}
-	p, _ := auth.PrincipalFrom(c)
+	p, _ := authiface.PrincipalFrom(c)
 	view, err := h.svc.AdvanceStatus(orderID, req.Status, &p.UserID)
 	if err != nil {
 		common.Fail(c, err)
@@ -74,7 +74,7 @@ func (h *WarehouseHandler) Cancel(c *gin.Context) {
 	}
 	var req CancelOrderRequest
 	_ = c.ShouldBindJSON(&req) // body is optional
-	p, _ := auth.PrincipalFrom(c)
+	p, _ := authiface.PrincipalFrom(c)
 	view, err := h.svc.Cancel(orderID, p.UserID, p.Role, req.Reason)
 	if err != nil {
 		common.Fail(c, err)

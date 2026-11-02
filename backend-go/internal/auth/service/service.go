@@ -1,4 +1,4 @@
-package auth
+package service
 
 import (
 	"net/http"
@@ -6,12 +6,12 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/security"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
-// Service coordinates login, token refresh, and logout — the Go analogue of Kotlin AuthService.
 type Service struct {
 	users   useriface.Users
 	jwt     *JwtService
@@ -22,7 +22,7 @@ func NewService(users useriface.Users, jwt *JwtService, refresh *RefreshService)
 	return &Service{users: users, jwt: jwt, refresh: refresh}
 }
 
-func (s *Service) Login(email, password string) (*TokenResponse, error) {
+func (s *Service) Login(email, password string) (*iface.TokenResponse, error) {
 	u, err := s.users.FindByEmail(strings.ToLower(strings.TrimSpace(email)))
 	if err != nil {
 		return nil, err
@@ -42,7 +42,7 @@ func (s *Service) Login(email, password string) (*TokenResponse, error) {
 	return s.issueTokens(u)
 }
 
-func (s *Service) Refresh(rawRefreshToken string) (*TokenResponse, error) {
+func (s *Service) Refresh(rawRefreshToken string) (*iface.TokenResponse, error) {
 	rotation, err := s.refresh.Rotate(rawRefreshToken)
 	if err != nil {
 		return nil, err
@@ -64,11 +64,11 @@ func (s *Service) Refresh(rawRefreshToken string) (*TokenResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TokenResponse{
+	return &iface.TokenResponse{
 		AccessToken:      access,
 		RefreshToken:     rotation.NewRefreshToken,
 		ExpiresInSeconds: s.jwt.AccessTTLSeconds(),
-		User:             summaryOf(u),
+		User:             iface.SummaryOf(u),
 	}, nil
 }
 
@@ -76,7 +76,7 @@ func (s *Service) Logout(userID uuid.UUID) error {
 	return s.refresh.RevokeAllForUser(userID)
 }
 
-func (s *Service) issueTokens(u *useriface.Account) (*TokenResponse, error) {
+func (s *Service) issueTokens(u *useriface.Account) (*iface.TokenResponse, error) {
 	access, err := s.jwt.GenerateAccessToken(u)
 	if err != nil {
 		return nil, err
@@ -85,10 +85,10 @@ func (s *Service) issueTokens(u *useriface.Account) (*TokenResponse, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TokenResponse{
+	return &iface.TokenResponse{
 		AccessToken:      access,
 		RefreshToken:     refreshRaw,
 		ExpiresInSeconds: s.jwt.AccessTTLSeconds(),
-		User:             summaryOf(u),
+		User:             iface.SummaryOf(u),
 	}, nil
 }

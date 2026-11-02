@@ -1,4 +1,4 @@
-package auth
+package handler
 
 import (
 	"strings"
@@ -6,23 +6,14 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
-const principalKey = "authPrincipal"
-
-// Principal is the authenticated user attached to the request context.
-type Principal struct {
-	UserID   uuid.UUID
-	Email    string
-	FullName string
-	Role     useriface.Role
-}
-
 // JWTMiddleware verifies the Bearer access token and attaches the Principal. A missing or invalid
 // token yields 401 in the terse security-layer shape (matches Kotlin's authenticationEntryPoint).
-func JWTMiddleware(jwt *JwtService) gin.HandlerFunc {
+func JWTMiddleware(jwt iface.TokenVerifier) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		header := c.GetHeader("Authorization")
 		if !strings.HasPrefix(header, "Bearer ") {
@@ -48,7 +39,7 @@ func JWTMiddleware(jwt *JwtService) gin.HandlerFunc {
 		}
 		email, _ := claims["email"].(string)
 		name, _ := claims["name"].(string)
-		c.Set(principalKey, Principal{UserID: uid, Email: email, FullName: name, Role: role})
+		iface.SetPrincipal(c, iface.Principal{UserID: uid, Email: email, FullName: name, Role: role})
 		c.Next()
 	}
 }
@@ -56,7 +47,7 @@ func JWTMiddleware(jwt *JwtService) gin.HandlerFunc {
 // RequireRole allows the request only if the caller holds one of the given roles; otherwise 403.
 func RequireRole(roles ...useriface.Role) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		p, ok := PrincipalFrom(c)
+		p, ok := iface.PrincipalFrom(c)
 		if !ok {
 			common.AbortUnauthorized(c)
 			return
@@ -69,14 +60,4 @@ func RequireRole(roles ...useriface.Role) gin.HandlerFunc {
 		}
 		common.AbortForbidden(c)
 	}
-}
-
-// PrincipalFrom retrieves the authenticated Principal from the context.
-func PrincipalFrom(c *gin.Context) (Principal, bool) {
-	v, exists := c.Get(principalKey)
-	if !exists {
-		return Principal{}, false
-	}
-	p, ok := v.(Principal)
-	return p, ok
 }

@@ -4,20 +4,20 @@ import (
 	"net/http"
 	"testing"
 
-	"github.com/krnskrll/event-mpos/internal/auth"
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Ported from the Kotlin AuthFlowTest: login → protected route → refresh rotation → role boundaries.
 
-func login(t *testing.T, a *testutil.TestApp, email, password string) auth.TokenResponse {
+func login(t *testing.T, a *testutil.TestApp, email, password string) authiface.TokenResponse {
 	t.Helper()
 	rec := a.Do(http.MethodPost, "/api/auth/login", map[string]string{"email": email, "password": password}, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("login %s: %d %s", email, rec.Code, rec.Body.String())
 	}
-	return testutil.Decode[auth.TokenResponse](t, rec)
+	return testutil.Decode[authiface.TokenResponse](t, rec)
 }
 
 func TestLoginReturnsTokensAndProtectsRoutes(t *testing.T) {
@@ -55,7 +55,7 @@ func TestRefreshRotatesAndRevokedTokenIsRejected(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("refresh: %d %s", rec.Code, rec.Body.String())
 	}
-	refreshed := testutil.Decode[auth.TokenResponse](t, rec)
+	refreshed := testutil.Decode[authiface.TokenResponse](t, rec)
 	if refreshed.RefreshToken == tokens.RefreshToken {
 		t.Error("refresh token was not rotated")
 	}
