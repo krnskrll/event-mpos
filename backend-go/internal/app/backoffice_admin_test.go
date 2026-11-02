@@ -11,20 +11,20 @@ import (
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/syncconfig"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Ported from the Kotlin BackofficeAdminTest.
 
 func TestAdminCanEditRoleAndDeactivateUser(t *testing.T) {
 	a := testutil.NewApp(t)
-	created := a.CreateUser(user.RoleBA, "password1")
-	role, active := user.RoleWarehouse, false
-	updated, err := a.Users.Update(created.ID, user.UpdateUserRequest{Role: &role, Active: &active})
+	created := a.CreateUser(useriface.RoleBA, "password1")
+	role, active := useriface.RoleWarehouse, false
+	updated, err := a.Users.Update(created.ID, useriface.UpdateUserRequest{Role: &role, Active: &active})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Role != user.RoleWarehouse || updated.Active {
+	if updated.Role != useriface.RoleWarehouse || updated.Active {
 		t.Errorf("role=%s active=%v, want WAREHOUSE/false", updated.Role, updated.Active)
 	}
 	if updated.FullName != created.FullName {
@@ -98,7 +98,7 @@ func TestEndOfEventReportTotalsAndCSV(t *testing.T) {
 	}
 
 	// Same report over HTTP for an admin.
-	admin := a.CreateUser(user.RoleAdmin, "Admin123!")
+	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
 	tok := login(t, a, admin.Email, "Admin123!").AccessToken
 	if rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+"/report.csv", nil, tok); rec.Code != http.StatusOK {
 		t.Errorf("report.csv: %d", rec.Code)
@@ -109,7 +109,7 @@ func TestOrderActivityIsInAppendOnlyAuditLog(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("20.00")
 	a.Allocate(ev.ID, p.ID, 50)
-	wh := a.CreateUser(user.RoleWarehouse, "Wh123456!")
+	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
 
 	conf, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1))
 	if err != nil {

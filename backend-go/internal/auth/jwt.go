@@ -7,7 +7,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // JwtService issues and verifies short-lived stateless access tokens (HS256). The secret is
@@ -26,7 +26,7 @@ func NewJwtService(secretBase64 string, accessTTLMinutes int) (*JwtService, erro
 	return &JwtService{key: key, accessTTL: time.Duration(accessTTLMinutes) * time.Minute}, nil
 }
 
-func (j *JwtService) GenerateAccessToken(u *user.User) (string, error) {
+func (j *JwtService) GenerateAccessToken(u *useriface.Account) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
 		"sub":   u.ID.String(),

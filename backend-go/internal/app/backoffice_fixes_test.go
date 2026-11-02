@@ -16,7 +16,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // EPIC-12 Milestone D: back-office fixes.
@@ -30,7 +30,7 @@ func closeEvent(t *testing.T, a *testutil.TestApp, eventID uuid.UUID) {
 
 func adminToken(t *testing.T, a *testutil.TestApp) string {
 	t.Helper()
-	admin := a.CreateUser(user.RoleAdmin, "Admin123!")
+	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
 	return login(t, a, admin.Email, "Admin123!").AccessToken
 }
 
@@ -64,8 +64,8 @@ func TestFinalReportOnlyForClosedEvents(t *testing.T) {
 func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev := a.ActiveEvent()
-	ba := a.CreateUser(user.RoleBA, "Ba123456!")
-	wh := a.CreateUser(user.RoleWarehouse, "Wh123456!")
+	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
+	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
 	tok := adminToken(t, a)
 
 	// 125 entries, one second apart (entry 0 is the newest). Every 5th is a receipt print;
@@ -157,8 +157,8 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("20.00")
 	a.Allocate(ev.ID, p.ID, 10)
-	ba := a.CreateUser(user.RoleBA, "Ba123456!")
-	other := a.CreateUser(user.RoleBA, "Ba123456!")
+	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
+	other := a.CreateUser(useriface.RoleBA, "Ba123456!")
 	conf, err := a.Orders.Submit(ev.ID, ba.ID, order.SubmitOrderRequest{
 		IdempotencyKey: uuid.NewString(), Customer: order.CustomerInfo{Name: "Cara"},
 		Lines: []order.OrderLineRequest{{ProductID: p.ID, Qty: 1}},

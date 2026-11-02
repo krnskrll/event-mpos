@@ -11,7 +11,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // EPIC-12 C1/C2: device number blocks (D1) and the late-sync window after close (D2).
@@ -19,7 +19,7 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("10.00")
 	a.Allocate(ev.ID, p.ID, 2)
-	ba := a.CreateUser(user.RoleBA, "Ba123456!")
+	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
 	device := "device-" + uuid.NewString()
 	deviceOrder := func(n int, createdAt time.Time) (*order.OrderConfirmation, error) {
 		return a.Orders.Submit(ev.ID, ba.ID, order.SubmitOrderRequest{

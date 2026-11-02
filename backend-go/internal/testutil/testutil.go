@@ -30,7 +30,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/config"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
 	"github.com/krnskrll/event-mpos/internal/product"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 var migrateOnce sync.Once
@@ -99,9 +99,9 @@ func Unique(prefix string) string {
 }
 
 // CreateUser creates a user with the given role and returns it (email is made unique).
-func (a *TestApp) CreateUser(role user.Role, password string) *user.UserResponse {
+func (a *TestApp) CreateUser(role useriface.Role, password string) *useriface.UserResponse {
 	a.t.Helper()
-	u, err := a.Users.Create(user.CreateUserRequest{
+	u, err := a.Users.Create(useriface.CreateUserRequest{
 		Email: strings.ToLower(Unique("u-")) + "@test.local", Password: password, FullName: "Test " + string(role), Role: role,
 	})
 	if err != nil {

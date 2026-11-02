@@ -8,17 +8,18 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Service records order activity into the append-only OrderAuditLog, resolving the actor's name at
 // write time. Purely additive — never updates or deletes.
 type Service struct {
-	db *gorm.DB
+	db    *gorm.DB
+	users useriface.Users
 }
 
-func NewService(db *gorm.DB) *Service {
-	return &Service{db: db}
+func NewService(db *gorm.DB, users useriface.Users) *Service {
+	return &Service{db: db, users: users}
 }
 
 // actorName resolves the actor's display name through the caller's transaction. It must not use a
@@ -28,11 +29,11 @@ func (s *Service) actorName(tx *gorm.DB, userID *uuid.UUID) string {
 	if userID == nil {
 		return "system"
 	}
-	var u user.User
-	if err := tx.Select("full_name").Where("id = ?", *userID).Take(&u).Error; err != nil {
+	name, err := s.users.NameOf(tx, *userID)
+	if err != nil {
 		return "system"
 	}
-	return u.FullName
+	return name
 }
 
 // RecordOrderCreated writes an ORDER_CREATED entry using the provided tx (same transaction as the

@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // ---- request/response DTOs (identical JSON shape to the Kotlin backend) ----
@@ -30,13 +30,13 @@ type TokenResponse struct {
 }
 
 type UserSummary struct {
-	ID       uuid.UUID `json:"id"`
-	Email    string    `json:"email"`
-	FullName string    `json:"fullName"`
-	Role     user.Role `json:"role"`
+	ID       uuid.UUID      `json:"id"`
+	Email    string         `json:"email"`
+	FullName string         `json:"fullName"`
+	Role     useriface.Role `json:"role"`
 }
 
-func summaryOf(u *user.User) UserSummary {
+func summaryOf(u *useriface.Account) UserSummary {
 	return UserSummary{ID: u.ID, Email: u.Email, FullName: u.FullName, Role: u.Role}
 }
 

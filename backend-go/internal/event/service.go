@@ -13,17 +13,17 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Service holds event business logic — the Go analogue of Kotlin EventService.
 type Service struct {
 	db        *gorm.DB
-	users     *user.Service
+	users     useriface.Users
 	providers Providers
 }
 
-func NewService(db *gorm.DB, users *user.Service) *Service {
+func NewService(db *gorm.DB, users useriface.Users) *Service {
 	return &Service{db: db, users: users}
 }
 
@@ -122,7 +122,7 @@ func (s *Service) AssignBaToEvent(userID, eventID uuid.UUID) (*EventResponse, er
 	if u == nil {
 		return nil, common.NewAppError(http.StatusNotFound, "User not found")
 	}
-	if u.Role != user.RoleBA {
+	if u.Role != useriface.RoleBA {
 		return nil, common.NewAppError(http.StatusBadRequest, "Only BA accounts can be assigned to an event")
 	}
 	e, err := s.find(eventID)

@@ -5,7 +5,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 const testSecretB64 = "ZHYtbG9jYWwtZGV2LXNlY3JldC1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0"
@@ -15,7 +15,7 @@ func TestJwtRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("init: %v", err)
 	}
-	u := &user.User{ID: uuid.New(), Email: "a@b.com", FullName: "Ann Bee", Role: user.RoleAdmin}
+	u := &useriface.Account{ID: uuid.New(), Email: "a@b.com", FullName: "Ann Bee", Role: useriface.RoleAdmin}
 	tok, err := j.GenerateAccessToken(u)
 	if err != nil {
 		t.Fatalf("generate: %v", err)
@@ -44,7 +44,7 @@ func TestJwtRejectsTampered(t *testing.T) {
 		t.Error("garbage token accepted")
 	}
 	other, _ := NewJwtService("YW5vdGhlci1zZWNyZXQtdGhhdC1pcy1sb25nLWVub3VnaC0zMmJ5dGVzIQ==", 15)
-	u := &user.User{ID: uuid.New(), Email: "x@y.com", Role: user.RoleBA}
+	u := &useriface.Account{ID: uuid.New(), Email: "x@y.com", Role: useriface.RoleBA}
 	tok, _ := other.GenerateAccessToken(u)
 	if _, ok := j.Parse(tok); ok {
 		t.Error("token signed with a different key was accepted")

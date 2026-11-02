@@ -18,7 +18,8 @@ import (
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/stock"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
+	userrepo "github.com/krnskrll/event-mpos/internal/user/repository"
 )
 
 // Seeded credentials (CHANGE before any real deployment):
@@ -28,7 +29,7 @@ import (
 //	wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
 func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, stockSvc *stock.Service, promoSvc *promotion.Service) error {
 	var count int64
-	if err := db.Model(&user.User{}).Count(&count).Error; err != nil {
+	if err := db.Model(&userrepo.User{}).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -39,11 +40,11 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 
 	seedUsers := []struct {
 		email, password, name string
-		role                  user.Role
+		role                  useriface.Role
 	}{
-		{"admin@eventmpos.local", "Admin123!", "System Admin", user.RoleAdmin},
-		{"ba@eventmpos.local", "Ba123456!", "Bella Advisor", user.RoleBA},
-		{"wh@eventmpos.local", "Wh123456!", "Warren House", user.RoleWarehouse},
+		{"admin@eventmpos.local", "Admin123!", "System Admin", useriface.RoleAdmin},
+		{"ba@eventmpos.local", "Ba123456!", "Bella Advisor", useriface.RoleBA},
+		{"wh@eventmpos.local", "Wh123456!", "Warren House", useriface.RoleWarehouse},
 	}
 	var baID uuid.UUID
 	for _, su := range seedUsers {
@@ -51,7 +52,7 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 		if err != nil {
 			return err
 		}
-		u := user.User{
+		u := userrepo.User{
 			Email:        su.email,
 			PasswordHash: hash,
 			FullName:     su.name,
@@ -61,7 +62,7 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 		if err := db.Create(&u).Error; err != nil {
 			return err
 		}
-		if su.role == user.RoleBA {
+		if su.role == useriface.RoleBA {
 			baID = u.ID
 		}
 	}

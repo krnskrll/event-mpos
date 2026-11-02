@@ -19,7 +19,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/stock"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Service creates orders atomically and drives the warehouse board — the Go analogue of Kotlin
@@ -29,13 +29,13 @@ type Service struct {
 	stock      *stock.Service
 	promotions *promotion.Service
 	audit      *audit.Service
-	users      *user.Service
+	users      useriface.Users
 	jakarta    *time.Location
 	// broadcast pushes an order change to the warehouse board after commit; wired in Phase 8 (nil = no-op).
 	broadcast func(eventID uuid.UUID, view WarehouseOrderView)
 }
 
-func NewService(db *gorm.DB, stk *stock.Service, promotions *promotion.Service, aud *audit.Service, users *user.Service) *Service {
+func NewService(db *gorm.DB, stk *stock.Service, promotions *promotion.Service, aud *audit.Service, users useriface.Users) *Service {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
@@ -269,13 +269,13 @@ func (s *Service) AdvanceStatus(orderID uuid.UUID, target OrderStatus, actorUser
 // Cancel cancels an order and returns its stock, in one transaction with the audit entry. A BA may
 // cancel only their own order while it is NEW (others' orders are a 404); warehouse and admin may
 // cancel any order that is NEW or PACKING. Anything else is a 409.
-func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole user.Role, reason *string) (*WarehouseOrderView, error) {
+func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole useriface.Role, reason *string) (*WarehouseOrderView, error) {
 	var o Order
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := lockOrder(tx, orderID, &o); err != nil {
 			return err
 		}
-		isBa := actorRole == user.RoleBA
+		isBa := actorRole == useriface.RoleBA
 		if isBa && o.BaUserID != actorID {
 			return common.NewAppError(http.StatusNotFound, "Order not found")
 		}

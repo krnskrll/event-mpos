@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 const principalKey = "authPrincipal"
@@ -17,7 +17,7 @@ type Principal struct {
 	UserID   uuid.UUID
 	Email    string
 	FullName string
-	Role     user.Role
+	Role     useriface.Role
 }
 
 // JWTMiddleware verifies the Bearer access token and attaches the Principal. A missing or invalid
@@ -41,7 +41,7 @@ func JWTMiddleware(jwt *JwtService) gin.HandlerFunc {
 			return
 		}
 		roleStr, _ := claims["role"].(string)
-		role, valid := user.ParseRole(roleStr)
+		role, valid := useriface.ParseRole(roleStr)
 		if !valid {
 			common.AbortUnauthorized(c)
 			return
@@ -54,7 +54,7 @@ func JWTMiddleware(jwt *JwtService) gin.HandlerFunc {
 }
 
 // RequireRole allows the request only if the caller holds one of the given roles; otherwise 403.
-func RequireRole(roles ...user.Role) gin.HandlerFunc {
+func RequireRole(roles ...useriface.Role) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		p, ok := PrincipalFrom(c)
 		if !ok {

@@ -18,15 +18,15 @@ import (
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/stock"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // MeResponse is the "who am I" payload.
 type MeResponse struct {
-	ID       uuid.UUID `json:"id"`
-	Email    string    `json:"email"`
-	FullName string    `json:"fullName"`
-	Role     user.Role `json:"role"`
+	ID       uuid.UUID      `json:"id"`
+	Email    string         `json:"email"`
+	FullName string         `json:"fullName"`
+	Role     useriface.Role `json:"role"`
 }
 
 // SnapshotHashResponse is the lightweight snapshot freshness check.
@@ -333,7 +333,7 @@ func (h *Handler) MemberByQr(c *gin.Context) {
 // requireBa enforces that the caller is a BA (matches Kotlin's 400 for non-BA callers).
 func (h *Handler) requireBa(c *gin.Context) (auth.Principal, bool) {
 	p, _ := auth.PrincipalFrom(c)
-	if p.Role != user.RoleBA {
+	if p.Role != useriface.RoleBA {
 		common.AbortError(c, http.StatusBadRequest, "Only BA accounts are scoped to an event")
 		return p, false
 	}

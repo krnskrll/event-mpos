@@ -9,7 +9,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/audit"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // EPIC-12 C4: cancel restores stock, writes ORDER_CANCELLED, follows per-role rules, and leaves the report.
@@ -17,8 +17,8 @@ func TestCancelOrder(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("10.00")
 	a.Allocate(ev.ID, p.ID, 10)
-	owner, other := a.CreateUser(user.RoleBA, "Ba123456!"), a.CreateUser(user.RoleBA, "Ba123456!")
-	wh := a.CreateUser(user.RoleWarehouse, "Wh123456!")
+	owner, other := a.CreateUser(useriface.RoleBA, "Ba123456!"), a.CreateUser(useriface.RoleBA, "Ba123456!")
+	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
 	place := func(qty int, status order.OrderStatus) uuid.UUID {
 		conf, err := a.Orders.Submit(ev.ID, owner.ID, order.SubmitOrderRequest{IdempotencyKey: uuid.NewString(),
 			Customer: order.CustomerInfo{Name: "C"}, Lines: []order.OrderLineRequest{{ProductID: p.ID, Qty: qty}}})
@@ -40,7 +40,7 @@ func TestCancelOrder(t *testing.T) {
 	cases := []struct {
 		name  string
 		order uuid.UUID
-		actor *user.UserResponse
+		actor *useriface.UserResponse
 		want  int
 	}{
 		{"BA cannot cancel another BA's order", newOrder, other, http.StatusNotFound},

@@ -8,17 +8,17 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/security"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Service coordinates login, token refresh, and logout — the Go analogue of Kotlin AuthService.
 type Service struct {
-	users   *user.Service
+	users   useriface.Users
 	jwt     *JwtService
 	refresh *RefreshService
 }
 
-func NewService(users *user.Service, jwt *JwtService, refresh *RefreshService) *Service {
+func NewService(users useriface.Users, jwt *JwtService, refresh *RefreshService) *Service {
 	return &Service{users: users, jwt: jwt, refresh: refresh}
 }
 
@@ -76,7 +76,7 @@ func (s *Service) Logout(userID uuid.UUID) error {
 	return s.refresh.RevokeAllForUser(userID)
 }
 
-func (s *Service) issueTokens(u *user.User) (*TokenResponse, error) {
+func (s *Service) issueTokens(u *useriface.Account) (*TokenResponse, error) {
 	access, err := s.jwt.GenerateAccessToken(u)
 	if err != nil {
 		return nil, err

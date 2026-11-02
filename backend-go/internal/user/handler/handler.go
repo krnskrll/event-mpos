@@ -1,4 +1,4 @@
-package user
+package handler
 
 import (
 	"net/http"
@@ -7,19 +7,20 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/user/iface"
+	"github.com/krnskrll/event-mpos/internal/user/service"
 )
 
-// Handler exposes the admin user-management endpoints under /api/admin/users.
 type Handler struct {
-	svc *Service
+	svc *service.Service
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
 // List returns all users, optionally filtered by ?role=.
 func (h *Handler) List(c *gin.Context) {
 	if roleParam := c.Query("role"); roleParam != "" {
-		role, ok := ParseRole(roleParam)
+		role, ok := iface.ParseRole(roleParam)
 		if !ok {
 			common.AbortError(c, http.StatusBadRequest, "role: must be one of ADMIN, BA, WAREHOUSE")
 			return
@@ -41,12 +42,12 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	var req CreateUserRequest
+	var req iface.CreateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
 	}
-	if _, ok := ParseRole(string(req.Role)); !ok {
+	if _, ok := iface.ParseRole(string(req.Role)); !ok {
 		common.AbortError(c, http.StatusBadRequest, "role: must be one of ADMIN, BA, WAREHOUSE")
 		return
 	}
@@ -64,13 +65,13 @@ func (h *Handler) Update(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid user id")
 		return
 	}
-	var req UpdateUserRequest
+	var req iface.UpdateUserRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
 	}
 	if req.Role != nil {
-		if _, ok := ParseRole(string(*req.Role)); !ok {
+		if _, ok := iface.ParseRole(string(*req.Role)); !ok {
 			common.AbortError(c, http.StatusBadRequest, "role: must be one of ADMIN, BA, WAREHOUSE")
 			return
 		}

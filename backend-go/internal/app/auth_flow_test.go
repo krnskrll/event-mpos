@@ -6,7 +6,7 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/auth"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Ported from the Kotlin AuthFlowTest: login → protected route → refresh rotation → role boundaries.
@@ -22,7 +22,7 @@ func login(t *testing.T, a *testutil.TestApp, email, password string) auth.Token
 
 func TestLoginReturnsTokensAndProtectsRoutes(t *testing.T) {
 	a := testutil.NewApp(t)
-	admin := a.CreateUser(user.RoleAdmin, "Admin123!")
+	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
 	tokens := login(t, a, admin.Email, "Admin123!")
 
 	rec := a.Do(http.MethodGet, "/api/me", nil, tokens.AccessToken)
@@ -39,7 +39,7 @@ func TestLoginReturnsTokensAndProtectsRoutes(t *testing.T) {
 
 func TestWrongPasswordIsRejected(t *testing.T) {
 	a := testutil.NewApp(t)
-	admin := a.CreateUser(user.RoleAdmin, "Admin123!")
+	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
 	rec := a.Do(http.MethodPost, "/api/auth/login", map[string]string{"email": admin.Email, "password": "nope-nope"}, "")
 	if rec.Code != http.StatusUnauthorized {
 		t.Errorf("wrong password: %d, want 401", rec.Code)
@@ -48,7 +48,7 @@ func TestWrongPasswordIsRejected(t *testing.T) {
 
 func TestRefreshRotatesAndRevokedTokenIsRejected(t *testing.T) {
 	a := testutil.NewApp(t)
-	admin := a.CreateUser(user.RoleAdmin, "Admin123!")
+	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
 	tokens := login(t, a, admin.Email, "Admin123!")
 
 	rec := a.Do(http.MethodPost, "/api/auth/refresh", map[string]string{"refreshToken": tokens.RefreshToken}, "")
@@ -78,7 +78,7 @@ func TestRefreshRotatesAndRevokedTokenIsRejected(t *testing.T) {
 
 func TestBACannotReachAdminRoutes(t *testing.T) {
 	a := testutil.NewApp(t)
-	ba := a.CreateUser(user.RoleBA, "Ba123456!")
+	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
 	tokens := login(t, a, ba.Email, "Ba123456!")
 	if rec := a.Do(http.MethodGet, "/api/admin/users", nil, tokens.AccessToken); rec.Code != http.StatusForbidden {
 		t.Errorf("BA on admin route: %d, want 403", rec.Code)
