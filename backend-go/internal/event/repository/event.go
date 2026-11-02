@@ -12,7 +12,10 @@ import (
 
 // Event is the central domain boundary of the system.
 type Event struct {
-	ID        uuid.UUID         `gorm:"type:uuid;primaryKey"`
+	ID        uuid.UUID        `gorm:"type:uuid;primaryKey"`
+	StoreID   uuid.UUID        `gorm:"column:store_id;type:uuid;not null"`
+	Type      iface.OutletType `gorm:"type:varchar(8);not null"`
+	Address   *string
 	Code      string            `gorm:"uniqueIndex;not null"`
 	Name      string            `gorm:"not null"`
 	StartDate *common.Date      `gorm:"column:start_date;type:date"`
@@ -66,6 +69,9 @@ func (a *BaEventAssignment) BeforeCreate(_ *gorm.DB) error {
 func (e *Event) ToResponse() iface.EventResponse {
 	return iface.EventResponse{
 		ID:        e.ID,
+		StoreID:   e.StoreID,
+		Type:      e.Type,
+		Address:   e.Address,
 		Code:      e.Code,
 		Name:      e.Name,
 		StartDate: e.StartDate,

@@ -39,7 +39,7 @@ func JWTMiddleware(jwt iface.TokenVerifier) gin.HandlerFunc {
 		}
 		email, _ := claims["email"].(string)
 		name, _ := claims["name"].(string)
-		iface.SetPrincipal(c, iface.Principal{UserID: uid, Email: email, FullName: name, Role: role})
+		iface.SetPrincipal(c, iface.Principal{UserID: uid, StoreID: iface.StoreFromClaims(claims), Email: email, FullName: name, Role: role})
 		c.Next()
 	}
 }

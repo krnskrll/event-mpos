@@ -47,9 +47,13 @@ func (s *Service) account(where string, arg any) (*iface.Account, error) {
 	return u.ToAccount(), nil
 }
 
-func (s *Service) find(where string, arg any) (*repository.User, error) {
+func (s *Service) findIn(storeID, id uuid.UUID) (*repository.User, error) {
+	return s.find("id = ? AND store_id = ?", id, storeID)
+}
+
+func (s *Service) find(where string, args ...any) (*repository.User, error) {
 	var u repository.User
-	err := s.db.Where(where, arg).First(&u).Error
+	err := s.db.Where(where, args...).First(&u).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
@@ -59,12 +63,12 @@ func (s *Service) find(where string, arg any) (*repository.User, error) {
 	return &u, nil
 }
 
-func (s *Service) List() ([]iface.UserResponse, error) {
-	return s.query(s.db)
+func (s *Service) List(storeID uuid.UUID) ([]iface.UserResponse, error) {
+	return s.query(s.db.Where("store_id = ?", storeID))
 }
 
-func (s *Service) ListByRole(role iface.Role) ([]iface.UserResponse, error) {
-	return s.query(s.db.Where("role = ?", role))
+func (s *Service) ListByRole(storeID uuid.UUID, role iface.Role) ([]iface.UserResponse, error) {
+	return s.query(s.db.Where("store_id = ? AND role = ?", storeID, role))
 }
 
 func (s *Service) query(tx *gorm.DB) ([]iface.UserResponse, error) {
@@ -79,7 +83,7 @@ func (s *Service) query(tx *gorm.DB) ([]iface.UserResponse, error) {
 	return out, nil
 }
 
-func (s *Service) Create(req iface.CreateUserRequest) (*iface.UserResponse, error) {
+func (s *Service) Create(storeID uuid.UUID, req iface.CreateUserRequest) (*iface.UserResponse, error) {
 	email := strings.ToLower(strings.TrimSpace(req.Email))
 
 	var count int64
@@ -95,6 +99,7 @@ func (s *Service) Create(req iface.CreateUserRequest) (*iface.UserResponse, erro
 		return nil, err
 	}
 	u := repository.User{
+		StoreID:      storeID,
 		Email:        email,
 		PasswordHash: hash,
 		FullName:     strings.TrimSpace(req.FullName),
@@ -108,8 +113,8 @@ func (s *Service) Create(req iface.CreateUserRequest) (*iface.UserResponse, erro
 	return &resp, nil
 }
 
-func (s *Service) Update(id uuid.UUID, req iface.UpdateUserRequest) (*iface.UserResponse, error) {
-	u, err := s.find("id = ?", id)
+func (s *Service) Update(storeID, id uuid.UUID, req iface.UpdateUserRequest) (*iface.UserResponse, error) {
+	u, err := s.findIn(storeID, id)
 	if err != nil {
 		return nil, err
 	}

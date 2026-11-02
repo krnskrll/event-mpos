@@ -129,9 +129,9 @@ type SourceProduct struct {
 type Products interface {
 	// Find returns nil when the product does not exist.
 	Find(id uuid.UUID) (*SaleProduct, error)
-	// All returns every product ordered by SKU, without variants.
-	All() ([]SaleProduct, error)
+	// All returns the store's products ordered by SKU, without variants.
+	All(storeID uuid.UUID) ([]SaleProduct, error)
 	FindAvailableByBarcode(eventID uuid.UUID, barcode string) (*ProductResponse, error)
 	// Upsert creates or updates by SKU inside tx; created reports a new row.
-	Upsert(tx database.Tx, p SourceProduct) (created bool, err error)
+	Upsert(tx database.Tx, storeID uuid.UUID, p SourceProduct) (created bool, err error)
 }

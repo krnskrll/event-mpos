@@ -7,6 +7,7 @@ import (
 
 	"gorm.io/gorm"
 
+	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 )
@@ -59,7 +60,7 @@ func (s *SyncService) Sync() SyncResult {
 	created, updated := 0, 0
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
 		for _, erp := range products {
-			isNew, err := s.products.Upsert(tx, erp.toSource())
+			isNew, err := s.products.Upsert(tx, tenant.DefaultStoreID, erp.toSource())
 			if err != nil {
 				return err
 			}

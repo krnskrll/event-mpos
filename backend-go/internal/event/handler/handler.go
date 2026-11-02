@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/event/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
@@ -18,7 +19,7 @@ type Handler struct {
 func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) List(c *gin.Context) {
-	events, err := h.svc.ListEvents()
+	events, err := h.svc.ListEvents(authiface.StoreOf(c))
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -32,7 +33,7 @@ func (h *Handler) Create(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
 	}
-	resp, err := h.svc.CreateEvent(req)
+	resp, err := h.svc.CreateEvent(authiface.StoreOf(c), req)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -51,7 +52,7 @@ func (h *Handler) Update(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
 	}
-	resp, err := h.svc.UpdateEvent(id, req)
+	resp, err := h.svc.UpdateEvent(authiface.StoreOf(c), id, req)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -75,7 +76,7 @@ func (h *Handler) ChangeStatus(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "status: must be one of DRAFT, ACTIVE, CLOSED")
 		return
 	}
-	resp, err := h.svc.ChangeStatus(id, status)
+	resp, err := h.svc.ChangeStatus(authiface.StoreOf(c), id, status)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -89,7 +90,7 @@ func (h *Handler) AssignBa(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
 	}
-	resp, err := h.svc.AssignBaToEvent(req.UserID, req.EventID)
+	resp, err := h.svc.AssignBaToEvent(authiface.StoreOf(c), req.UserID, req.EventID)
 	if err != nil {
 		common.Fail(c, err)
 		return

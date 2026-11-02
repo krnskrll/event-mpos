@@ -40,7 +40,11 @@ func (s *Service) InvalidateSummary(eventID uuid.UUID) { s.summary.invalidate(ev
 // ---- admin allocation ----
 
 func (s *Service) AllocationsForEvent(eventID uuid.UUID) ([]iface.AllocationRow, error) {
-	products, err := s.products.All()
+	ev, err := s.events.Get(eventID)
+	if err != nil {
+		return nil, err
+	}
+	products, err := s.products.All(ev.StoreID)
 	if err != nil {
 		return nil, err
 	}
@@ -69,7 +73,10 @@ func (s *Service) SetAllocation(eventID, productID uuid.UUID, allocatedQty int) 
 	if err != nil {
 		return nil, err
 	}
-	if ev.Status != eventiface.StatusDraft {
+	if ev.Type == eventiface.TypeStore && ev.Status == eventiface.StatusClosed {
+		return nil, common.NewAppError(http.StatusConflict, "Allocations are locked once a store is CLOSED")
+	}
+	if ev.Type != eventiface.TypeStore && ev.Status != eventiface.StatusDraft {
 		return nil, common.NewAppError(http.StatusConflict,
 			"Allocations are locked once an event leaves DRAFT (status: "+string(ev.Status)+")")
 	}
@@ -153,7 +160,11 @@ func (s *Service) BaLevelsForEvent(eventID uuid.UUID) ([]iface.BaStockLevel, err
 }
 
 func (s *Service) levelsForEvent(eventID uuid.UUID) ([]iface.StockLevelRow, error) {
-	products, err := s.productsByID()
+	ev, err := s.events.Get(eventID)
+	if err != nil {
+		return nil, err
+	}
+	products, err := s.productsByID(ev.StoreID)
 	if err != nil {
 		return nil, err
 	}
@@ -311,8 +322,8 @@ func (s *Service) allocationsByProduct(eventID uuid.UUID) (map[uuid.UUID]*reposi
 	return m, nil
 }
 
-func (s *Service) productsByID() (map[uuid.UUID]productiface.SaleProduct, error) {
-	products, err := s.products.All()
+func (s *Service) productsByID(storeID uuid.UUID) (map[uuid.UUID]productiface.SaleProduct, error) {
+	products, err := s.products.All(storeID)
 	if err != nil {
 		return nil, err
 	}

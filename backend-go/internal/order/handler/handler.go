@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/order/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
@@ -14,10 +15,13 @@ import (
 
 // WarehouseHandler exposes the warehouse order board under /api/warehouse.
 type WarehouseHandler struct {
-	svc *service.Service
+	svc    *service.Service
+	events eventiface.Events
 }
 
-func NewWarehouseHandler(svc *service.Service) *WarehouseHandler { return &WarehouseHandler{svc: svc} }
+func NewWarehouseHandler(svc *service.Service, events eventiface.Events) *WarehouseHandler {
+	return &WarehouseHandler{svc: svc, events: events}
+}
 
 func (h *WarehouseHandler) Orders(c *gin.Context) {
 	eventID, err := uuid.Parse(c.Param("eventId"))
@@ -33,6 +37,10 @@ func (h *WarehouseHandler) Orders(c *gin.Context) {
 			return
 		}
 		status = &st
+	}
+	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
+		common.Fail(c, err)
+		return
 	}
 	views, err := h.svc.WarehouseOrders(eventID, status)
 	if err != nil {
@@ -58,6 +66,9 @@ func (h *WarehouseHandler) Advance(c *gin.Context) {
 		return
 	}
 	p, _ := authiface.PrincipalFrom(c)
+	if !h.orderInStore(c, orderID) {
+		return
+	}
 	view, err := h.svc.AdvanceStatus(orderID, req.Status, &p.UserID)
 	if err != nil {
 		common.Fail(c, err)
@@ -77,10 +88,26 @@ func (h *WarehouseHandler) Cancel(c *gin.Context) {
 	var req iface.CancelOrderRequest
 	_ = c.ShouldBindJSON(&req) // body is optional
 	p, _ := authiface.PrincipalFrom(c)
+	if !h.orderInStore(c, orderID) {
+		return
+	}
 	view, err := h.svc.Cancel(orderID, p.UserID, p.Role, req.Reason)
 	if err != nil {
 		common.Fail(c, err)
 		return
 	}
 	c.JSON(http.StatusOK, view)
+}
+
+// orderInStore answers 404 when the order's event is in another store.
+func (h *WarehouseHandler) orderInStore(c *gin.Context, orderID uuid.UUID) bool {
+	eventID, err := h.svc.EventOf(orderID)
+	if err == nil {
+		err = h.events.RequireInStore(authiface.StoreOf(c), eventID)
+	}
+	if err != nil {
+		common.Fail(c, err)
+		return false
+	}
+	return true
 }

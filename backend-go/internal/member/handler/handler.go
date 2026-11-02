@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/member/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
@@ -16,7 +17,7 @@ type Handler struct {
 func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) List(c *gin.Context) {
-	members, err := h.svc.List()
+	members, err := h.svc.List(authiface.StoreOf(c))
 	if err != nil {
 		common.Fail(c, err)
 		return

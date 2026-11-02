@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/member/iface"
@@ -24,9 +25,9 @@ var _ iface.Members = (*Service)(nil)
 
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 
-func (s *Service) List() ([]iface.MemberResponse, error) {
+func (s *Service) List(storeID uuid.UUID) ([]iface.MemberResponse, error) {
 	var members []repository.Member
-	if err := s.db.Order("member_code").Find(&members).Error; err != nil {
+	if err := s.db.Where("store_id = ?", storeID).Order("member_code").Find(&members).Error; err != nil {
 		return nil, err
 	}
 	out := make([]iface.MemberResponse, 0, len(members))
@@ -36,16 +37,16 @@ func (s *Service) List() ([]iface.MemberResponse, error) {
 	return out, nil
 }
 
-func (s *Service) activeMembers() ([]repository.Member, error) {
+func (s *Service) activeMembers(storeID uuid.UUID) ([]repository.Member, error) {
 	var members []repository.Member
-	if err := s.db.Where("active = ?", true).Find(&members).Error; err != nil {
+	if err := s.db.Where("store_id = ? AND active = ?", storeID, true).Find(&members).Error; err != nil {
 		return nil, err
 	}
 	return members, nil
 }
 
-func (s *Service) ActiveSnapshotMembers() ([]any, error) {
-	members, err := s.activeMembers()
+func (s *Service) ActiveSnapshotMembers(storeID uuid.UUID) ([]any, error) {
+	members, err := s.activeMembers(storeID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,9 +58,9 @@ func (s *Service) ActiveSnapshotMembers() ([]any, error) {
 }
 
 // ByQr is the exact QR lookup — the online fallback when a member isn't in the device cache.
-func (s *Service) ByQr(qrCode string) (*iface.MemberResponse, error) {
+func (s *Service) ByQr(storeID uuid.UUID, qrCode string) (*iface.MemberResponse, error) {
 	var m repository.Member
-	err := s.db.Where("qr_code = ?", strings.TrimSpace(qrCode)).First(&m).Error
+	err := s.db.Where("store_id = ? AND qr_code = ?", storeID, strings.TrimSpace(qrCode)).First(&m).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) || (err == nil && !m.Active) {
 		return nil, common.NewAppError(http.StatusNotFound, "No active member for QR '"+qrCode+"'")
 	}
@@ -72,8 +73,8 @@ func (s *Service) ByQr(qrCode string) (*iface.MemberResponse, error) {
 
 // Fingerprint is folded into the event snapshot version so member changes trigger a re-sync.
 // Content-based: "<count>:<javaHashCode(material)>" where material is sorted "qr:name:tier" joined.
-func (s *Service) Fingerprint() (string, error) {
-	members, err := s.activeMembers()
+func (s *Service) Fingerprint(storeID uuid.UUID) (string, error) {
+	members, err := s.activeMembers(storeID)
 	if err != nil {
 		return "", err
 	}
@@ -86,7 +87,7 @@ func (s *Service) Fingerprint() (string, error) {
 	return strconv.Itoa(len(members)) + ":" + strconv.FormatInt(int64(common.JavaStringHashCode(material)), 10), nil
 }
 
-func (s *Service) Upsert(tx database.Tx, rec iface.MemberRecord) (bool, error) {
+func (s *Service) Upsert(tx database.Tx, storeID uuid.UUID, rec iface.MemberRecord) (bool, error) {
 	var m repository.Member
 	err := tx.Where("member_code = ?", rec.MemberCode).First(&m).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
@@ -96,6 +97,7 @@ func (s *Service) Upsert(tx database.Tx, rec iface.MemberRecord) (bool, error) {
 	m.MemberCode, m.QRCode, m.Name, m.Tier = rec.MemberCode, rec.QRCode, rec.Name, rec.Tier
 	m.Region, m.Phone, m.Active = rec.Region, rec.Phone, rec.Active
 	if created {
+		m.StoreID = storeID
 		return true, tx.Create(&m).Error
 	}
 	m.UpdatedAt = time.Now().UTC()

@@ -128,15 +128,15 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	authHandler := authhandler.NewHandler(a.Auth)
 	userHandler := userhandler.NewHandler(a.Users)
 	eventHandler := eventhandler.NewHandler(a.Events)
-	productHandler := producthandler.NewHandler(a.Products)
+	productHandler := producthandler.NewHandler(a.Products, a.Events)
 	erpHandler := erp.NewHandler(a.ERPSync)
 	memberHandler := memberhandler.NewHandler(a.Members)
 	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
-	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock)
+	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock, a.Events)
 	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
-	promotionHandler := promotionhandler.NewHandler(a.Promotions)
-	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders)
-	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit)
+	promotionHandler := promotionhandler.NewHandler(a.Promotions, a.Events)
+	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders, a.Events)
+	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit, a.Events)
 	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)
 	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
 
@@ -148,7 +148,10 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	common.RegisterHealth(r)
 
 	// Real-time warehouse board WebSocket (JWT validated inside the handler via ?token=).
-	wsHandler := realtime.NewHandler(a.Hub, jwtService)
+	wsHandler := realtime.NewHandler(a.Hub, jwtService, func(storeID uuid.UUID, eventID string) bool {
+		id, err := uuid.Parse(eventID)
+		return err == nil && a.Events.RequireInStore(storeID, id) == nil
+	})
 	r.GET("/ws/events/:eventId/orders", wsHandler.ServeWS)
 
 	api := r.Group("/api")

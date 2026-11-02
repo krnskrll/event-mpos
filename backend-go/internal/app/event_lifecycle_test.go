@@ -9,6 +9,7 @@ import (
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 )
 
@@ -45,7 +46,7 @@ func TestSellingOnlyWhileActive(t *testing.T) {
 	p := a.Product("100.00")
 
 	for _, status := range []eventiface.EventStatus{eventiface.StatusDraft, eventiface.StatusClosed} {
-		ev := &eventrepo.Event{Code: testutil.Unique("T"), Name: "Not selling", Status: status}
+		ev := &eventrepo.Event{StoreID: tenant.DefaultStoreID, Type: eventiface.TypeEvent, Code: testutil.Unique("T"), Name: "Not selling", Status: status}
 		if err := a.DB.Create(ev).Error; err != nil {
 			t.Fatal(err)
 		}
@@ -75,17 +76,17 @@ func TestSellingOnlyWhileActive(t *testing.T) {
 
 func TestEventStatusEndpointRejectsIllegalTransition(t *testing.T) {
 	a := testutil.NewApp(t)
-	created, err := a.Events.CreateEvent(eventiface.CreateEventRequest{Code: testutil.Unique("T"), Name: "Lifecycle"})
+	created, err := a.Events.CreateEvent(tenant.DefaultStoreID, eventiface.CreateEventRequest{Code: testutil.Unique("T"), Name: "Lifecycle"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Events.ChangeStatus(created.ID, eventiface.StatusActive); err != nil {
+	if _, err := a.Events.ChangeStatus(tenant.DefaultStoreID, created.ID, eventiface.StatusActive); err != nil {
 		t.Fatalf("DRAFT -> ACTIVE: %v", err)
 	}
-	if _, err := a.Events.ChangeStatus(created.ID, eventiface.StatusClosed); err != nil {
+	if _, err := a.Events.ChangeStatus(tenant.DefaultStoreID, created.ID, eventiface.StatusClosed); err != nil {
 		t.Fatalf("ACTIVE -> CLOSED: %v", err)
 	}
-	if _, err := a.Events.ChangeStatus(created.ID, eventiface.StatusActive); testutil.StatusOf(err) != http.StatusConflict {
+	if _, err := a.Events.ChangeStatus(tenant.DefaultStoreID, created.ID, eventiface.StatusActive); testutil.StatusOf(err) != http.StatusConflict {
 		t.Errorf("CLOSED -> ACTIVE: got %v, want 409", err)
 	}
 }

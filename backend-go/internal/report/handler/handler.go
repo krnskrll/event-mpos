@@ -8,24 +8,31 @@ import (
 	"github.com/google/uuid"
 
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/report/service"
 )
 
 // Handler exposes the admin reporting + audit surface under /api/admin.
 type Handler struct {
-	svc   *service.Service
-	audit auditiface.Audit
+	svc    *service.Service
+	audit  auditiface.Audit
+	events eventiface.Events
 }
 
-func NewHandler(svc *service.Service, aud auditiface.Audit) *Handler {
-	return &Handler{svc: svc, audit: aud}
+func NewHandler(svc *service.Service, aud auditiface.Audit, events eventiface.Events) *Handler {
+	return &Handler{svc: svc, audit: aud, events: events}
 }
 
 func (h *Handler) Report(c *gin.Context) {
 	eventID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
+		common.Fail(c, err)
 		return
 	}
 	rep, err := h.svc.EndOfEvent(eventID)
@@ -40,6 +47,10 @@ func (h *Handler) ReportCSV(c *gin.Context) {
 	eventID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
+		common.Fail(c, err)
 		return
 	}
 	rep, err := h.svc.EndOfEvent(eventID)
@@ -101,6 +112,10 @@ func (h *Handler) Audit(c *gin.Context) {
 			return
 		}
 		q.Action = &a
+	}
+	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
+		common.Fail(c, err)
+		return
 	}
 	page, err := h.audit.Search(q)
 	if err != nil {

@@ -48,8 +48,29 @@ func (s EventStatus) AssertCanTransitionTo(target EventStatus) error {
 	return nil
 }
 
+// OutletType: an event is temporary; a store is a permanent shop.
+type OutletType string
+
+const (
+	TypeEvent OutletType = "event"
+	TypeStore OutletType = "store"
+)
+
+func ParseOutletType(s string) (OutletType, bool) {
+	switch OutletType(s) {
+	case "", TypeEvent:
+		return TypeEvent, true
+	case TypeStore:
+		return TypeStore, true
+	}
+	return "", false
+}
+
 type EventResponse struct {
 	ID        uuid.UUID    `json:"id"`
+	StoreID   uuid.UUID    `json:"storeId"`
+	Type      OutletType   `json:"type"`
+	Address   *string      `json:"address,omitempty"`
 	Code      string       `json:"code"`
 	Name      string       `json:"name"`
 	StartDate *common.Date `json:"startDate,omitempty"`
@@ -63,12 +84,15 @@ type CreateEventRequest struct {
 	Name      string       `json:"name" binding:"required"`
 	StartDate *common.Date `json:"startDate"`
 	EndDate   *common.Date `json:"endDate"`
+	Type      OutletType   `json:"type"`
+	Address   *string      `json:"address"`
 }
 
 type UpdateEventRequest struct {
 	Name      *string      `json:"name"`
 	StartDate *common.Date `json:"startDate"`
 	EndDate   *common.Date `json:"endDate"`
+	Address   *string      `json:"address"`
 }
 
 type ChangeStatusRequest struct {
@@ -106,8 +130,8 @@ type ProductProvider interface {
 }
 
 type MemberProvider interface {
-	ActiveSnapshotMembers() ([]any, error)
-	Fingerprint() (string, error)
+	ActiveSnapshotMembers(storeID uuid.UUID) ([]any, error)
+	Fingerprint(storeID uuid.UUID) (string, error)
 }
 
 type StockProvider interface {
@@ -128,10 +152,12 @@ type Providers struct {
 	Promotions PromotionProvider
 }
 
-// Events is the event module's contract for other modules.
+// Events is the event module's contract. Get is unscoped for internal use; callers acting for a
+// user check RequireInStore first.
 type Events interface {
 	Get(id uuid.UUID) (*EventResponse, error)
-	ListEvents() ([]EventResponse, error)
+	RequireInStore(storeID, eventID uuid.UUID) error
+	ListEvents(storeID uuid.UUID) ([]EventResponse, error)
 	RequireAssigned(userID, eventID uuid.UUID) error
 	ActiveEventForUser(userID uuid.UUID) (*EventResponse, error)
 	AssignedEventsForUser(userID uuid.UUID) ([]EventResponse, error)

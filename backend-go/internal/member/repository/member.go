@@ -12,6 +12,7 @@ import (
 // Member is a customer synced from the member system. Phone is back-office only.
 type Member struct {
 	ID         uuid.UUID        `gorm:"type:uuid;primaryKey"`
+	StoreID    uuid.UUID        `gorm:"column:store_id;type:uuid;not null"`
 	MemberCode string           `gorm:"column:member_code;uniqueIndex;not null"`
 	QRCode     string           `gorm:"column:qr_code;uniqueIndex;not null"`
 	Name       string           `gorm:"not null"`

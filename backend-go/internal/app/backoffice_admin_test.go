@@ -9,6 +9,7 @@ import (
 
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -20,7 +21,7 @@ func TestAdminCanEditRoleAndDeactivateUser(t *testing.T) {
 	a := testutil.NewApp(t)
 	created := a.CreateUser(useriface.RoleBA, "password1")
 	role, active := useriface.RoleWarehouse, false
-	updated, err := a.Users.Update(created.ID, useriface.UpdateUserRequest{Role: &role, Active: &active})
+	updated, err := a.Users.Update(tenant.DefaultStoreID, created.ID, useriface.UpdateUserRequest{Role: &role, Active: &active})
 	if err != nil {
 		t.Fatal(err)
 	}

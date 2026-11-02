@@ -32,12 +32,13 @@ func NewJwtService(secretBase64 string, accessTTLMinutes int) (*JwtService, erro
 func (j *JwtService) GenerateAccessToken(u *useriface.Account) (string, error) {
 	now := time.Now()
 	claims := jwt.MapClaims{
-		"sub":   u.ID.String(),
-		"email": u.Email,
-		"role":  string(u.Role),
-		"name":  u.FullName,
-		"iat":   now.Unix(),
-		"exp":   now.Add(j.accessTTL).Unix(),
+		"sub":      u.ID.String(),
+		"store_id": u.StoreID.String(),
+		"email":    u.Email,
+		"role":     string(u.Role),
+		"name":     u.FullName,
+		"iat":      now.Unix(),
+		"exp":      now.Add(j.accessTTL).Unix(),
 	}
 	return jwt.NewWithClaims(jwt.SigningMethodHS256, claims).SignedString(j.key)
 }

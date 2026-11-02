@@ -13,6 +13,7 @@ import (
 // Product is a catalogue product. Per-event availability lives in EventProduct.
 type Product struct {
 	ID             uuid.UUID           `gorm:"type:uuid;primaryKey"`
+	StoreID        uuid.UUID           `gorm:"column:store_id;type:uuid;not null"`
 	SKU            string              `gorm:"column:sku;uniqueIndex;not null"`
 	Name           string              `gorm:"not null"`
 	Brand          *string             ``

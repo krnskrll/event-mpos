@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 
 	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
@@ -36,12 +37,14 @@ var upgrader = websocket.Upgrader{
 
 // Handler upgrades the warehouse dashboard's WebSocket, authenticating the JWT first.
 type Handler struct {
-	hub *Hub
-	jwt authiface.TokenVerifier
+	hub     *Hub
+	jwt     authiface.TokenVerifier
+	inStore func(storeID uuid.UUID, eventID string) bool
 }
 
-func NewHandler(hub *Hub, jwt authiface.TokenVerifier) *Handler {
-	return &Handler{hub: hub, jwt: jwt}
+// NewHandler takes inStore so the board only opens for an event in the caller's store.
+func NewHandler(hub *Hub, jwt authiface.TokenVerifier, inStore func(storeID uuid.UUID, eventID string) bool) *Handler {
+	return &Handler{hub: hub, jwt: jwt, inStore: inStore}
 }
 
 // ServeWS handles GET /ws/events/:eventId/orders?token=<accessToken>. The JWT is required in the
@@ -54,13 +57,18 @@ func (h *Handler) ServeWS(c *gin.Context) {
 			token = hdr[7:]
 		}
 	}
-	if _, ok := h.jwt.Parse(token); !ok {
+	claims, ok := h.jwt.Parse(token)
+	if !ok {
 		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 			"status": 401, "error": "Unauthorized", "message": "Authentication required",
 		})
 		return
 	}
 	eventID := c.Param("eventId")
+	if !h.inStore(authiface.StoreFromClaims(claims), eventID) {
+		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"status": 404, "error": "Not Found", "message": "Event not found"})
+		return
+	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {

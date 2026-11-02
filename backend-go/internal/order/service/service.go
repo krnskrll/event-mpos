@@ -245,6 +245,16 @@ func (s *Service) WarehouseOrders(eventID uuid.UUID, status *iface.OrderStatus) 
 
 // AdvanceStatus moves an order one step forward, auditing + broadcasting the change. The order row is
 // locked so a concurrent cancel can't be overtaken by a stale advance.
+// EventOf is the event an order belongs to (404 when it does not exist).
+func (s *Service) EventOf(orderID uuid.UUID) (uuid.UUID, error) {
+	var o repository.Order
+	err := s.db.Select("event_id").First(&o, "id = ?", orderID).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return uuid.Nil, common.NewAppError(http.StatusNotFound, "Order not found")
+	}
+	return o.EventID, err
+}
+
 func (s *Service) AdvanceStatus(orderID uuid.UUID, target iface.OrderStatus, actorUserID *uuid.UUID) (*iface.WarehouseOrderView, error) {
 	var o repository.Order
 	err := s.db.Transaction(func(tx *gorm.DB) error {

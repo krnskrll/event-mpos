@@ -24,6 +24,7 @@ import (
 // MeResponse is the "who am I" payload.
 type MeResponse struct {
 	ID       uuid.UUID      `json:"id"`
+	StoreID  uuid.UUID      `json:"storeId"`
 	Email    string         `json:"email"`
 	FullName string         `json:"fullName"`
 	Role     useriface.Role `json:"role"`
@@ -51,7 +52,7 @@ func NewHandler(events eventiface.Events, products productiface.Products, member
 
 func (h *Handler) Me(c *gin.Context) {
 	p, _ := authiface.PrincipalFrom(c)
-	c.JSON(http.StatusOK, MeResponse{ID: p.UserID, Email: p.Email, FullName: p.FullName, Role: p.Role})
+	c.JSON(http.StatusOK, MeResponse{ID: p.UserID, StoreID: p.StoreID, Email: p.Email, FullName: p.FullName, Role: p.Role})
 }
 
 func (h *Handler) MyEvent(c *gin.Context) {
@@ -309,7 +310,7 @@ func (h *Handler) Members(c *gin.Context) {
 	if _, ok := h.requireBa(c); !ok {
 		return
 	}
-	members, err := h.members.ActiveSnapshotMembers()
+	members, err := h.members.ActiveSnapshotMembers(authiface.StoreOf(c))
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -322,7 +323,7 @@ func (h *Handler) MemberByQr(c *gin.Context) {
 	if _, ok := h.requireBa(c); !ok {
 		return
 	}
-	resp, err := h.members.ByQr(c.Param("qrCode"))
+	resp, err := h.members.ByQr(authiface.StoreOf(c), c.Param("qrCode"))
 	if err != nil {
 		common.Fail(c, err)
 		return

@@ -30,16 +30,16 @@ func (s *Service) SetStockRemaining(fn func(eventID, productID uuid.UUID) (int, 
 	s.stockRemaining = fn
 }
 
-func (s *Service) List() ([]iface.ProductResponse, error) {
+func (s *Service) List(storeID uuid.UUID) ([]iface.ProductResponse, error) {
 	var products []repository.Product
-	if err := s.preloaded().Order("sku").Find(&products).Error; err != nil {
+	if err := s.preloaded().Where("store_id = ?", storeID).Order("sku").Find(&products).Error; err != nil {
 		return nil, err
 	}
 	return mapResponses(products), nil
 }
 
-func (s *Service) Get(id uuid.UUID) (*iface.ProductResponse, error) {
-	p, err := s.find(id)
+func (s *Service) Get(storeID, id uuid.UUID) (*iface.ProductResponse, error) {
+	p, err := s.findIn(storeID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +47,7 @@ func (s *Service) Get(id uuid.UUID) (*iface.ProductResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) Create(req iface.CreateProductRequest) (*iface.ProductResponse, error) {
+func (s *Service) Create(storeID uuid.UUID, req iface.CreateProductRequest) (*iface.ProductResponse, error) {
 	sku := strings.TrimSpace(req.SKU)
 	var count int64
 	if err := s.db.Model(&repository.Product{}).Where("sku = ?", sku).Count(&count).Error; err != nil {
@@ -64,6 +64,7 @@ func (s *Service) Create(req iface.CreateProductRequest) (*iface.ProductResponse
 		}
 	}
 	p := repository.Product{
+		StoreID:  storeID,
 		SKU:      sku,
 		Name:     strings.TrimSpace(req.Name),
 		Brand:    trimPtr(req.Brand),
@@ -82,8 +83,8 @@ func (s *Service) Create(req iface.CreateProductRequest) (*iface.ProductResponse
 	return &resp, nil
 }
 
-func (s *Service) Update(id uuid.UUID, req iface.UpdateProductRequest) (*iface.ProductResponse, error) {
-	p, err := s.find(id)
+func (s *Service) Update(storeID, id uuid.UUID, req iface.UpdateProductRequest) (*iface.ProductResponse, error) {
+	p, err := s.findIn(storeID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +129,7 @@ func (s *Service) Update(id uuid.UUID, req iface.UpdateProductRequest) (*iface.P
 	return &resp, nil
 }
 
-func (s *Service) EventProducts(eventID uuid.UUID) ([]iface.EventProductResponse, error) {
+func (s *Service) EventProducts(storeID, eventID uuid.UUID) ([]iface.EventProductResponse, error) {
 	var eps []repository.EventProduct
 	if err := s.db.Where("event_id = ? AND available = ?", eventID, true).Find(&eps).Error; err != nil {
 		return nil, err
@@ -138,7 +139,7 @@ func (s *Service) EventProducts(eventID uuid.UUID) ([]iface.EventProductResponse
 		availableIDs[ep.ProductID] = true
 	}
 	var products []repository.Product
-	if err := s.preloaded().Order("sku").Find(&products).Error; err != nil {
+	if err := s.preloaded().Where("store_id = ?", storeID).Order("sku").Find(&products).Error; err != nil {
 		return nil, err
 	}
 	out := make([]iface.EventProductResponse, 0, len(products))
@@ -148,8 +149,8 @@ func (s *Service) EventProducts(eventID uuid.UUID) ([]iface.EventProductResponse
 	return out, nil
 }
 
-func (s *Service) SetAvailability(eventID, productID uuid.UUID, available bool) (*iface.EventProductResponse, error) {
-	p, err := s.find(productID)
+func (s *Service) SetAvailability(storeID, eventID, productID uuid.UUID, available bool) (*iface.EventProductResponse, error) {
+	p, err := s.findIn(storeID, productID)
 	if err != nil {
 		return nil, err
 	}
@@ -272,9 +273,9 @@ func (s *Service) Find(id uuid.UUID) (*iface.SaleProduct, error) {
 	return &sale, nil
 }
 
-func (s *Service) All() ([]iface.SaleProduct, error) {
+func (s *Service) All(storeID uuid.UUID) ([]iface.SaleProduct, error) {
 	var products []repository.Product
-	if err := s.db.Order("sku").Find(&products).Error; err != nil {
+	if err := s.db.Where("store_id = ?", storeID).Order("sku").Find(&products).Error; err != nil {
 		return nil, err
 	}
 	out := make([]iface.SaleProduct, 0, len(products))
@@ -285,12 +286,12 @@ func (s *Service) All() ([]iface.SaleProduct, error) {
 }
 
 // Upsert rewrites barcodes only when they changed, to avoid unique-constraint churn.
-func (s *Service) Upsert(tx database.Tx, in iface.SourceProduct) (bool, error) {
+func (s *Service) Upsert(tx database.Tx, storeID uuid.UUID, in iface.SourceProduct) (bool, error) {
 	var p repository.Product
 	err := tx.Preload("Barcodes").Where("sku = ?", in.SKU).First(&p).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		p = repository.Product{
-			SKU: in.SKU, Name: in.Name, Brand: in.Brand, Price: in.Price, ImageURL: in.ImageURL,
+			StoreID: storeID, SKU: in.SKU, Name: in.Name, Brand: in.Brand, Price: in.Price, ImageURL: in.ImageURL,
 			WarehouseStock: in.StockQuantity, Source: iface.SourceERP, Active: true, Barcodes: sourceBarcodes(in.Barcodes),
 		}
 		return true, tx.Create(&p).Error
@@ -359,6 +360,17 @@ func (s *Service) find(id uuid.UUID) (*repository.Product, error) {
 		return nil, err
 	}
 	return &p, nil
+}
+
+func (s *Service) findIn(storeID, id uuid.UUID) (*repository.Product, error) {
+	p, err := s.find(id)
+	if err != nil {
+		return nil, err
+	}
+	if p.StoreID != storeID {
+		return nil, common.NewAppError(http.StatusNotFound, "Product not found")
+	}
+	return p, nil
 }
 
 func (s *Service) barcodeFree(barcode string) (bool, error) {

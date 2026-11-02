@@ -132,6 +132,16 @@ func (s *Service) Update(id uuid.UUID, req iface.PromotionRequest) (*iface.Promo
 	return &resp, nil
 }
 
+// EventOf is the event a promotion belongs to (404 when it does not exist).
+func (s *Service) EventOf(id uuid.UUID) (uuid.UUID, error) {
+	var promo repository.Promotion
+	err := s.db.Select("event_id").First(&promo, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return uuid.Nil, common.NewAppError(http.StatusNotFound, "Promotion not found")
+	}
+	return promo.EventID, err
+}
+
 func (s *Service) Delete(id uuid.UUID) error {
 	var count int64
 	if err := s.db.Model(&repository.Promotion{}).Where("id = ?", id).Count(&count).Error; err != nil {

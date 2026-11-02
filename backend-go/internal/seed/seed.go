@@ -16,6 +16,7 @@ import (
 	membersrc "github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/security"
+	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
@@ -55,6 +56,7 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 			return err
 		}
 		u := userrepo.User{
+			StoreID:      tenant.DefaultStoreID,
 			Email:        su.email,
 			PasswordHash: hash,
 			FullName:     su.name,
@@ -73,6 +75,8 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 	start := common.NewDate(2026, time.July, 1)
 	end := common.NewDate(2026, time.July, 14)
 	ev := eventrepo.Event{
+		StoreID:   tenant.DefaultStoreID,
+		Type:      eventiface.TypeEvent,
 		Code:      "EV01",
 		Name:      "Mid-Year Beauty Roadshow",
 		StartDate: &start,

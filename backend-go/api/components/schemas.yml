@@ -21,8 +21,9 @@ components:
         path: { type: string }
     MeResponse:
       type: object
-      required: [id, email, fullName, role]
+      required: [id, email, fullName, role, storeId]
       properties:
+        storeId: { type: string, format: uuid }
         id: { type: string, format: uuid }
         email: { type: string }
         fullName: { type: string }
@@ -35,8 +36,9 @@ components:
         checkedAt: { type: string, format: date-time }
     UserResponse:
       type: object
-      required: [id, email, fullName, role, active, createdAt]
+      required: [id, email, fullName, role, active, createdAt, storeId]
       properties:
+        storeId: { type: string, format: uuid }
         id: { type: string, format: uuid }
         email: { type: string }
         fullName: { type: string }
@@ -78,16 +80,20 @@ components:
         user: { $ref: '#/components/schemas/UserSummary' }
     UserSummary:
       type: object
-      required: [id, email, fullName, role]
+      required: [id, email, fullName, role, storeId]
       properties:
+        storeId: { type: string, format: uuid }
         id: { type: string, format: uuid }
         email: { type: string }
         fullName: { type: string }
         role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
     EventResponse:
       type: object
-      required: [id, code, name, status]
+      required: [id, code, name, status, storeId, type]
       properties:
+        storeId: { type: string, format: uuid }
+        type: { type: string, enum: [event, store] }
+        address: { type: string }
         id: { type: string, format: uuid }
         code: { type: string }
         name: { type: string }
@@ -99,6 +105,8 @@ components:
       type: object
       required: [code, name]
       properties:
+        type: { type: string, enum: [event, store] }
+        address: { type: string, nullable: true }
         code: { type: string }
         name: { type: string }
         startDate: { type: string, format: date, nullable: true }
@@ -106,6 +114,7 @@ components:
     UpdateEventRequest:
       type: object
       properties:
+        address: { type: string, nullable: true }
         name: { type: string, nullable: true }
         startDate: { type: string, format: date, nullable: true }
         endDate: { type: string, format: date, nullable: true }
