@@ -90,6 +90,7 @@ Touch targets ≥ 44 px. Main action 56 px.
 
 - [x] Warm `StockBadge`, `QtyStepper`, `CountChip` (Phase 2)
 - [ ] **Parked:** customer is required to confirm (EPIC-04/07 rule; backend `customer.name` required). Options: walk-in default (app only), fully optional (DB + API), or per-outlet setting — decide with Bhoomy outlets
+- [ ] **Parked:** discounts beyond automatic promotions. Not built in any version (only the design prototype had a mock promo-code box). Options: promotion tags / crossed-out price on products (app only), promo codes or a cashier discount (backend + app)
 - [ ] Launch screen and launcher icon still Flutter default
 - [x] Status-bar icons over the forest rail on tablet (rail now floats inside the safe area)
 
