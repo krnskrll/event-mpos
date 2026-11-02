@@ -7,17 +7,17 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
 // Handler exposes the admin reporting + audit surface under /api/admin.
 type Handler struct {
 	svc   *Service
-	audit *audit.Service
+	audit auditiface.Audit
 }
 
-func NewHandler(svc *Service, aud *audit.Service) *Handler {
+func NewHandler(svc *Service, aud auditiface.Audit) *Handler {
 	return &Handler{svc: svc, audit: aud}
 }
 
@@ -63,7 +63,7 @@ func (h *Handler) Audit(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
 		return
 	}
-	q := audit.Query{EventID: eventID, Page: 0, Size: defaultAuditPageSize}
+	q := auditiface.Query{EventID: eventID, Page: 0, Size: defaultAuditPageSize}
 	if raw := c.Query("page"); raw != "" {
 		n, err := strconv.Atoi(raw)
 		if err != nil || n < 0 {
@@ -94,7 +94,7 @@ func (h *Handler) Audit(c *gin.Context) {
 		}
 	}
 	if raw := c.Query("action"); raw != "" {
-		a, ok := audit.ParseAction(raw)
+		a, ok := auditiface.ParseAction(raw)
 		if !ok {
 			common.AbortError(c, http.StatusBadRequest, "Unknown action '"+raw+"'")
 			return

@@ -7,7 +7,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
@@ -123,7 +123,7 @@ func TestOrderActivityIsInAppendOnlyAuditLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(trail) != 2 || trail[0].Action != audit.ActionOrderCreated || trail[1].Action != audit.ActionStatusChanged {
+	if len(trail) != 2 || trail[0].Action != auditiface.ActionOrderCreated || trail[1].Action != auditiface.ActionStatusChanged {
 		t.Fatalf("trail = %+v", trail)
 	}
 	if *trail[1].FromStatus != "NEW" || *trail[1].ToStatus != "PACKING" || trail[1].ActorName != wh.FullName {

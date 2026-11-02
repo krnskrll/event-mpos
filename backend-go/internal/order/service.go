@@ -13,7 +13,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
@@ -28,14 +28,14 @@ type Service struct {
 	products   productiface.Products
 	stock      stockiface.Stock
 	promotions promotioniface.Promotions
-	audit      *audit.Service
+	audit      auditiface.Audit
 	users      useriface.Users
 	jakarta    *time.Location
 	// broadcast pushes an order change to the warehouse board after commit; nil is a no-op.
 	broadcast func(eventID uuid.UUID, view WarehouseOrderView)
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, promotions promotioniface.Promotions, aud *audit.Service, users useriface.Users) *Service {
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, promotions promotioniface.Promotions, aud auditiface.Audit, users useriface.Users) *Service {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)

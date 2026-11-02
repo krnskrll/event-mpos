@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
+	auditsvc "github.com/krnskrll/event-mpos/internal/audit/service"
 	authhandler "github.com/krnskrll/event-mpos/internal/auth/handler"
 	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
 	eventhandler "github.com/krnskrll/event-mpos/internal/event/handler"
@@ -51,7 +51,7 @@ type App struct {
 	MemberSync *membersrc.Service
 	Stock      *stocksvc.Service
 	Promotions *promotionsvc.Service
-	Audit      *audit.Service
+	Audit      *auditsvc.Service
 	Receipts   *receipt.Service
 	Orders     *order.Service
 	Reports    *report.Service
@@ -81,7 +81,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
 	a.Stock = stocksvc.NewService(db, a.Events, a.Products)
 	a.Promotions = promotionsvc.NewService(db, a.Products)
-	a.Audit = audit.NewService(db, a.Users)
+	a.Audit = auditsvc.NewService(db, a.Users)
 	a.Receipts = receipt.NewService(db, a.Audit)
 	a.Orders = order.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
 
@@ -110,7 +110,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	})
 
 	// Append-only audit trigger (Postgres; skipped with a warning elsewhere).
-	audit.InstallAppendOnlyGuard(db)
+	auditsvc.InstallAppendOnlyGuard(db)
 
 	a.Router = a.routes(cfg, jwtService)
 	return a, nil

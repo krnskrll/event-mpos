@@ -10,7 +10,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
+	auditrepo "github.com/krnskrll/event-mpos/internal/audit/repository"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/receipt"
@@ -74,17 +75,17 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 	targetOrder := uuid.New()
 	base := time.Now().UTC()
 	for i := 0; i < total; i++ {
-		actor, action, orderID := wh.ID, audit.ActionStatusChanged, uuid.New()
+		actor, action, orderID := wh.ID, auditiface.ActionStatusChanged, uuid.New()
 		if i%2 == 0 {
 			actor = ba.ID
 		}
 		if i%5 == 0 {
-			action = audit.ActionReceiptPrinted
+			action = auditiface.ActionReceiptPrinted
 		}
 		if i < 3 {
 			orderID = targetOrder
 		}
-		row := audit.OrderAuditLog{
+		row := auditrepo.OrderAuditLog{
 			EventID: ev.ID, OrderID: orderID, OrderReference: fmt.Sprintf("ORD-%03d", i), Action: action,
 			ActorUserID: &actor, ActorName: "x", CreatedAt: base.Add(-time.Duration(i) * time.Second),
 		}
@@ -93,13 +94,13 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 		}
 	}
 
-	get := func(query string) audit.Page {
+	get := func(query string) auditiface.Page {
 		t.Helper()
 		rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+"/audit"+query, nil, tok)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("audit%s: %d %s", query, rec.Code, rec.Body.String())
 		}
-		return testutil.Decode[audit.Page](t, rec)
+		return testutil.Decode[auditiface.Page](t, rec)
 	}
 
 	first := get("")
@@ -183,7 +184,7 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 		t.Errorf("print_count = %d, want 2", n)
 	}
 	trail, _ := a.Audit.ForOrder(conf.ID)
-	if len(trail) != 3 || trail[1].Action != audit.ActionReceiptPrinted || trail[2].Action != audit.ActionReceiptPrinted {
+	if len(trail) != 3 || trail[1].Action != auditiface.ActionReceiptPrinted || trail[2].Action != auditiface.ActionReceiptPrinted {
 		t.Fatalf("trail = %+v", trail)
 	}
 	if *trail[1].Detail != "Receipt printed" || *trail[2].Detail != "Receipt reprinted (print #2)" || trail[1].ActorName != ba.FullName {

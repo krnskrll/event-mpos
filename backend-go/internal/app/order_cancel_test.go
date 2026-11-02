@@ -6,7 +6,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -64,7 +64,7 @@ func TestCancelOrder(t *testing.T) {
 		t.Errorf("advancing a cancelled order: %v, want 409", err)
 	}
 	trail, _ := a.Audit.ForOrder(newOrder)
-	if last := trail[len(trail)-1]; last.Action != audit.ActionOrderCancelled || *last.Detail != "Order cancelled: "+reason {
+	if last := trail[len(trail)-1]; last.Action != auditiface.ActionOrderCancelled || *last.Detail != "Order cancelled: "+reason {
 		t.Errorf("last audit entry = %+v", last)
 	}
 	// The BA endpoint goes through the same rules: the order is already cancelled → 409.

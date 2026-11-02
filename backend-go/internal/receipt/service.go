@@ -11,7 +11,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
@@ -35,10 +35,10 @@ func (r *ReceiptLog) BeforeCreate(_ *gorm.DB) error {
 
 type Service struct {
 	db    *gorm.DB
-	audit *audit.Service
+	audit auditiface.Audit
 }
 
-func NewService(db *gorm.DB, aud *audit.Service) *Service { return &Service{db: db, audit: aud} }
+func NewService(db *gorm.DB, aud auditiface.Audit) *Service { return &Service{db: db, audit: aud} }
 
 // LogPrint records a print/reprint of one of the BA's own orders. In one transaction it bumps the
 // receipt_logs counter (atomic upsert, safe under concurrent prints) and appends a RECEIPT_PRINTED
