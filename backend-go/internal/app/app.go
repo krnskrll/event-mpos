@@ -14,6 +14,7 @@ import (
 	eventhandler "github.com/krnskrll/event-mpos/internal/event/handler"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventsvc "github.com/krnskrll/event-mpos/internal/event/service"
+	"github.com/krnskrll/event-mpos/internal/integration/bhoomy"
 	"github.com/krnskrll/event-mpos/internal/integration/erp"
 	"github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	mehandler "github.com/krnskrll/event-mpos/internal/me/handler"
@@ -61,6 +62,7 @@ type App struct {
 	SyncConfig *syncsvc.Service
 	Scheduler  *syncsvc.Scheduler
 	Hub        *realtime.Hub
+	Bhoomy     bhoomy.Client
 }
 
 // New builds services, handlers and routes on an already-migrated database. It starts the WebSocket
@@ -70,6 +72,9 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 
 	jwtService, err := authsvc.NewJwtService(cfg.JWTSecret, cfg.AccessTokenTTLMin)
 	if err != nil {
+		return nil, err
+	}
+	if a.Bhoomy, err = bhoomy.New(cfg.BhoomyMode, cfg.BhoomyURL, cfg.BhoomyServiceToken); err != nil {
 		return nil, err
 	}
 	refreshService := authsvc.NewRefreshService(db, cfg.RefreshTokenTTLDays)

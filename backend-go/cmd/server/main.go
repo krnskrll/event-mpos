@@ -1,7 +1,14 @@
 package main
 
 import (
+	"context"
+	"errors"
 	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	"github.com/krnskrll/event-mpos/internal/app"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
@@ -37,9 +44,36 @@ func main() {
 
 	// 4. Start the dynamic sync scheduler + serve
 	a.Scheduler.Start()
+	go pingBhoomy(a)
 
-	log.Printf("listening on :%s", cfg.Port)
-	if err := a.Router.Run(":" + cfg.Port); err != nil {
-		log.Fatalf("server failed: %v", err)
+	srv := &http.Server{Addr: ":" + cfg.Port, Handler: a.Router}
+	go func() {
+		log.Printf("listening on :%s", cfg.Port)
+		if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			log.Fatalf("server failed: %v", err)
+		}
+	}()
+
+	// 5. On SIGTERM/SIGINT: stop scheduled syncs, then let in-flight requests finish.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGINT, syscall.SIGTERM)
+	<-stop
+	log.Println("shutting down")
+	a.Scheduler.Stop()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := srv.Shutdown(ctx); err != nil {
+		log.Printf("shutdown: %v", err)
 	}
+}
+
+// pingBhoomy only logs: POS keeps serving whether or not Bhoomy is reachable.
+func pingBhoomy(a *app.App) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := a.Bhoomy.Ping(ctx); err != nil {
+		log.Printf("bhoomy: unreachable: %v", err)
+		return
+	}
+	log.Println("bhoomy: reachable")
 }
