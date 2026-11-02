@@ -54,14 +54,23 @@ Code layout (same rules as the Bhoomy backend):
 | `internal/<module>/repository` | GORM rows for the tables the module owns |
 | `internal/<module>/service`, `handler` | Business logic, Gin handlers |
 | `internal/platform` | Config, database (`Tx`), common HTTP helpers, security, realtime hub |
-| `internal/integration` | ERP and member-system sync jobs |
+| `internal/integration` | ERP and member-system sync jobs; `bhoomy` connector |
 | `internal/app` | Composition root: the only place concrete services meet; routes |
 
 Modules call each other only through `iface`; `internal/archtest` fails the build otherwise, and
 `internal/app/testdata/routes.golden` pins every route.
 
+**API contract** (same setup as the Bhoomy backend): `api/components/schemas.yml` holds the shared
+shapes and `api/serve/<module>.yml` one spec per module. `make generate` runs the pinned
+`oapi-codegen` into `generated/` (gitignored; CI and the Docker build generate it). A test fails if
+the spec and the router disagree.
+
+**Bhoomy connector:** `BHOOMY_MODE=mock` (default) or `http` with `BHOOMY_URL` and
+`BHOOMY_SERVICE_TOKEN`. Startup logs whether Bhoomy is reachable; POS serves either way.
+
 ```bash
-cd backend-go && go test ./...     # or: docker run --rm -v "$PWD":/app -w /app golang:1.25-alpine go test ./...
+cd backend-go && make generate && go test ./...
+# no local Go: docker run --rm -v "$PWD":/app -w /app golang:1.25-alpine sh -c "apk add make && make test"
 ```
 
 Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
