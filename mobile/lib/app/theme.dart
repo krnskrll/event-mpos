@@ -10,6 +10,8 @@ abstract final class Brand {
   static const gold = Color(0xFFD99A2B);
   static const goldSoft = Color(0xFFFBF3E3);
   static const goldInk = Color(0xFF6D4B00);
+  static const goldTint = Color(0xFFF6E4BE);
+  static const onGold = Color(0xFF2B1D00); // text on gold
 
   static const canvas = Color(0xFFF7F6F1);
   static const surface = Color(0xFFFFFFFF);
@@ -32,10 +34,17 @@ abstract final class Brand {
   static const warningSoft = goldSoft;
   static const error = Color(0xFFD64550);
   static const errorInk = Color(0xFF8A242C);
+  static const errorStrong = Color(0xFFB22F39); // white text on it passes contrast
   static const errorSoft = Color(0xFFFCECEE);
   static const info = Color(0xFF2F6FB5);
   static const infoInk = Color(0xFF1C436E);
   static const infoSoft = Color(0xFFEAF2FA);
+}
+
+/// Soft, green-tinted elevation: cards rest, panels float.
+abstract final class AppShadows {
+  static const card = [BoxShadow(color: Color(0x14143A24), blurRadius: 4, offset: Offset(0, 4), spreadRadius: -2)];
+  static const panel = [BoxShadow(color: Color(0x1F143A24), blurRadius: 16, offset: Offset(0, 8), spreadRadius: -4)];
 }
 
 /// The type scale: Lato, tabular figures so prices line up. Each style names the family because
@@ -150,9 +159,9 @@ final appTheme = ThemeData(
   ),
   chipTheme: ChipThemeData(
     backgroundColor: Brand.surface,
-    selectedColor: Brand.forest,
+    selectedColor: Brand.green,
     side: WidgetStateBorderSide.resolveWith(
-      (s) => BorderSide(color: s.contains(WidgetState.selected) ? Brand.forest : Brand.divider),
+      (s) => BorderSide(color: s.contains(WidgetState.selected) ? Brand.green : Brand.divider),
     ),
     shape: const StadiumBorder(),
     showCheckmark: false,

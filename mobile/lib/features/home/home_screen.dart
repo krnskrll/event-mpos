@@ -52,10 +52,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               children: [
                 _Tile(
                   icon: Icons.shopping_bag_outlined,
-                  title: 'Product Catalogue',
-                  subtitle: 'Browse & add items to cart',
+                  title: 'Sell',
+                  subtitle: 'Browse products and build the order',
                   primary: true,
-                  onTap: () => context.go('/catalogue'),
+                  onTap: () => context.go('/sell'),
                 ),
                 const SizedBox(height: 12),
                 _Tile(

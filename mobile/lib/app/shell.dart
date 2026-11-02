@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../data/cart/cart_notifier.dart';
 import '../data/order/order_uploader.dart';
 import '../data/session/session.dart';
 import '../data/sync/sync_coordinator.dart';
@@ -11,6 +10,7 @@ import '../domain/order.dart';
 import '../features/orders/orders_screen.dart';
 import 'logo.dart';
 import 'theme.dart';
+import 'widgets.dart';
 
 /// The selling session's frame: bottom bar on phones, side rail on tablets. Keeps background sync
 /// running and flushes the upload queue whenever the app comes back to the foreground.
@@ -35,15 +35,11 @@ class _AppShellState extends ConsumerState<AppShell> {
   @override
   Widget build(BuildContext context) {
     ref.watch(syncCoordinatorProvider);
-    final cartCount = ref.watch(cartProvider.select((c) => c.count));
-    final destinations = [
-      (Icons.home_outlined, 'Home', null),
-      (Icons.shopping_bag_outlined, 'Catalogue', null),
-      (Icons.shopping_cart_outlined, 'Cart', cartCount),
-      (Icons.assignment_outlined, 'Orders', null),
+    const destinations = [
+      (Icons.home_outlined, 'Home'),
+      (Icons.grid_view_rounded, 'Sell'),
+      (Icons.receipt_long_outlined, 'Orders'),
     ];
-    Widget icon(IconData data, int? badge) =>
-        Badge(isLabelVisible: (badge ?? 0) > 0, label: Text('$badge'), child: Icon(data));
     void select(int i) => widget.shell.goBranch(i, initialLocation: i == widget.shell.currentIndex);
     final body = Column(
       children: [
@@ -52,7 +48,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       ],
     );
 
-    if (MediaQuery.sizeOf(context).width >= 840) {
+    if (isWide(context)) {
       return Scaffold(
         body: Row(
           children: [
@@ -65,8 +61,8 @@ class _AppShellState extends ConsumerState<AppShell> {
                 child: BhoomyLogo(size: 44, tile: false),
               ),
               destinations: [
-                for (final (data, label, badge) in destinations)
-                  NavigationRailDestination(icon: icon(data, badge), label: Text(label)),
+                for (final (data, label) in destinations)
+                  NavigationRailDestination(icon: Icon(data), label: Text(label)),
               ],
             ),
             Expanded(child: body),
@@ -79,9 +75,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.shell.currentIndex,
         onDestinationSelected: select,
-        destinations: [
-          for (final (data, label, badge) in destinations) NavigationDestination(icon: icon(data, badge), label: label),
-        ],
+        destinations: [for (final (data, label) in destinations) NavigationDestination(icon: Icon(data), label: label)],
       ),
     );
   }

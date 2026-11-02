@@ -123,7 +123,7 @@ class SectionCard extends StatelessWidget {
   }
 }
 
-/// − qty + control. A null callback disables that side.
+/// − qty + control on a grey track: white minus, solid green plus. A null callback disables that side.
 class QtyStepper extends StatelessWidget {
   const QtyStepper({super.key, required this.qty, this.onMinus, this.onPlus});
 
@@ -133,31 +133,75 @@ class QtyStepper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    Widget button(IconData icon, VoidCallback? onPressed, Color color, String label) => IconButton(
+    Widget button(IconData icon, VoidCallback? onPressed, Color bg, Color fg, String label) => IconButton(
       onPressed: onPressed,
       tooltip: label,
       icon: Icon(icon, size: 18),
-      color: color,
-      constraints: const BoxConstraints.tightFor(width: 44, height: 40),
+      style: IconButton.styleFrom(
+        backgroundColor: bg,
+        foregroundColor: fg,
+        disabledBackgroundColor: Brand.surface,
+        disabledForegroundColor: Brand.faint,
+        fixedSize: const Size(40, 36),
+        minimumSize: const Size(40, 36),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
     );
     return Container(
-      decoration: BoxDecoration(
-        border: Border.all(color: Brand.divider),
-        borderRadius: BorderRadius.circular(10),
-      ),
+      padding: const EdgeInsets.all(3),
+      decoration: BoxDecoration(color: Brand.sunken, borderRadius: BorderRadius.circular(11)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          button(Icons.remove, onMinus, Brand.ink, 'Remove one'),
+          button(Icons.remove, onMinus, Brand.surface, Brand.ink, 'Remove one'),
           SizedBox(
-            width: 28,
+            width: 30,
             child: Text(
               '$qty',
               textAlign: TextAlign.center,
               style: AppText.bodyLarge.copyWith(color: Brand.forest),
             ),
           ),
-          button(Icons.add, onPlus, Brand.green, 'Add one'),
+          button(Icons.add, onPlus, Brand.green, Colors.white, 'Add one'),
+        ],
+      ),
+    );
+  }
+}
+
+/// Filter chip with its count in a small pill.
+class CountChip extends StatelessWidget {
+  const CountChip({super.key, required this.label, required this.count, required this.selected, required this.onTap});
+
+  final String label;
+  final int count;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return ChoiceChip(
+      selected: selected,
+      onSelected: (_) => onTap(),
+      label: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(label),
+          const SizedBox(width: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: selected ? Brand.greenPressed : Brand.sunken,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              '$count',
+              style: AppText.caption.copyWith(
+                color: selected ? Colors.white : Brand.slate,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
         ],
       ),
     );
@@ -210,32 +254,29 @@ class ProductImage extends StatelessWidget {
   }
 }
 
-/// Stock text and colours shared by the grid, the scan sheet and the detail screen.
-({String label, Color color, Color dot}) stockStatus(int remaining) => switch (remaining) {
-  <= 0 => (label: 'Sold out', color: Brand.errorInk, dot: Brand.error),
-  <= 10 => (label: 'Only $remaining left', color: Brand.warningInk, dot: Brand.warning),
-  _ => (label: '$remaining left', color: Brand.successInk, dot: Brand.success),
+/// Stock wording and badge colours shared by the product card and the product sheet.
+({String label, Color background, Color color}) stockStatus(int remaining) => switch (remaining) {
+  <= 0 => (label: 'Sold out', background: Brand.errorStrong, color: Colors.white),
+  <= 10 => (label: 'Only $remaining left', background: Brand.goldTint, color: Brand.goldInk),
+  _ => (label: '$remaining left', background: Brand.green, color: Colors.white),
 };
 
-/// Quiet stock line: a coloured dot and text.
-class StockLabel extends StatelessWidget {
-  const StockLabel(this.remaining, {super.key});
+/// Stock badge that sits on the product photo.
+class StockBadge extends StatelessWidget {
+  const StockBadge(this.remaining, {super.key});
 
   final int remaining;
 
   @override
   Widget build(BuildContext context) {
     final stock = stockStatus(remaining);
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(Icons.circle, size: 7, color: stock.dot),
-        const SizedBox(width: 6),
-        Text(
-          stock.label,
-          style: AppText.caption.copyWith(color: stock.color, fontWeight: FontWeight.w700),
-        ),
-      ],
-    );
+    return Pill(stock.label, color: stock.color, background: stock.background);
   }
 }
+
+/// Up to two initials for an avatar.
+String initials(String name) =>
+    name.split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
+
+/// Tablet and wide screens get the side-by-side layouts.
+bool isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= 840;

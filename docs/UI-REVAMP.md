@@ -11,13 +11,15 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | U3 | App name **Bhoomy POS**; "Shade" → **Variant** (general retail) | 2026-11-02 |
 | U4 | Warm, soft screens (inset photos, badges, shadows, floating panels); no emoji, glows or caption-on-everything | 2026-11-02 |
 | U5 | One app, 3 size groups, 2 layouts: phone layout under 840 px, side-by-side tablet layout from 840 px | 2026-11-02 |
+| U6 | Phone tabs Home / **Sell** / Orders; the Cart tab becomes a floating cart bar + full-screen order | 2026-11-02 |
+| U7 | Card **+** adds one (opens the sheet if the product has variants); tapping the card opens the sheet. Save draft lives inside Drafts | 2026-11-02 |
 
 ## Phases
 
 | Phase | Scope | Mockup | Build |
 |---|---|---|---|
 | 1 Foundation | Tokens, Lato, type scale, component themes, shared widgets, wording | ✅ | ✅ PR #15 |
-| 2 Selling | Tablet products + order panel, phone grid + cart bar, product sheet, cart | ✅ in review | — |
+| 2 Selling | Tablet products + order panel, phone grid + cart bar, product sheet, cart | ✅ | ✅ PR #16 |
 | 3 Shell + Home | Floating forest rail, phone bottom bar, Home dashboard, status in top bar | — | — |
 | 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | — | — |
 | 5 Entry flow | Login, events, sync | — | — |
@@ -69,13 +71,26 @@ Touch targets ≥ 44 px. Main action 56 px.
 |---|---|---|
 | `BrandButton` | `widgets.dart` | Full-width 56 px; `secondary` = outlined |
 | `ScreenHeader` | `widgets.dart` | Light title + subtitle + actions |
-| `QtyStepper` | `widgets.dart` | − qty +; null callback disables a side |
-| `StockLabel` / `stockStatus()` | `widgets.dart` | "Sold out" / "Only n left" / "n left" |
+| `QtyStepper` | `widgets.dart` | Grey track, white −, green +; null callback disables a side |
+| `CountChip` | `widgets.dart` | Filter chip with its count in a pill |
+| `StockBadge` / `stockStatus()` | `widgets.dart` | Badge on the photo: "Sold out" / "Only n left" / "n left" |
+| `OrderPanel` | `features/cart/order_panel.dart` | Customer, lines, promo, total, Confirm; tablet side panel and phone cart page |
+| `showProductSheet` | `features/sell/product_sheet.dart` | Bottom sheet on phone, dialog on tablet; card taps and scans |
 | `Pill`, `SectionCard`, `EmptyState`, `ProductImage` | `widgets.dart` | |
 | `BhoomyLogo` | `logo.dart` | Drawn in code from the brand SVG |
 
 ## Open items
 
-- [ ] Phase 2 build restyles `StockLabel` → badge on photo, `QtyStepper` → grey track + solid green +, chips → count pill (warm style, U4)
+- [x] Warm `StockBadge`, `QtyStepper`, `CountChip` (Phase 2)
 - [ ] Launch screen and launcher icon still Flutter default
 - [ ] Status-bar icons over the forest rail on tablet (Phase 3)
+
+## Phase 2 checks (emulator, phone + tablet width, Go backend — 2026-11-02)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Phone Sell: chips with counts, stock badges, "n in order", cart bar above 3 tabs | ✅ |
+| 2 | Card + adds one; bar total and promo update (promo has a minimum subtotal) | ✅ |
+| 3 | Card tap → product sheet above the tab bar → Add to order | ✅ |
+| 4 | Review → order page: identify customer (typed name) → Confirm → receipt #002 → New order clears | ✅ |
+| 5 | Tablet width: products + always-open order panel; product dialog adds to panel | ✅ |

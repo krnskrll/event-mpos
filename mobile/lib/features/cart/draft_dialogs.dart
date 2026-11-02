@@ -6,7 +6,7 @@ import '../../data/cart/cart_notifier.dart';
 import '../../data/cart/draft_repository.dart';
 import '../../data/session/session.dart';
 
-final _draftsProvider = StreamProvider.autoDispose(
+final draftsProvider = StreamProvider.autoDispose(
   (ref) => ref.watch(draftRepositoryProvider).watchDrafts(ref.watch(sessionEventProvider)!.id),
 );
 
@@ -31,12 +31,12 @@ Future<void> showSaveDraftDialog(BuildContext context, WidgetRef ref) async {
   if (save == true) await ref.read(cartProvider.notifier).saveDraft(label.text);
 }
 
-/// The event's drafts. Resuming over a non-empty cart asks first, since it replaces the cart.
-Future<void> showDraftsDialog(BuildContext context, WidgetRef ref) => showDialog(
-  context: context,
+/// The event's drafts, plus saving the current order. Resuming over a non-empty cart asks first.
+Future<void> showDraftsDialog(BuildContext screen, WidgetRef screenRef) => showDialog(
+  context: screen,
   builder: (context) => Consumer(
     builder: (context, ref, _) {
-      final drafts = ref.watch(_draftsProvider).value ?? const [];
+      final drafts = ref.watch(draftsProvider).value ?? const [];
 
       Future<void> resume(CartDraft draft) async {
         final replace = ref.read(cartProvider).items.isEmpty || await _confirmReplace(context, draft.label);
@@ -70,7 +70,17 @@ Future<void> showDraftsDialog(BuildContext context, WidgetRef ref) => showDialog
                     ),
                 ],
               ),
-        actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close'))],
+        actions: [
+          if (ref.watch(cartProvider).items.isNotEmpty)
+            TextButton(
+              onPressed: () {
+                Navigator.pop(context);
+                showSaveDraftDialog(screen, screenRef);
+              },
+              child: const Text('Save current order'),
+            ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+        ],
       );
     },
   ),
