@@ -14,36 +14,35 @@ import (
 	"gorm.io/gorm/clause"
 
 	"github.com/krnskrll/event-mpos/internal/audit"
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/product"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
-// Service creates orders atomically and drives the warehouse board — the Go analogue of Kotlin
-// OrderService.
 type Service struct {
 	db         *gorm.DB
+	events     eventiface.Events
+	products   productiface.Products
 	stock      *stock.Service
 	promotions *promotion.Service
 	audit      *audit.Service
 	users      useriface.Users
 	jakarta    *time.Location
-	// broadcast pushes an order change to the warehouse board after commit; wired in Phase 8 (nil = no-op).
+	// broadcast pushes an order change to the warehouse board after commit; nil is a no-op.
 	broadcast func(eventID uuid.UUID, view WarehouseOrderView)
 }
 
-func NewService(db *gorm.DB, stk *stock.Service, promotions *promotion.Service, aud *audit.Service, users useriface.Users) *Service {
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk *stock.Service, promotions *promotion.Service, aud *audit.Service, users useriface.Users) *Service {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
 	}
-	return &Service{db: db, stock: stk, promotions: promotions, audit: aud, users: users, jakarta: loc}
+	return &Service{db: db, events: events, products: products, stock: stk, promotions: promotions, audit: aud, users: users, jakarta: loc}
 }
 
-// SetBroadcaster wires the warehouse-board push (Phase 8).
 func (s *Service) SetBroadcaster(fn func(eventID uuid.UUID, view WarehouseOrderView)) {
 	s.broadcast = fn
 }
@@ -70,14 +69,11 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 	}
 
 	// event must be ACTIVE
-	var ev event.Event
-	if err := s.db.First(&ev, "id = ?", eventID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, common.NewAppError(http.StatusNotFound, "Event not found")
-		}
+	ev, err := s.events.Get(eventID)
+	if err != nil {
 		return nil, err
 	}
-	lateSynced, err := acceptsOrders(&ev, req.ClientCreatedAt)
+	lateSynced, err := acceptsOrders(ev, req.ClientCreatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -96,18 +92,18 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 	cartLines := make([]promotion.CartLine, 0, len(lines))
 	drafts := make([]draftItem, 0, len(lines))
 	for _, line := range lines {
-		var p product.Product
-		if err := s.db.Preload("Variants").First(&p, "id = ?", line.ProductID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				return nil, common.NewAppError(http.StatusBadRequest, "Unknown product "+line.ProductID.String())
-			}
+		p, err := s.products.Find(line.ProductID)
+		if err != nil {
 			return nil, err
+		}
+		if p == nil {
+			return nil, common.NewAppError(http.StatusBadRequest, "Unknown product "+line.ProductID.String())
 		}
 		unitPrice := p.Price
 		var variantID *uuid.UUID
 		var variantName *string
 		if line.VariantID != nil {
-			var found *product.ProductVariant
+			var found *productiface.SaleVariant
 			for i := range p.Variants {
 				if p.Variants[i].ID == *line.VariantID && p.Variants[i].Active {
 					found = &p.Variants[i]
@@ -118,7 +114,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 				return nil, common.NewAppError(http.StatusBadRequest,
 					"Unknown variant "+line.VariantID.String()+" for product "+p.SKU)
 			}
-			unitPrice = found.EffectivePrice(p.Price)
+			unitPrice = found.Price
 			variantID = &found.ID
 			name := found.Name
 			variantName = &name
@@ -395,11 +391,11 @@ const NumberBlockSize = 50
 
 // acceptsOrders applies decision D2: an ACTIVE event takes orders; a CLOSED one only takes orders the
 // device created before closed_at and uploads within 24h of closing — those are marked late-synced.
-func acceptsOrders(ev *event.Event, clientCreatedAt *time.Time) (lateSynced bool, err error) {
-	if ev.Status == event.StatusActive {
+func acceptsOrders(ev *eventiface.EventResponse, clientCreatedAt *time.Time) (lateSynced bool, err error) {
+	if ev.Status == eventiface.StatusActive {
 		return false, nil
 	}
-	if ev.Status == event.StatusClosed && ev.ClosedAt != nil {
+	if ev.Status == eventiface.StatusClosed && ev.ClosedAt != nil {
 		if clientCreatedAt != nil && clientCreatedAt.Before(*ev.ClosedAt) && time.Since(*ev.ClosedAt) <= lateSyncGrace {
 			return true, nil
 		}
@@ -435,16 +431,16 @@ func (s *Service) orderNumber(tx *gorm.DB, eventID uuid.UUID, today string, req 
 // IssueNumberBlock reserves the next NumberBlockSize numbers of today's sequence for a device. The
 // range comes off the same locked sequence row as server-assigned numbers, so they never collide.
 func (s *Service) IssueNumberBlock(eventID uuid.UUID, deviceID string) (*NumberBlockResponse, error) {
-	var ev event.Event
-	if err := s.db.First(&ev, "id = ?", eventID).Error; err != nil {
+	ev, err := s.events.Get(eventID)
+	if err != nil {
 		return nil, common.NewAppError(http.StatusNotFound, "Event not found")
 	}
-	if ev.Status != event.StatusActive {
+	if ev.Status != eventiface.StatusActive {
 		return nil, common.NewAppError(http.StatusConflict, "Event "+ev.Code+" is "+string(ev.Status)+" — no new order numbers")
 	}
 	today := time.Now().In(s.jakarta).Format("20060102")
 	var b NumberBlock
-	err := s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		end, err := s.advanceSequence(tx, eventID, today, NumberBlockSize)
 		if err != nil {
 			return err
@@ -501,8 +497,7 @@ func (s *Service) toWarehouseView(o *Order) (*WarehouseOrderView, error) {
 
 func (s *Service) toConfirmation(o *Order, duplicate bool) (*OrderConfirmation, error) {
 	code, name := "", ""
-	var ev event.Event
-	if err := s.db.First(&ev, "id = ?", o.EventID).Error; err == nil {
+	if ev, err := s.events.Get(o.EventID); err == nil {
 		code, name = ev.Code, ev.Name
 	}
 	items := make([]OrderItemView, 0, len(o.Items))

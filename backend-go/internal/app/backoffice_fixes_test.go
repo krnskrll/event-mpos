@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/krnskrll/event-mpos/internal/audit"
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/stock"
@@ -23,7 +23,7 @@ import (
 
 func closeEvent(t *testing.T, a *testutil.TestApp, eventID uuid.UUID) {
 	t.Helper()
-	if _, err := a.Events.ChangeStatus(eventID, event.StatusClosed); err != nil {
+	if _, err := a.Events.ChangeStatus(eventID, eventiface.StatusClosed); err != nil {
 		t.Fatalf("close event: %v", err)
 	}
 }

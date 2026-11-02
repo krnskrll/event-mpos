@@ -1,4 +1,4 @@
-package product
+package service
 
 import (
 	"errors"
@@ -11,34 +11,34 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
+	"github.com/krnskrll/event-mpos/internal/product/iface"
+	"github.com/krnskrll/event-mpos/internal/product/repository"
 )
 
-// Service holds catalogue + per-event availability logic — the Go analogue of Kotlin ProductService.
 type Service struct {
 	db *gorm.DB
-	// stockRemaining resolves live remaining event stock for a product; nil until Phase 5 wires it
-	// (then snapshot products carry remainingStock). nil → 0.
+	// stockRemaining enriches snapshot products; nil leaves remainingStock at 0.
 	stockRemaining func(eventID, productID uuid.UUID) (int, error)
 }
 
+var _ iface.Products = (*Service)(nil)
+
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 
-// SetStockRemaining wires the stock lookup used to enrich snapshot products (Phase 5).
 func (s *Service) SetStockRemaining(fn func(eventID, productID uuid.UUID) (int, error)) {
 	s.stockRemaining = fn
 }
 
-// ---- catalogue ----
-
-func (s *Service) List() ([]ProductResponse, error) {
-	var products []Product
+func (s *Service) List() ([]iface.ProductResponse, error) {
+	var products []repository.Product
 	if err := s.preloaded().Order("sku").Find(&products).Error; err != nil {
 		return nil, err
 	}
 	return mapResponses(products), nil
 }
 
-func (s *Service) Get(id uuid.UUID) (*ProductResponse, error) {
+func (s *Service) Get(id uuid.UUID) (*iface.ProductResponse, error) {
 	p, err := s.find(id)
 	if err != nil {
 		return nil, err
@@ -47,10 +47,10 @@ func (s *Service) Get(id uuid.UUID) (*ProductResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) Create(req CreateProductRequest) (*ProductResponse, error) {
+func (s *Service) Create(req iface.CreateProductRequest) (*iface.ProductResponse, error) {
 	sku := strings.TrimSpace(req.SKU)
 	var count int64
-	if err := s.db.Model(&Product{}).Where("sku = ?", sku).Count(&count).Error; err != nil {
+	if err := s.db.Model(&repository.Product{}).Where("sku = ?", sku).Count(&count).Error; err != nil {
 		return nil, err
 	}
 	if count > 0 {
@@ -63,13 +63,13 @@ func (s *Service) Create(req CreateProductRequest) (*ProductResponse, error) {
 			return nil, common.NewAppError(http.StatusConflict, "Barcode '"+bc.Barcode+"' is already in use")
 		}
 	}
-	p := Product{
+	p := repository.Product{
 		SKU:      sku,
 		Name:     strings.TrimSpace(req.Name),
 		Brand:    trimPtr(req.Brand),
 		Price:    req.Price,
 		ImageURL: trimPtr(req.ImageURL),
-		Source:   SourceManual,
+		Source:   iface.SourceManual,
 		Active:   true,
 		Barcodes: buildBarcodes(req.Barcodes),
 	}
@@ -82,7 +82,7 @@ func (s *Service) Create(req CreateProductRequest) (*ProductResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) Update(id uuid.UUID, req UpdateProductRequest) (*ProductResponse, error) {
+func (s *Service) Update(id uuid.UUID, req iface.UpdateProductRequest) (*iface.ProductResponse, error) {
 	p, err := s.find(id)
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (s *Service) Update(id uuid.UUID, req UpdateProductRequest) (*ProductRespon
 					return common.NewAppError(http.StatusConflict, "Barcode '"+bc.Barcode+"' belongs to another product")
 				}
 			}
-			if err := tx.Where("product_id = ?", p.ID).Delete(&ProductBarcode{}).Error; err != nil {
+			if err := tx.Where("product_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {
 				return err
 			}
 			p.Barcodes = buildBarcodes(*req.Barcodes)
@@ -128,10 +128,8 @@ func (s *Service) Update(id uuid.UUID, req UpdateProductRequest) (*ProductRespon
 	return &resp, nil
 }
 
-// ---- per-event availability ----
-
-func (s *Service) EventProducts(eventID uuid.UUID) ([]EventProductResponse, error) {
-	var eps []EventProduct
+func (s *Service) EventProducts(eventID uuid.UUID) ([]iface.EventProductResponse, error) {
+	var eps []repository.EventProduct
 	if err := s.db.Where("event_id = ? AND available = ?", eventID, true).Find(&eps).Error; err != nil {
 		return nil, err
 	}
@@ -139,26 +137,26 @@ func (s *Service) EventProducts(eventID uuid.UUID) ([]EventProductResponse, erro
 	for _, ep := range eps {
 		availableIDs[ep.ProductID] = true
 	}
-	var products []Product
+	var products []repository.Product
 	if err := s.preloaded().Order("sku").Find(&products).Error; err != nil {
 		return nil, err
 	}
-	out := make([]EventProductResponse, 0, len(products))
+	out := make([]iface.EventProductResponse, 0, len(products))
 	for i := range products {
-		out = append(out, EventProductResponse{Product: products[i].ToResponse(), Available: availableIDs[products[i].ID]})
+		out = append(out, iface.EventProductResponse{Product: products[i].ToResponse(), Available: availableIDs[products[i].ID]})
 	}
 	return out, nil
 }
 
-func (s *Service) SetAvailability(eventID, productID uuid.UUID, available bool) (*EventProductResponse, error) {
+func (s *Service) SetAvailability(eventID, productID uuid.UUID, available bool) (*iface.EventProductResponse, error) {
 	p, err := s.find(productID)
 	if err != nil {
 		return nil, err
 	}
-	var link EventProduct
+	var link repository.EventProduct
 	err = s.db.Where("event_id = ? AND product_id = ?", eventID, productID).First(&link).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		link = EventProduct{EventID: eventID, ProductID: productID}
+		link = repository.EventProduct{EventID: eventID, ProductID: productID}
 	} else if err != nil {
 		return nil, err
 	}
@@ -166,15 +164,13 @@ func (s *Service) SetAvailability(eventID, productID uuid.UUID, available bool) 
 	if err := s.db.Save(&link).Error; err != nil {
 		return nil, err
 	}
-	resp := EventProductResponse{Product: p.ToResponse(), Available: available}
+	resp := iface.EventProductResponse{Product: p.ToResponse(), Available: available}
 	return &resp, nil
 }
 
-// ---- snapshot / scan support ----
-
 // availableSnapshotEntities returns active products available for the event, ordered by sku.
-func (s *Service) availableSnapshotEntities(eventID uuid.UUID) ([]Product, error) {
-	var eps []EventProduct
+func (s *Service) availableSnapshotEntities(eventID uuid.UUID) ([]repository.Product, error) {
+	var eps []repository.EventProduct
 	if err := s.db.Where("event_id = ? AND available = ?", eventID, true).Find(&eps).Error; err != nil {
 		return nil, err
 	}
@@ -185,19 +181,19 @@ func (s *Service) availableSnapshotEntities(eventID uuid.UUID) ([]Product, error
 	for _, ep := range eps {
 		ids = append(ids, ep.ProductID)
 	}
-	var products []Product
+	var products []repository.Product
 	if err := s.preloaded().Where("id IN ? AND active = ?", ids, true).Order("sku").Find(&products).Error; err != nil {
 		return nil, err
 	}
 	return products, nil
 }
 
-func (s *Service) availableSnapshotProducts(eventID uuid.UUID) ([]ProductSnapshotDto, error) {
+func (s *Service) availableSnapshotProducts(eventID uuid.UUID) ([]iface.ProductSnapshotDto, error) {
 	products, err := s.availableSnapshotEntities(eventID)
 	if err != nil {
 		return nil, err
 	}
-	out := make([]ProductSnapshotDto, 0, len(products))
+	out := make([]iface.ProductSnapshotDto, 0, len(products))
 	for i := range products {
 		dto := products[i].ToSnapshotDto()
 		if s.stockRemaining != nil {
@@ -212,7 +208,6 @@ func (s *Service) availableSnapshotProducts(eventID uuid.UUID) ([]ProductSnapsho
 	return out, nil
 }
 
-// AvailableSnapshotProducts adapts the snapshot products to event.ProductProvider.
 func (s *Service) AvailableSnapshotProducts(eventID uuid.UUID) ([]any, error) {
 	dtos, err := s.availableSnapshotProducts(eventID)
 	if err != nil {
@@ -239,7 +234,7 @@ func (s *Service) AvailabilityFingerprint(eventID uuid.UUID) (string, error) {
 	return strings.Join(parts, ","), nil
 }
 
-func (s *Service) FindAvailableByBarcode(eventID uuid.UUID, barcode string) (*ProductResponse, error) {
+func (s *Service) FindAvailableByBarcode(eventID uuid.UUID, barcode string) (*iface.ProductResponse, error) {
 	productID, err := s.ownerOfBarcode(s.db, strings.TrimSpace(barcode))
 	if err != nil {
 		return nil, err
@@ -251,7 +246,7 @@ func (s *Service) FindAvailableByBarcode(eventID uuid.UUID, barcode string) (*Pr
 	if err != nil {
 		return nil, err
 	}
-	var link EventProduct
+	var link repository.EventProduct
 	err = s.db.Where("event_id = ? AND product_id = ?", eventID, *productID).First(&link).Error
 	notLinked := errors.Is(err, gorm.ErrRecordNotFound)
 	if err != nil && !notLinked {
@@ -264,7 +259,89 @@ func (s *Service) FindAvailableByBarcode(eventID uuid.UUID, barcode string) (*Pr
 	return &resp, nil
 }
 
-// ---- helpers ----
+func (s *Service) Find(id uuid.UUID) (*iface.SaleProduct, error) {
+	var p repository.Product
+	err := s.db.Preload("Variants").First(&p, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	sale := p.ToSale()
+	return &sale, nil
+}
+
+func (s *Service) All() ([]iface.SaleProduct, error) {
+	var products []repository.Product
+	if err := s.db.Order("sku").Find(&products).Error; err != nil {
+		return nil, err
+	}
+	out := make([]iface.SaleProduct, 0, len(products))
+	for i := range products {
+		out = append(out, products[i].ToSale())
+	}
+	return out, nil
+}
+
+// Upsert rewrites barcodes only when they changed, to avoid unique-constraint churn.
+func (s *Service) Upsert(tx database.Tx, in iface.SourceProduct) (bool, error) {
+	var p repository.Product
+	err := tx.Preload("Barcodes").Where("sku = ?", in.SKU).First(&p).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		p = repository.Product{
+			SKU: in.SKU, Name: in.Name, Brand: in.Brand, Price: in.Price, ImageURL: in.ImageURL,
+			WarehouseStock: in.StockQuantity, Source: iface.SourceERP, Active: true, Barcodes: sourceBarcodes(in.Barcodes),
+		}
+		return true, tx.Create(&p).Error
+	}
+	if err != nil {
+		return false, err
+	}
+	p.Name, p.Brand, p.Price, p.ImageURL = in.Name, in.Brand, in.Price, in.ImageURL
+	p.WarehouseStock, p.Source, p.UpdatedAt = in.StockQuantity, iface.SourceERP, nowUTC()
+	if barcodesChanged(p.Barcodes, in.Barcodes) {
+		if err := tx.Where("product_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {
+			return false, err
+		}
+		for _, b := range sourceBarcodes(in.Barcodes) {
+			b.ProductID = p.ID
+			if err := tx.Create(&b).Error; err != nil {
+				return false, err
+			}
+		}
+	}
+	return false, tx.Model(&p).Omit("Barcodes", "Variants").Save(&p).Error
+}
+
+// sourceBarcodes keeps ERP values as delivered (no trimming, unlike admin input).
+func sourceBarcodes(in []iface.BarcodeInput) []repository.ProductBarcode {
+	out := make([]repository.ProductBarcode, 0, len(in))
+	for _, b := range in {
+		out = append(out, repository.ProductBarcode{Barcode: b.Barcode, Label: b.Label})
+	}
+	return out
+}
+
+func barcodesChanged(current []repository.ProductBarcode, incoming []iface.BarcodeInput) bool {
+	cur := make(map[string]bool, len(current))
+	for _, c := range current {
+		cur[c.Barcode] = true
+	}
+	inc := make(map[string]bool, len(incoming))
+	for _, i := range incoming {
+		inc[i.Barcode] = true
+	}
+	if len(cur) != len(inc) {
+		return true
+	}
+	for k := range inc {
+		if !cur[k] {
+			return true
+		}
+	}
+	return false
+}
 
 func (s *Service) preloaded() *gorm.DB {
 	return s.db.
@@ -272,11 +349,11 @@ func (s *Service) preloaded() *gorm.DB {
 		Preload("Variants", func(db *gorm.DB) *gorm.DB { return db.Order("sku") })
 }
 
-func (s *Service) find(id uuid.UUID) (*Product, error) {
-	var p Product
+func (s *Service) find(id uuid.UUID) (*repository.Product, error) {
+	var p repository.Product
 	err := s.preloaded().First(&p, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, common.NewAppError(http.StatusNotFound, "Product not found")
+		return nil, common.NewAppError(http.StatusNotFound, "repository.Product not found")
 	}
 	if err != nil {
 		return nil, err
@@ -286,7 +363,7 @@ func (s *Service) find(id uuid.UUID) (*Product, error) {
 
 func (s *Service) barcodeFree(barcode string) (bool, error) {
 	var count int64
-	if err := s.db.Model(&ProductBarcode{}).Where("barcode = ?", barcode).Count(&count).Error; err != nil {
+	if err := s.db.Model(&repository.ProductBarcode{}).Where("barcode = ?", barcode).Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count == 0, nil
@@ -294,7 +371,7 @@ func (s *Service) barcodeFree(barcode string) (bool, error) {
 
 // ownerOfBarcode returns the product id owning a barcode, or nil if the barcode is unused.
 func (s *Service) ownerOfBarcode(tx *gorm.DB, barcode string) (*uuid.UUID, error) {
-	var bc ProductBarcode
+	var bc repository.ProductBarcode
 	err := tx.Where("barcode = ?", barcode).First(&bc).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -305,18 +382,18 @@ func (s *Service) ownerOfBarcode(tx *gorm.DB, barcode string) (*uuid.UUID, error
 	return &bc.ProductID, nil
 }
 
-func mapResponses(products []Product) []ProductResponse {
-	out := make([]ProductResponse, 0, len(products))
+func mapResponses(products []repository.Product) []iface.ProductResponse {
+	out := make([]iface.ProductResponse, 0, len(products))
 	for i := range products {
 		out = append(out, products[i].ToResponse())
 	}
 	return out
 }
 
-func buildBarcodes(inputs []BarcodeInput) []ProductBarcode {
-	out := make([]ProductBarcode, 0, len(inputs))
+func buildBarcodes(inputs []iface.BarcodeInput) []repository.ProductBarcode {
+	out := make([]repository.ProductBarcode, 0, len(inputs))
 	for _, in := range inputs {
-		out = append(out, ProductBarcode{Barcode: strings.TrimSpace(in.Barcode), Label: trimPtr(in.Label)})
+		out = append(out, repository.ProductBarcode{Barcode: strings.TrimSpace(in.Barcode), Label: trimPtr(in.Label)})
 	}
 	return out
 }

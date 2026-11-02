@@ -12,18 +12,22 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/product"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 )
 
 // Service holds stock allocation + the oversell-proof decrement — the Go analogue of Kotlin StockService.
 type Service struct {
-	db      *gorm.DB
-	summary *summaryCache
+	events   eventiface.Events
+	products productiface.Products
+	db       *gorm.DB
+	summary  *summaryCache
 }
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db, summary: newSummaryCache(SummaryTTL)} }
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products) *Service {
+	return &Service{db: db, events: events, products: products, summary: newSummaryCache(SummaryTTL)}
+}
 
 // InvalidateSummary drops the cached stock summaries for an event. Call it after any committed
 // change to the event's stock (order submit/cancel, allocation edit).
@@ -32,8 +36,8 @@ func (s *Service) InvalidateSummary(eventID uuid.UUID) { s.summary.invalidate(ev
 // ---- admin allocation ----
 
 func (s *Service) AllocationsForEvent(eventID uuid.UUID) ([]AllocationRow, error) {
-	var products []product.Product
-	if err := s.db.Order("sku").Find(&products).Error; err != nil {
+	products, err := s.products.All()
+	if err != nil {
 		return nil, err
 	}
 	byProduct, err := s.allocationsByProduct(eventID)
@@ -57,23 +61,20 @@ func (s *Service) AllocationsForEvent(eventID uuid.UUID) ([]AllocationRow, error
 
 // SetAllocation sets how much of a product is allocated to an event. Allowed only while DRAFT.
 func (s *Service) SetAllocation(eventID, productID uuid.UUID, allocatedQty int) (*AllocationRow, error) {
-	var ev event.Event
-	if err := s.db.First(&ev, "id = ?", eventID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, common.NewAppError(http.StatusNotFound, "Event not found")
-		}
+	ev, err := s.events.Get(eventID)
+	if err != nil {
 		return nil, err
 	}
-	if ev.Status != event.StatusDraft {
+	if ev.Status != eventiface.StatusDraft {
 		return nil, common.NewAppError(http.StatusConflict,
 			"Allocations are locked once an event leaves DRAFT (status: "+string(ev.Status)+")")
 	}
-	var p product.Product
-	if err := s.db.First(&p, "id = ?", productID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, common.NewAppError(http.StatusNotFound, "Product not found")
-		}
+	p, err := s.products.Find(productID)
+	if err != nil {
 		return nil, err
+	}
+	if p == nil {
+		return nil, common.NewAppError(http.StatusNotFound, "Product not found")
 	}
 	if allocatedQty > p.WarehouseStock {
 		return nil, common.NewAppError(http.StatusBadRequest,
@@ -185,7 +186,7 @@ func (s *Service) baLevelsForEvent(eventID uuid.UUID) ([]BaStockLevel, error) {
 	return rows, nil
 }
 
-// Remaining is the remaining quantity for a single product (enriches the snapshot). event.StockProvider.
+// Remaining is the remaining quantity for a single product (enriches the snapshot).
 func (s *Service) Remaining(eventID, productID uuid.UUID) (int, error) {
 	a, err := s.findAllocation(s.db, eventID, productID)
 	if err != nil {
@@ -198,7 +199,7 @@ func (s *Service) Remaining(eventID, productID uuid.UUID) (int, error) {
 }
 
 // AllocationFingerprint is a fingerprint of allocation *configuration* (not soldQty), folded into
-// the snapshot version. event.StockProvider.
+// the snapshot version.
 func (s *Service) AllocationFingerprint(eventID uuid.UUID) (string, error) {
 	var allocs []EventStockAllocation
 	if err := s.db.Where("event_id = ?", eventID).Find(&allocs).Error; err != nil {
@@ -294,12 +295,12 @@ func (s *Service) allocationsByProduct(eventID uuid.UUID) (map[uuid.UUID]*EventS
 	return m, nil
 }
 
-func (s *Service) productsByID() (map[uuid.UUID]product.Product, error) {
-	var products []product.Product
-	if err := s.db.Find(&products).Error; err != nil {
+func (s *Service) productsByID() (map[uuid.UUID]productiface.SaleProduct, error) {
+	products, err := s.products.All()
+	if err != nil {
 		return nil, err
 	}
-	m := make(map[uuid.UUID]product.Product, len(products))
+	m := make(map[uuid.UUID]productiface.SaleProduct, len(products))
 	for _, p := range products {
 		m[p.ID] = p
 	}

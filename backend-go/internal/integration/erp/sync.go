@@ -1,14 +1,13 @@
 package erp
 
 import (
-	"errors"
 	"log"
 	"strconv"
 	"time"
 
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/product"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 )
 
@@ -37,12 +36,13 @@ type SyncResult struct {
 // SyncService pulls products from the active Source and upserts them by SKU (idempotent). Barcodes
 // are rewritten only when they actually changed, to avoid unique-constraint churn.
 type SyncService struct {
-	source Source
-	db     *gorm.DB
+	source   Source
+	db       *gorm.DB
+	products productiface.Products
 }
 
-func NewSyncService(source Source, db *gorm.DB) *SyncService {
-	return &SyncService{source: source, db: db}
+func NewSyncService(source Source, db *gorm.DB, products productiface.Products) *SyncService {
+	return &SyncService{source: source, db: db, products: products}
 }
 
 func (s *SyncService) Sync() SyncResult {
@@ -59,45 +59,15 @@ func (s *SyncService) Sync() SyncResult {
 	created, updated := 0, 0
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
 		for _, erp := range products {
-			var existing product.Product
-			err := tx.Preload("Barcodes").Where("sku = ?", erp.SKU).First(&existing).Error
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				p := product.Product{
-					SKU: erp.SKU, Name: erp.Name, Brand: erp.Brand, Price: erp.Price,
-					ImageURL: erp.ImageURL, WarehouseStock: erp.StockQuantity, Source: product.SourceERP,
-					Active: true, Barcodes: toBarcodes(erp.Barcodes),
-				}
-				if err := tx.Create(&p).Error; err != nil {
-					return err
-				}
-				created++
-				continue
-			}
+			isNew, err := s.products.Upsert(tx, erp.toSource())
 			if err != nil {
 				return err
 			}
-			existing.Name = erp.Name
-			existing.Brand = erp.Brand
-			existing.Price = erp.Price
-			existing.ImageURL = erp.ImageURL
-			existing.WarehouseStock = erp.StockQuantity
-			existing.Source = product.SourceERP
-			existing.UpdatedAt = time.Now().UTC()
-			if barcodesChanged(existing.Barcodes, erp.Barcodes) {
-				if err := tx.Where("product_id = ?", existing.ID).Delete(&product.ProductBarcode{}).Error; err != nil {
-					return err
-				}
-				for _, b := range toBarcodes(erp.Barcodes) {
-					b.ProductID = existing.ID
-					if err := tx.Create(&b).Error; err != nil {
-						return err
-					}
-				}
+			if isNew {
+				created++
+			} else {
+				updated++
 			}
-			if err := tx.Model(&existing).Omit("Barcodes", "Variants").Save(&existing).Error; err != nil {
-				return err
-			}
-			updated++
 		}
 		return nil
 	})
@@ -147,32 +117,15 @@ func (s *SyncService) saveStatus(result SyncResult) {
 	s.db.Save(&st)
 }
 
-func toBarcodes(bs []Barcode) []product.ProductBarcode {
-	out := make([]product.ProductBarcode, 0, len(bs))
-	for _, b := range bs {
-		out = append(out, product.ProductBarcode{Barcode: b.Code, Label: b.Label})
+func (p Product) toSource() productiface.SourceProduct {
+	barcodes := make([]productiface.BarcodeInput, 0, len(p.Barcodes))
+	for _, b := range p.Barcodes {
+		barcodes = append(barcodes, productiface.BarcodeInput{Barcode: b.Code, Label: b.Label})
 	}
-	return out
-}
-
-func barcodesChanged(current []product.ProductBarcode, incoming []Barcode) bool {
-	cur := make(map[string]bool, len(current))
-	for _, c := range current {
-		cur[c.Barcode] = true
+	return productiface.SourceProduct{
+		SKU: p.SKU, Name: p.Name, Brand: p.Brand, Price: p.Price, ImageURL: p.ImageURL,
+		StockQuantity: p.StockQuantity, Barcodes: barcodes,
 	}
-	inc := make(map[string]bool, len(incoming))
-	for _, i := range incoming {
-		inc[i.Code] = true
-	}
-	if len(cur) != len(inc) {
-		return true
-	}
-	for k := range inc {
-		if !cur[k] {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *SyncService) LastRun() syncconfigiface.LastRun {

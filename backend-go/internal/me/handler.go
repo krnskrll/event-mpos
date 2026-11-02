@@ -10,11 +10,11 @@ import (
 	"github.com/google/uuid"
 
 	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	memberiface "github.com/krnskrll/event-mpos/internal/member/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/product"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/stock"
@@ -36,8 +36,8 @@ type SnapshotHashResponse struct {
 }
 
 type Handler struct {
-	events     *event.Service
-	products   *product.Service
+	events     eventiface.Events
+	products   productiface.Products
 	members    memberiface.Members
 	stock      *stock.Service
 	promotions *promotion.Service
@@ -45,7 +45,7 @@ type Handler struct {
 	receipts   *receipt.Service
 }
 
-func NewHandler(events *event.Service, products *product.Service, members memberiface.Members, stk *stock.Service, promotions *promotion.Service, orders *order.Service, receipts *receipt.Service) *Handler {
+func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk *stock.Service, promotions *promotion.Service, orders *order.Service, receipts *receipt.Service) *Handler {
 	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions, orders: orders, receipts: receipts}
 }
 
@@ -105,7 +105,7 @@ func (h *Handler) Snapshot(c *gin.Context) {
 			return
 		}
 		if version == current {
-			c.JSON(http.StatusOK, event.SnapshotStatus{Changed: false, Version: version})
+			c.JSON(http.StatusOK, eventiface.SnapshotStatus{Changed: false, Version: version})
 			return
 		}
 	}

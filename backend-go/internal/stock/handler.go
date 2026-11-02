@@ -6,7 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
@@ -62,10 +62,10 @@ func (h *AdminHandler) SetAllocation(c *gin.Context) {
 // WarehouseHandler: pick an event + near-real-time remaining stock (under /api/warehouse).
 type WarehouseHandler struct {
 	svc    *Service
-	events *event.Service
+	events eventiface.Events
 }
 
-func NewWarehouseHandler(svc *Service, events *event.Service) *WarehouseHandler {
+func NewWarehouseHandler(svc *Service, events eventiface.Events) *WarehouseHandler {
 	return &WarehouseHandler{svc: svc, events: events}
 }
 

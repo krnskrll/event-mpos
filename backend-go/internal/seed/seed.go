@@ -10,12 +10,13 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
+	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
+	"github.com/krnskrll/event-mpos/internal/integration/erp"
 	membersrc "github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/security"
-	"github.com/krnskrll/event-mpos/internal/product"
-	"github.com/krnskrll/event-mpos/internal/product/erp"
+	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -70,28 +71,28 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 	// EV01 — the active demo event, with the BA assigned to it.
 	start := common.NewDate(2026, time.July, 1)
 	end := common.NewDate(2026, time.July, 14)
-	ev := event.Event{
+	ev := eventrepo.Event{
 		Code:      "EV01",
 		Name:      "Mid-Year Beauty Roadshow",
 		StartDate: &start,
 		EndDate:   &end,
-		Status:    event.StatusActive,
+		Status:    eventiface.StatusActive,
 	}
 	if err := db.Create(&ev).Error; err != nil {
 		return err
 	}
-	if err := db.Create(&event.BaEventAssignment{UserID: baID, EventID: ev.ID, Active: true}).Error; err != nil {
+	if err := db.Create(&eventrepo.BaEventAssignment{UserID: baID, EventID: ev.ID, Active: true}).Error; err != nil {
 		return err
 	}
 
 	// Pull the initial catalogue from the (mock) ERP and make every product available for EV01.
 	erpSync.Sync()
-	var products []product.Product
+	var products []productrepo.Product
 	if err := db.Find(&products).Error; err != nil {
 		return err
 	}
 	for i := range products {
-		if err := db.Create(&product.EventProduct{EventID: ev.ID, ProductID: products[i].ID, Available: true}).Error; err != nil {
+		if err := db.Create(&productrepo.EventProduct{EventID: ev.ID, ProductID: products[i].ID, Available: true}).Error; err != nil {
 			return err
 		}
 		// Allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning.
@@ -105,10 +106,10 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 	}
 
 	// Give the lipstick a few shade variants (one with a price override) to exercise variants.
-	var lipstick product.Product
+	var lipstick productrepo.Product
 	if err := db.Where("sku = ?", "SKU-1002").First(&lipstick).Error; err == nil {
 		plum := decimal.RequireFromString("89000")
-		variants := []product.ProductVariant{
+		variants := []productrepo.ProductVariant{
 			{ProductID: lipstick.ID, Name: "Rose", SKU: "SKU-1002-ROSE", Active: true},
 			{ProductID: lipstick.ID, Name: "Coral", SKU: "SKU-1002-CORAL", Active: true},
 			{ProductID: lipstick.ID, Name: "Plum (limited)", SKU: "SKU-1002-PLUM", PriceOverride: &plum, Active: true},

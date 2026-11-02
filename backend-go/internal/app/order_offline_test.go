@@ -8,7 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -69,7 +69,7 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 	if _, err := deviceOrder(5, time.Now().Add(time.Minute)); testutil.StatusOf(err) != http.StatusConflict {
 		t.Errorf("order created after close: %v, want 409", err)
 	}
-	a.DB.Model(&event.Event{}).Where("id = ?", ev.ID).Update("closed_at", time.Now().Add(-25*time.Hour))
+	a.DB.Model(&eventrepo.Event{}).Where("id = ?", ev.ID).Update("closed_at", time.Now().Add(-25*time.Hour))
 	if _, err := deviceOrder(6, time.Now().Add(-26*time.Hour)); testutil.StatusOf(err) != http.StatusConflict {
 		t.Errorf("upload more than 24h after close: %v, want 409", err)
 	}

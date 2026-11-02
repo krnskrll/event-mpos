@@ -11,7 +11,10 @@ import (
 	"github.com/krnskrll/event-mpos/internal/audit"
 	authhandler "github.com/krnskrll/event-mpos/internal/auth/handler"
 	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventhandler "github.com/krnskrll/event-mpos/internal/event/handler"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
+	eventsvc "github.com/krnskrll/event-mpos/internal/event/service"
+	"github.com/krnskrll/event-mpos/internal/integration/erp"
 	"github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	"github.com/krnskrll/event-mpos/internal/me"
 	memberhandler "github.com/krnskrll/event-mpos/internal/member/handler"
@@ -20,8 +23,8 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
 	"github.com/krnskrll/event-mpos/internal/platform/realtime"
-	"github.com/krnskrll/event-mpos/internal/product"
-	"github.com/krnskrll/event-mpos/internal/product/erp"
+	producthandler "github.com/krnskrll/event-mpos/internal/product/handler"
+	productsvc "github.com/krnskrll/event-mpos/internal/product/service"
 	"github.com/krnskrll/event-mpos/internal/promotion"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/report"
@@ -39,8 +42,8 @@ type App struct {
 
 	Users      *usersvc.Service
 	Auth       *authsvc.Service
-	Events     *event.Service
-	Products   *product.Service
+	Events     *eventsvc.Service
+	Products   *productsvc.Service
 	ERPSync    *erp.SyncService
 	Members    *membersvc.Service
 	MemberSync *membersrc.Service
@@ -67,18 +70,18 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	refreshService := authsvc.NewRefreshService(db, cfg.RefreshTokenTTLDays)
 	a.Users = usersvc.NewService(db)
 	a.Auth = authsvc.NewService(a.Users, jwtService, refreshService)
-	a.Events = event.NewService(db, a.Users)
-	a.Products = product.NewService(db)
+	a.Events = eventsvc.NewService(db, a.Users)
+	a.Products = productsvc.NewService(db)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
-	a.ERPSync = erp.NewSyncService(erpSource, db)
+	a.ERPSync = erp.NewSyncService(erpSource, db, a.Products)
 	a.Members = membersvc.NewService(db)
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
-	a.Stock = stock.NewService(db)
-	a.Promotions = promotion.NewService(db)
+	a.Stock = stock.NewService(db, a.Events, a.Products)
+	a.Promotions = promotion.NewService(db, a.Products)
 	a.Audit = audit.NewService(db, a.Users)
 	a.Receipts = receipt.NewService(db, a.Audit)
-	a.Orders = order.NewService(db, a.Stock, a.Promotions, a.Audit, a.Users)
+	a.Orders = order.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
 
 	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.
 	a.Hub = realtime.NewHub()
@@ -88,7 +91,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	})
 
 	// Reporting + runtime-editable sync schedules with a dynamic cron scheduler.
-	a.Reports = report.NewService(db)
+	a.Reports = report.NewService(db, a.Events, a.Products)
 	a.SyncConfig = syncsvc.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
 	if err := a.SyncConfig.SeedDefaults(); err != nil {
 		return nil, err
@@ -100,7 +103,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 
 	// Snapshot contributors: all four domains live now. Products carry remaining event stock.
 	a.Products.SetStockRemaining(a.Stock.Remaining)
-	a.Events.SetProviders(event.Providers{
+	a.Events.SetProviders(eventiface.Providers{
 		Products: a.Products, Members: a.Members, Stock: a.Stock, Promotions: a.Promotions,
 	})
 
@@ -114,8 +117,8 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.Engine {
 	authHandler := authhandler.NewHandler(a.Auth)
 	userHandler := userhandler.NewHandler(a.Users)
-	eventHandler := event.NewHandler(a.Events)
-	productHandler := product.NewHandler(a.Products)
+	eventHandler := eventhandler.NewHandler(a.Events)
+	productHandler := producthandler.NewHandler(a.Products)
 	erpHandler := erp.NewHandler(a.ERPSync)
 	memberHandler := memberhandler.NewHandler(a.Members)
 	memberSyncHandler := membersrc.NewHandler(a.MemberSync)

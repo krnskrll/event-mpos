@@ -13,15 +13,18 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/product"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 )
 
 // Service holds promotion CRUD + the authoritative quote — the Go analogue of Kotlin PromotionService.
 type Service struct {
-	db *gorm.DB
+	db       *gorm.DB
+	products productiface.Products
 }
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func NewService(db *gorm.DB, products productiface.Products) *Service {
+	return &Service{db: db, products: products}
+}
 
 func (s *Service) ListForEvent(eventID uuid.UUID) ([]PromotionResponse, error) {
 	var promos []Promotion
@@ -52,7 +55,7 @@ func (s *Service) BestFor(eventID uuid.UUID, cart []CartLine, now time.Time) (*A
 	return BestPromotion(cart, promos, now), nil
 }
 
-// SnapshotPromotions returns active promotions as compact snapshot DTOs (event.PromotionProvider).
+// SnapshotPromotions returns active promotions as compact snapshot DTOs.
 func (s *Service) SnapshotPromotions(eventID uuid.UUID) ([]any, error) {
 	promos, err := s.activeForEvent(eventID)
 	if err != nil {
@@ -139,12 +142,12 @@ func (s *Service) Quote(eventID uuid.UUID, lines []QuoteLine) (*QuoteResponse, e
 		if line.Qty <= 0 {
 			continue
 		}
-		var p product.Product
-		if err := s.db.First(&p, "id = ?", line.ProductID).Error; err != nil {
-			if errors.Is(err, gorm.ErrRecordNotFound) {
-				continue
-			}
+		p, err := s.products.Find(line.ProductID)
+		if err != nil {
 			return nil, err
+		}
+		if p == nil {
+			continue
 		}
 		cart = append(cart, CartLine{ProductID: p.ID, UnitPrice: p.Price, Qty: line.Qty})
 	}

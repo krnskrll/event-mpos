@@ -1,4 +1,4 @@
-package product
+package handler
 
 import (
 	"net/http"
@@ -7,14 +7,15 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/product/iface"
+	"github.com/krnskrll/event-mpos/internal/product/service"
 )
 
-// Handler exposes the admin product + per-event availability surface under /api/admin.
 type Handler struct {
-	svc *Service
+	svc *service.Service
 }
 
-func NewHandler(svc *Service) *Handler {
+func NewHandler(svc *service.Service) *Handler {
 	return &Handler{svc: svc}
 }
 
@@ -42,7 +43,7 @@ func (h *Handler) Get(c *gin.Context) {
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	var req CreateProductRequest
+	var req iface.CreateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -69,7 +70,7 @@ func (h *Handler) Update(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid product id")
 		return
 	}
-	var req UpdateProductRequest
+	var req iface.UpdateProductRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -117,7 +118,7 @@ func (h *Handler) SetAvailability(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid product id")
 		return
 	}
-	var req SetAvailabilityRequest
+	var req iface.SetAvailabilityRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -130,7 +131,7 @@ func (h *Handler) SetAvailability(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func validateBarcodes(inputs []BarcodeInput) (string, bool) {
+func validateBarcodes(inputs []iface.BarcodeInput) (string, bool) {
 	for _, b := range inputs {
 		if b.Barcode == "" {
 			return "barcodes: barcode must not be blank", false

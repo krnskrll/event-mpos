@@ -1,4 +1,4 @@
-package event
+package service
 
 import (
 	"crypto/sha256"
@@ -12,53 +12,62 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
+	"github.com/krnskrll/event-mpos/internal/event/iface"
+	"github.com/krnskrll/event-mpos/internal/event/repository"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
-// Service holds event business logic — the Go analogue of Kotlin EventService.
 type Service struct {
 	db        *gorm.DB
 	users     useriface.Users
-	providers Providers
+	providers iface.Providers
 }
+
+var _ iface.Events = (*Service)(nil)
 
 func NewService(db *gorm.DB, users useriface.Users) *Service {
 	return &Service{db: db, users: users}
 }
 
-// SetProviders wires the cross-domain snapshot contributors once their phases come online.
-func (s *Service) SetProviders(p Providers) { s.providers = p }
+func (s *Service) SetProviders(p iface.Providers) { s.providers = p }
 
-// ---- admin operations ----
+func (s *Service) Get(id uuid.UUID) (*iface.EventResponse, error) {
+	e, err := s.find(id)
+	if err != nil {
+		return nil, err
+	}
+	resp := e.ToResponse()
+	return &resp, nil
+}
 
-func (s *Service) ListEvents() ([]EventResponse, error) {
-	var events []Event
+func (s *Service) ListEvents() ([]iface.EventResponse, error) {
+	var events []repository.Event
 	if err := s.db.Order("created_at").Find(&events).Error; err != nil {
 		return nil, err
 	}
-	out := make([]EventResponse, 0, len(events))
+	out := make([]iface.EventResponse, 0, len(events))
 	for i := range events {
 		out = append(out, events[i].ToResponse())
 	}
 	return out, nil
 }
 
-func (s *Service) CreateEvent(req CreateEventRequest) (*EventResponse, error) {
+func (s *Service) CreateEvent(req iface.CreateEventRequest) (*iface.EventResponse, error) {
 	code := strings.TrimSpace(req.Code)
 	var count int64
-	if err := s.db.Model(&Event{}).Where("code = ?", code).Count(&count).Error; err != nil {
+	if err := s.db.Model(&repository.Event{}).Where("code = ?", code).Count(&count).Error; err != nil {
 		return nil, err
 	}
 	if count > 0 {
 		return nil, common.NewAppError(http.StatusConflict, "An event with code '"+req.Code+"' already exists")
 	}
-	e := Event{
+	e := repository.Event{
 		Code:      code,
 		Name:      strings.TrimSpace(req.Name),
 		StartDate: req.StartDate,
 		EndDate:   req.EndDate,
-		Status:    StatusDraft,
+		Status:    iface.StatusDraft,
 	}
 	if err := s.db.Create(&e).Error; err != nil {
 		return nil, err
@@ -67,12 +76,12 @@ func (s *Service) CreateEvent(req CreateEventRequest) (*EventResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) UpdateEvent(id uuid.UUID, req UpdateEventRequest) (*EventResponse, error) {
+func (s *Service) UpdateEvent(id uuid.UUID, req iface.UpdateEventRequest) (*iface.EventResponse, error) {
 	e, err := s.find(id)
 	if err != nil {
 		return nil, err
 	}
-	if e.Status == StatusClosed {
+	if e.Status == iface.StatusClosed {
 		return nil, common.NewAppError(http.StatusConflict, "A closed event can no longer be edited")
 	}
 	if req.Name != nil {
@@ -92,7 +101,7 @@ func (s *Service) UpdateEvent(id uuid.UUID, req UpdateEventRequest) (*EventRespo
 	return &resp, nil
 }
 
-func (s *Service) ChangeStatus(id uuid.UUID, target EventStatus) (*EventResponse, error) {
+func (s *Service) ChangeStatus(id uuid.UUID, target iface.EventStatus) (*iface.EventResponse, error) {
 	e, err := s.find(id)
 	if err != nil {
 		return nil, err
@@ -102,7 +111,7 @@ func (s *Service) ChangeStatus(id uuid.UUID, target EventStatus) (*EventResponse
 	}
 	e.Status = target
 	e.UpdatedAt = time.Now().UTC()
-	if target == StatusClosed {
+	if target == iface.StatusClosed {
 		e.ClosedAt = &e.UpdatedAt
 	}
 	if err := s.db.Save(e).Error; err != nil {
@@ -114,7 +123,7 @@ func (s *Service) ChangeStatus(id uuid.UUID, target EventStatus) (*EventResponse
 
 // ---- BA assignment ----
 
-func (s *Service) AssignBaToEvent(userID, eventID uuid.UUID) (*EventResponse, error) {
+func (s *Service) AssignBaToEvent(userID, eventID uuid.UUID) (*iface.EventResponse, error) {
 	u, err := s.users.FindByID(userID)
 	if err != nil {
 		return nil, err
@@ -143,7 +152,7 @@ func (s *Service) AssignBaToEvent(userID, eventID uuid.UUID) (*EventResponse, er
 			return nil, err
 		}
 	}
-	if err := s.db.Create(&BaEventAssignment{UserID: userID, EventID: eventID, Active: true}).Error; err != nil {
+	if err := s.db.Create(&repository.BaEventAssignment{UserID: userID, EventID: eventID, Active: true}).Error; err != nil {
 		return nil, err
 	}
 	resp := e.ToResponse()
@@ -151,7 +160,7 @@ func (s *Service) AssignBaToEvent(userID, eventID uuid.UUID) (*EventResponse, er
 }
 
 // ActiveEventForUser returns the BA's single active event, or nil if none.
-func (s *Service) ActiveEventForUser(userID uuid.UUID) (*EventResponse, error) {
+func (s *Service) ActiveEventForUser(userID uuid.UUID) (*iface.EventResponse, error) {
 	a, err := s.activeAssignment(userID)
 	if err != nil || a == nil {
 		return nil, err
@@ -169,12 +178,12 @@ func (s *Service) ActiveEventForUser(userID uuid.UUID) (*EventResponse, error) {
 }
 
 // AssignedEventsForUser returns all events a BA has been assigned to (history + current).
-func (s *Service) AssignedEventsForUser(userID uuid.UUID) ([]EventResponse, error) {
-	var assignments []BaEventAssignment
+func (s *Service) AssignedEventsForUser(userID uuid.UUID) ([]iface.EventResponse, error) {
+	var assignments []repository.BaEventAssignment
 	if err := s.db.Where("user_id = ?", userID).Order("assigned_at").Find(&assignments).Error; err != nil {
 		return nil, err
 	}
-	out := make([]EventResponse, 0, len(assignments))
+	out := make([]iface.EventResponse, 0, len(assignments))
 	for _, a := range assignments {
 		e, err := s.find(a.EventID)
 		if err != nil {
@@ -190,7 +199,7 @@ func (s *Service) AssignedEventsForUser(userID uuid.UUID) ([]EventResponse, erro
 
 func (s *Service) RequireAssigned(userID, eventID uuid.UUID) error {
 	var count int64
-	if err := s.db.Model(&BaEventAssignment{}).
+	if err := s.db.Model(&repository.BaEventAssignment{}).
 		Where("user_id = ? AND event_id = ?", userID, eventID).Count(&count).Error; err != nil {
 		return err
 	}
@@ -204,14 +213,14 @@ func (s *Service) RequireAssigned(userID, eventID uuid.UUID) error {
 
 // SnapshotForEvent builds the BA event snapshot. Selling (and therefore a snapshot) is only
 // available while the event is ACTIVE.
-func (s *Service) SnapshotForEvent(eventID uuid.UUID) (*EventSnapshot, error) {
+func (s *Service) SnapshotForEvent(eventID uuid.UUID) (*iface.EventSnapshot, error) {
 	e, err := s.find(eventID)
 	if err != nil {
 		return nil, err
 	}
-	if e.Status != StatusActive {
+	if e.Status != iface.StatusActive {
 		return nil, common.NewAppError(http.StatusConflict,
-			"Event '"+e.Code+"' is "+string(e.Status)+" — selling is only allowed while ACTIVE")
+			"repository.Event '"+e.Code+"' is "+string(e.Status)+" — selling is only allowed while ACTIVE")
 	}
 	var products, members, promotions []any
 	if s.providers.Products != nil {
@@ -233,7 +242,7 @@ func (s *Service) SnapshotForEvent(eventID uuid.UUID) (*EventSnapshot, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &EventSnapshot{
+	return &iface.EventSnapshot{
 		Event:       e.ToResponse(),
 		Version:     version,
 		Products:    emptyIfNil(products),
@@ -256,7 +265,7 @@ func (s *Service) SnapshotVersion(eventID uuid.UUID) (string, error) {
 // versionOf hashes everything that should trigger a device re-sync: the event's own mutable fields
 // plus each domain's fingerprint (product availability, member directory, allocation config,
 // promotion config). Mirrors Kotlin EventService.versionOf — SHA-256 hex, first 16 chars.
-func (s *Service) versionOf(e *Event) (string, error) {
+func (s *Service) versionOf(e *repository.Event) (string, error) {
 	productFp, err := s.productFingerprint(e.ID)
 	if err != nil {
 		return "", err
@@ -319,11 +328,11 @@ func (s *Service) promotionFingerprint(eventID uuid.UUID) (string, error) {
 
 // ---- helpers ----
 
-func (s *Service) find(id uuid.UUID) (*Event, error) {
-	var e Event
+func (s *Service) find(id uuid.UUID) (*repository.Event, error) {
+	var e repository.Event
 	err := s.db.First(&e, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, common.NewAppError(http.StatusNotFound, "Event not found")
+		return nil, common.NewAppError(http.StatusNotFound, "repository.Event not found")
 	}
 	if err != nil {
 		return nil, err
@@ -331,8 +340,8 @@ func (s *Service) find(id uuid.UUID) (*Event, error) {
 	return &e, nil
 }
 
-func (s *Service) activeAssignment(userID uuid.UUID) (*BaEventAssignment, error) {
-	var a BaEventAssignment
+func (s *Service) activeAssignment(userID uuid.UUID) (*repository.BaEventAssignment, error) {
+	var a repository.BaEventAssignment
 	err := s.db.Where("user_id = ? AND active = ?", userID, true).First(&a).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil

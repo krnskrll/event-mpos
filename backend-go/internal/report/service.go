@@ -3,7 +3,6 @@
 package report
 
 import (
-	"errors"
 	"net/http"
 	"sort"
 	"strconv"
@@ -14,10 +13,10 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/event"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/product"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	"github.com/krnskrll/event-mpos/internal/stock"
 )
 
@@ -33,12 +32,12 @@ type ProductReportRow struct {
 }
 
 type EndOfEventReport struct {
-	EventID     uuid.UUID         `json:"eventId"`
-	EventCode   string            `json:"eventCode"`
-	EventName   string            `json:"eventName"`
-	Status      event.EventStatus `json:"status"`
-	GeneratedAt time.Time         `json:"generatedAt"`
-	TotalOrders int               `json:"totalOrders"`
+	EventID     uuid.UUID              `json:"eventId"`
+	EventCode   string                 `json:"eventCode"`
+	EventName   string                 `json:"eventName"`
+	Status      eventiface.EventStatus `json:"status"`
+	GeneratedAt time.Time              `json:"generatedAt"`
+	TotalOrders int                    `json:"totalOrders"`
 	// CancelledOrders are excluded from every other total (orders, items, revenue, discount).
 	CancelledOrders int `json:"cancelledOrders"`
 	// Orders uploaded after the event closed (D2) and orders that sold past the allocation (D1).
@@ -51,21 +50,22 @@ type EndOfEventReport struct {
 }
 
 type Service struct {
-	db *gorm.DB
+	db       *gorm.DB
+	events   eventiface.Events
+	products productiface.Products
 }
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products) *Service {
+	return &Service{db: db, events: events, products: products}
+}
 
 func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
-	var ev event.Event
-	if err := s.db.First(&ev, "id = ?", eventID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, common.NewAppError(http.StatusNotFound, "Event not found")
-		}
+	ev, err := s.events.Get(eventID)
+	if err != nil {
 		return nil, err
 	}
 	// The final report is only meaningful once selling has stopped.
-	if ev.Status != event.StatusClosed {
+	if ev.Status != eventiface.StatusClosed {
 		return nil, common.NewAppError(http.StatusConflict,
 			"The end-of-event report is available once "+ev.Code+" is CLOSED (it is "+string(ev.Status)+").")
 	}
@@ -148,8 +148,7 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 		if a != nil {
 			row.SKU, row.Name, row.UnitsSold, row.Revenue = a.sku, a.name, a.qty, a.revenue.Round(2)
 		} else {
-			var p product.Product
-			if err := s.db.First(&p, "id = ?", pid).Error; err == nil {
+			if p, err := s.products.Find(pid); err == nil && p != nil {
 				row.SKU, row.Name = p.SKU, p.Name
 			} else {
 				row.SKU, row.Name = "—", "(unknown)"

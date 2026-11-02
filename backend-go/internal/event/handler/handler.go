@@ -1,4 +1,4 @@
-package event
+package handler
 
 import (
 	"net/http"
@@ -6,15 +6,16 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	"github.com/krnskrll/event-mpos/internal/event/iface"
+	"github.com/krnskrll/event-mpos/internal/event/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
-// Handler exposes the admin event-management endpoints under /api/admin.
 type Handler struct {
-	svc *Service
+	svc *service.Service
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) List(c *gin.Context) {
 	events, err := h.svc.ListEvents()
@@ -26,7 +27,7 @@ func (h *Handler) List(c *gin.Context) {
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	var req CreateEventRequest
+	var req iface.CreateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -45,7 +46,7 @@ func (h *Handler) Update(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
 		return
 	}
-	var req UpdateEventRequest
+	var req iface.UpdateEventRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -64,12 +65,12 @@ func (h *Handler) ChangeStatus(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
 		return
 	}
-	var req ChangeStatusRequest
+	var req iface.ChangeStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
 	}
-	status, ok := ParseStatus(string(req.Status))
+	status, ok := iface.ParseStatus(string(req.Status))
 	if !ok {
 		common.AbortError(c, http.StatusBadRequest, "status: must be one of DRAFT, ACTIVE, CLOSED")
 		return
@@ -83,7 +84,7 @@ func (h *Handler) ChangeStatus(c *gin.Context) {
 }
 
 func (h *Handler) AssignBa(c *gin.Context) {
-	var req AssignBaRequest
+	var req iface.AssignBaRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
