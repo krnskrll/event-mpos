@@ -10,24 +10,28 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/common"
-	"github.com/krnskrll/event-mpos/internal/event"
-	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
-	"github.com/krnskrll/event-mpos/internal/product"
-	"github.com/krnskrll/event-mpos/internal/product/erp"
-	"github.com/krnskrll/event-mpos/internal/promotion"
-	"github.com/krnskrll/event-mpos/internal/security"
-	"github.com/krnskrll/event-mpos/internal/stock"
-	"github.com/krnskrll/event-mpos/internal/user"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
+	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
+	"github.com/krnskrll/event-mpos/internal/integration/erp"
+	membersrc "github.com/krnskrll/event-mpos/internal/integration/membersrc"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/security"
+	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
+	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
+	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
+	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
+	userrepo "github.com/krnskrll/event-mpos/internal/user/repository"
 )
 
 // Seeded credentials (CHANGE before any real deployment):
-//   admin@eventmpos.local / Admin123!  (ADMIN)
-//   ba@eventmpos.local    / Ba123456!  (BA)
-//   wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, stockSvc *stock.Service, promoSvc *promotion.Service) error {
+//
+//	admin@eventmpos.local / Admin123!  (ADMIN)
+//	ba@eventmpos.local    / Ba123456!  (BA)
+//	wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stocksvc.Service, promoSvc *promotionsvc.Service) error {
 	var count int64
-	if err := db.Model(&user.User{}).Count(&count).Error; err != nil {
+	if err := db.Model(&userrepo.User{}).Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
@@ -38,11 +42,11 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 
 	seedUsers := []struct {
 		email, password, name string
-		role                  user.Role
+		role                  useriface.Role
 	}{
-		{"admin@eventmpos.local", "Admin123!", "System Admin", user.RoleAdmin},
-		{"ba@eventmpos.local", "Ba123456!", "Bella Advisor", user.RoleBA},
-		{"wh@eventmpos.local", "Wh123456!", "Warren House", user.RoleWarehouse},
+		{"admin@eventmpos.local", "Admin123!", "System Admin", useriface.RoleAdmin},
+		{"ba@eventmpos.local", "Ba123456!", "Bella Advisor", useriface.RoleBA},
+		{"wh@eventmpos.local", "Wh123456!", "Warren House", useriface.RoleWarehouse},
 	}
 	var baID uuid.UUID
 	for _, su := range seedUsers {
@@ -50,7 +54,7 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 		if err != nil {
 			return err
 		}
-		u := user.User{
+		u := userrepo.User{
 			Email:        su.email,
 			PasswordHash: hash,
 			FullName:     su.name,
@@ -60,7 +64,7 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 		if err := db.Create(&u).Error; err != nil {
 			return err
 		}
-		if su.role == user.RoleBA {
+		if su.role == useriface.RoleBA {
 			baID = u.ID
 		}
 	}
@@ -68,28 +72,28 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 	// EV01 — the active demo event, with the BA assigned to it.
 	start := common.NewDate(2026, time.July, 1)
 	end := common.NewDate(2026, time.July, 14)
-	ev := event.Event{
+	ev := eventrepo.Event{
 		Code:      "EV01",
 		Name:      "Mid-Year Beauty Roadshow",
 		StartDate: &start,
 		EndDate:   &end,
-		Status:    event.StatusActive,
+		Status:    eventiface.StatusActive,
 	}
 	if err := db.Create(&ev).Error; err != nil {
 		return err
 	}
-	if err := db.Create(&event.BaEventAssignment{UserID: baID, EventID: ev.ID, Active: true}).Error; err != nil {
+	if err := db.Create(&eventrepo.BaEventAssignment{UserID: baID, EventID: ev.ID, Active: true}).Error; err != nil {
 		return err
 	}
 
 	// Pull the initial catalogue from the (mock) ERP and make every product available for EV01.
 	erpSync.Sync()
-	var products []product.Product
+	var products []productrepo.Product
 	if err := db.Find(&products).Error; err != nil {
 		return err
 	}
 	for i := range products {
-		if err := db.Create(&product.EventProduct{EventID: ev.ID, ProductID: products[i].ID, Available: true}).Error; err != nil {
+		if err := db.Create(&productrepo.EventProduct{EventID: ev.ID, ProductID: products[i].ID, Available: true}).Error; err != nil {
 			return err
 		}
 		// Allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning.
@@ -103,10 +107,10 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 	}
 
 	// Give the lipstick a few shade variants (one with a price override) to exercise variants.
-	var lipstick product.Product
+	var lipstick productrepo.Product
 	if err := db.Where("sku = ?", "SKU-1002").First(&lipstick).Error; err == nil {
 		plum := decimal.RequireFromString("89000")
-		variants := []product.ProductVariant{
+		variants := []productrepo.ProductVariant{
 			{ProductID: lipstick.ID, Name: "Rose", SKU: "SKU-1002-ROSE", Active: true},
 			{ProductID: lipstick.ID, Name: "Coral", SKU: "SKU-1002-CORAL", Active: true},
 			{ProductID: lipstick.ID, Name: "Plum (limited)", SKU: "SKU-1002-PLUM", PriceOverride: &plum, Active: true},
@@ -125,21 +129,21 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, 
 	off30k := decimal.RequireFromString("30000")
 	pri1, pri2, pri3 := 1, 2, 3
 	bundleQty := 3
-	specific := promotion.ScopeSpecific
-	if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
-		Name: "10% off everything", Type: promotion.TypePercentage, PercentOff: &pct, Priority: &pri1,
+	specific := promotioniface.ScopeSpecific
+	if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+		Name: "10% off everything", Type: promotioniface.TypePercentage, PercentOff: &pct, Priority: &pri1,
 	}); err != nil {
 		return err
 	}
-	if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
-		Name: "Rp20.000 off when you spend Rp200.000", Type: promotion.TypeFixed,
+	if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+		Name: "Rp20.000 off when you spend Rp200.000", Type: promotioniface.TypeFixed,
 		AmountOff: &off20k, MinSubtotal: &min200k, Priority: &pri2,
 	}); err != nil {
 		return err
 	}
 	if lipstick.ID != uuid.Nil {
-		if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
-			Name: "Lipstick bundle: buy 3, Rp30.000 off", Type: promotion.TypeBundle,
+		if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+			Name: "Lipstick bundle: buy 3, Rp30.000 off", Type: promotioniface.TypeBundle,
 			AmountOff: &off30k, Scope: &specific, ProductIDs: []uuid.UUID{lipstick.ID},
 			MinQty: &bundleQty, Priority: &pri3,
 		}); err != nil {

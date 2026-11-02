@@ -25,12 +25,14 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/app"
-	"github.com/krnskrll/event-mpos/internal/common"
-	"github.com/krnskrll/event-mpos/internal/config"
-	"github.com/krnskrll/event-mpos/internal/database"
-	"github.com/krnskrll/event-mpos/internal/event"
-	"github.com/krnskrll/event-mpos/internal/product"
-	"github.com/krnskrll/event-mpos/internal/user"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
+	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
+	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 var migrateOnce sync.Once
@@ -99,9 +101,9 @@ func Unique(prefix string) string {
 }
 
 // CreateUser creates a user with the given role and returns it (email is made unique).
-func (a *TestApp) CreateUser(role user.Role, password string) *user.UserResponse {
+func (a *TestApp) CreateUser(role useriface.Role, password string) *useriface.UserResponse {
 	a.t.Helper()
-	u, err := a.Users.Create(user.CreateUserRequest{
+	u, err := a.Users.Create(useriface.CreateUserRequest{
 		Email: strings.ToLower(Unique("u-")) + "@test.local", Password: password, FullName: "Test " + string(role), Role: role,
 	})
 	if err != nil {
@@ -111,9 +113,9 @@ func (a *TestApp) CreateUser(role user.Role, password string) *user.UserResponse
 }
 
 // ActiveEvent inserts an ACTIVE event with a unique code.
-func (a *TestApp) ActiveEvent() *event.Event {
+func (a *TestApp) ActiveEvent() *eventrepo.Event {
 	a.t.Helper()
-	ev := &event.Event{Code: Unique("T"), Name: "Test event", Status: event.StatusActive}
+	ev := &eventrepo.Event{Code: Unique("T"), Name: "Test event", Status: eventiface.StatusActive}
 	if err := a.DB.Create(ev).Error; err != nil {
 		a.t.Fatalf("create event: %v", err)
 	}
@@ -121,11 +123,11 @@ func (a *TestApp) ActiveEvent() *event.Event {
 }
 
 // Product inserts a product with the given price and a unique SKU.
-func (a *TestApp) Product(price string) *product.Product {
+func (a *TestApp) Product(price string) *productrepo.Product {
 	a.t.Helper()
-	p := &product.Product{
+	p := &productrepo.Product{
 		SKU: Unique("SKU-"), Name: "Widget", Price: decimal.RequireFromString(price),
-		WarehouseStock: 100000, Source: product.SourceManual, Active: true,
+		WarehouseStock: 100000, Source: productiface.SourceManual, Active: true,
 	}
 	if err := a.DB.Create(p).Error; err != nil {
 		a.t.Fatalf("create product: %v", err)

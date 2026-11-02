@@ -8,46 +8,59 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
-	"github.com/krnskrll/event-mpos/internal/auth"
-	"github.com/krnskrll/event-mpos/internal/common"
-	"github.com/krnskrll/event-mpos/internal/config"
-	"github.com/krnskrll/event-mpos/internal/event"
-	"github.com/krnskrll/event-mpos/internal/me"
-	"github.com/krnskrll/event-mpos/internal/member"
-	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
-	"github.com/krnskrll/event-mpos/internal/order"
-	"github.com/krnskrll/event-mpos/internal/product"
-	"github.com/krnskrll/event-mpos/internal/product/erp"
-	"github.com/krnskrll/event-mpos/internal/promotion"
-	"github.com/krnskrll/event-mpos/internal/receipt"
-	"github.com/krnskrll/event-mpos/internal/report"
-	"github.com/krnskrll/event-mpos/internal/stock"
-	"github.com/krnskrll/event-mpos/internal/syncconfig"
-	"github.com/krnskrll/event-mpos/internal/user"
-	"github.com/krnskrll/event-mpos/internal/ws"
+	auditsvc "github.com/krnskrll/event-mpos/internal/audit/service"
+	authhandler "github.com/krnskrll/event-mpos/internal/auth/handler"
+	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
+	eventhandler "github.com/krnskrll/event-mpos/internal/event/handler"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
+	eventsvc "github.com/krnskrll/event-mpos/internal/event/service"
+	"github.com/krnskrll/event-mpos/internal/integration/erp"
+	"github.com/krnskrll/event-mpos/internal/integration/membersrc"
+	mehandler "github.com/krnskrll/event-mpos/internal/me/handler"
+	memberhandler "github.com/krnskrll/event-mpos/internal/member/handler"
+	membersvc "github.com/krnskrll/event-mpos/internal/member/service"
+	orderhandler "github.com/krnskrll/event-mpos/internal/order/handler"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	ordersvc "github.com/krnskrll/event-mpos/internal/order/service"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/realtime"
+	producthandler "github.com/krnskrll/event-mpos/internal/product/handler"
+	productsvc "github.com/krnskrll/event-mpos/internal/product/service"
+	promotionhandler "github.com/krnskrll/event-mpos/internal/promotion/handler"
+	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
+	receiptsvc "github.com/krnskrll/event-mpos/internal/receipt/service"
+	reporthandler "github.com/krnskrll/event-mpos/internal/report/handler"
+	reportsvc "github.com/krnskrll/event-mpos/internal/report/service"
+	stockhandler "github.com/krnskrll/event-mpos/internal/stock/handler"
+	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
+	synchandler "github.com/krnskrll/event-mpos/internal/syncconfig/handler"
+	syncsvc "github.com/krnskrll/event-mpos/internal/syncconfig/service"
+	userhandler "github.com/krnskrll/event-mpos/internal/user/handler"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
+	usersvc "github.com/krnskrll/event-mpos/internal/user/service"
 )
 
 // App holds the wired services and the HTTP router.
 type App struct {
 	Router *gin.Engine
 
-	Users      *user.Service
-	Auth       *auth.Service
-	Events     *event.Service
-	Products   *product.Service
+	Users      *usersvc.Service
+	Auth       *authsvc.Service
+	Events     *eventsvc.Service
+	Products   *productsvc.Service
 	ERPSync    *erp.SyncService
-	Members    *member.Service
-	MemberSync *membersync.Service
-	Stock      *stock.Service
-	Promotions *promotion.Service
-	Audit      *audit.Service
-	Receipts   *receipt.Service
-	Orders     *order.Service
-	Reports    *report.Service
-	SyncConfig *syncconfig.Service
-	Scheduler  *syncconfig.Scheduler
-	Hub        *ws.Hub
+	Members    *membersvc.Service
+	MemberSync *membersrc.Service
+	Stock      *stocksvc.Service
+	Promotions *promotionsvc.Service
+	Audit      *auditsvc.Service
+	Receipts   *receiptsvc.Service
+	Orders     *ordersvc.Service
+	Reports    *reportsvc.Service
+	SyncConfig *syncsvc.Service
+	Scheduler  *syncsvc.Scheduler
+	Hub        *realtime.Hub
 }
 
 // New builds services, handlers and routes on an already-migrated database. It starts the WebSocket
@@ -55,72 +68,72 @@ type App struct {
 func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a := &App{}
 
-	jwtService, err := auth.NewJwtService(cfg.JWTSecret, cfg.AccessTokenTTLMin)
+	jwtService, err := authsvc.NewJwtService(cfg.JWTSecret, cfg.AccessTokenTTLMin)
 	if err != nil {
 		return nil, err
 	}
-	refreshService := auth.NewRefreshService(db, cfg.RefreshTokenTTLDays)
-	a.Users = user.NewService(db)
-	a.Auth = auth.NewService(a.Users, jwtService, refreshService)
-	a.Events = event.NewService(db, a.Users)
-	a.Products = product.NewService(db)
+	refreshService := authsvc.NewRefreshService(db, cfg.RefreshTokenTTLDays)
+	a.Users = usersvc.NewService(db)
+	a.Auth = authsvc.NewService(a.Users, jwtService, refreshService)
+	a.Events = eventsvc.NewService(db, a.Users)
+	a.Products = productsvc.NewService(db)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
-	a.ERPSync = erp.NewSyncService(erpSource, db)
-	a.Members = member.NewService(db)
-	memberSource := membersync.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
-	a.MemberSync = membersync.NewService(memberSource, db, cfg.MemberRegionFilter)
-	a.Stock = stock.NewService(db)
-	a.Promotions = promotion.NewService(db)
-	a.Audit = audit.NewService(db)
-	a.Receipts = receipt.NewService(db, a.Audit)
-	a.Orders = order.NewService(db, a.Stock, a.Promotions, a.Audit, a.Users)
+	a.ERPSync = erp.NewSyncService(erpSource, db, a.Products)
+	a.Members = membersvc.NewService(db)
+	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
+	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
+	a.Stock = stocksvc.NewService(db, a.Events, a.Products)
+	a.Promotions = promotionsvc.NewService(db, a.Products)
+	a.Audit = auditsvc.NewService(db, a.Users)
+	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
+	a.Receipts = receiptsvc.NewService(db, a.Orders, a.Audit)
 
 	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.
-	a.Hub = ws.NewHub()
+	a.Hub = realtime.NewHub()
 	go a.Hub.Run()
-	a.Orders.SetBroadcaster(func(eventID uuid.UUID, view order.WarehouseOrderView) {
+	a.Orders.SetBroadcaster(func(eventID uuid.UUID, view orderiface.WarehouseOrderView) {
 		a.Hub.Broadcast(eventID.String(), view)
 	})
 
 	// Reporting + runtime-editable sync schedules with a dynamic cron scheduler.
-	a.Reports = report.NewService(db)
-	a.SyncConfig = syncconfig.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
+	a.Reports = reportsvc.NewService(a.Events, a.Products, a.Stock, a.Orders)
+	a.SyncConfig = syncsvc.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
 	if err := a.SyncConfig.SeedDefaults(); err != nil {
 		return nil, err
 	}
-	a.Scheduler = syncconfig.NewScheduler(a.SyncConfig,
+	a.Scheduler = syncsvc.NewScheduler(a.SyncConfig,
 		func() { a.ERPSync.Sync() },
 		func() { a.MemberSync.Sync() },
 	)
 
 	// Snapshot contributors: all four domains live now. Products carry remaining event stock.
 	a.Products.SetStockRemaining(a.Stock.Remaining)
-	a.Events.SetProviders(event.Providers{
+	a.Events.SetProviders(eventiface.Providers{
 		Products: a.Products, Members: a.Members, Stock: a.Stock, Promotions: a.Promotions,
 	})
 
 	// Append-only audit trigger (Postgres; skipped with a warning elsewhere).
-	audit.InstallAppendOnlyGuard(db)
+	auditsvc.InstallAppendOnlyGuard(db)
 
 	a.Router = a.routes(cfg, jwtService)
 	return a, nil
 }
 
-func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engine {
-	authHandler := auth.NewHandler(a.Auth)
-	userHandler := user.NewHandler(a.Users)
-	eventHandler := event.NewHandler(a.Events)
-	productHandler := product.NewHandler(a.Products)
+func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.Engine {
+	authHandler := authhandler.NewHandler(a.Auth)
+	userHandler := userhandler.NewHandler(a.Users)
+	eventHandler := eventhandler.NewHandler(a.Events)
+	productHandler := producthandler.NewHandler(a.Products)
 	erpHandler := erp.NewHandler(a.ERPSync)
-	memberHandler := member.NewHandler(a.Members)
-	memberSyncHandler := membersync.NewHandler(a.MemberSync)
-	stockAdminHandler := stock.NewAdminHandler(a.Stock)
-	warehouseStockHandler := stock.NewWarehouseHandler(a.Stock, a.Events)
-	promotionHandler := promotion.NewHandler(a.Promotions)
-	warehouseOrderHandler := order.NewWarehouseHandler(a.Orders)
-	reportHandler := report.NewHandler(a.Reports, a.Audit)
-	syncConfigHandler := syncconfig.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)
-	meHandler := me.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
+	memberHandler := memberhandler.NewHandler(a.Members)
+	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
+	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock)
+	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
+	promotionHandler := promotionhandler.NewHandler(a.Promotions)
+	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders)
+	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit)
+	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)
+	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -130,7 +143,7 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 	common.RegisterHealth(r)
 
 	// Real-time warehouse board WebSocket (JWT validated inside the handler via ?token=).
-	wsHandler := ws.NewHandler(a.Hub, jwtService)
+	wsHandler := realtime.NewHandler(a.Hub, jwtService)
 	r.GET("/ws/events/:eventId/orders", wsHandler.ServeWS)
 
 	api := r.Group("/api")
@@ -141,7 +154,7 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 
 		// Authenticated (any valid token)
 		authed := api.Group("")
-		authed.Use(auth.JWTMiddleware(jwtService))
+		authed.Use(authhandler.JWTMiddleware(jwtService))
 		authed.POST("/auth/logout", authHandler.Logout)
 
 		// BA-facing "me" surface (role enforced per-handler)
@@ -161,11 +174,11 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 		meGroup.GET("/events/:eventId/orders", meHandler.OrderHistory)
 		meGroup.GET("/orders/:orderId", meHandler.Order)
 		meGroup.POST("/orders/:orderId/receipts", meHandler.LogReceipt)
-		meGroup.POST("/orders/:orderId/cancel", auth.RequireRole(user.RoleBA), warehouseOrderHandler.Cancel)
+		meGroup.POST("/orders/:orderId/cancel", authhandler.RequireRole(useriface.RoleBA), warehouseOrderHandler.Cancel)
 
 		// Admin-only
 		admin := authed.Group("/admin")
-		admin.Use(auth.RequireRole(user.RoleAdmin))
+		admin.Use(authhandler.RequireRole(useriface.RoleAdmin))
 		admin.GET("/users", userHandler.List)
 		admin.POST("/users", userHandler.Create)
 		admin.PATCH("/users/:id", userHandler.Update)
@@ -199,7 +212,7 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 
 		// Warehouse-only
 		warehouse := authed.Group("/warehouse")
-		warehouse.Use(auth.RequireRole(user.RoleWarehouse, user.RoleAdmin))
+		warehouse.Use(authhandler.RequireRole(useriface.RoleWarehouse, useriface.RoleAdmin))
 		warehouse.GET("/events", warehouseStockHandler.Events)
 		warehouse.GET("/events/:eventId/stock", warehouseStockHandler.Levels)
 		warehouse.GET("/events/:eventId/orders", warehouseOrderHandler.Orders)

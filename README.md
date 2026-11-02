@@ -46,6 +46,20 @@ Configuration is environment variables — see `backend-go/.env.example`; the on
 changes per environment is `DB_URL`. Behavioural parity with the retired Kotlin backend is recorded
 in [backend-go/PARITY-NOTES.md](backend-go/PARITY-NOTES.md).
 
+Code layout (same rules as the Bhoomy backend):
+
+| Path | Holds |
+|---|---|
+| `internal/<module>/iface` | The module's public contract: interfaces + DTOs (JSON tags = API) |
+| `internal/<module>/repository` | GORM rows for the tables the module owns |
+| `internal/<module>/service`, `handler` | Business logic, Gin handlers |
+| `internal/platform` | Config, database (`Tx`), common HTTP helpers, security, realtime hub |
+| `internal/integration` | ERP and member-system sync jobs |
+| `internal/app` | Composition root: the only place concrete services meet; routes |
+
+Modules call each other only through `iface`; `internal/archtest` fails the build otherwise, and
+`internal/app/testdata/routes.golden` pins every route.
+
 ```bash
 cd backend-go && go test ./...     # or: docker run --rm -v "$PWD":/app -w /app golang:1.25-alpine go test ./...
 ```

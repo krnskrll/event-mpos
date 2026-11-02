@@ -7,24 +7,24 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
-	"github.com/krnskrll/event-mpos/internal/order"
-	"github.com/krnskrll/event-mpos/internal/syncconfig"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Ported from the Kotlin BackofficeAdminTest.
 
 func TestAdminCanEditRoleAndDeactivateUser(t *testing.T) {
 	a := testutil.NewApp(t)
-	created := a.CreateUser(user.RoleBA, "password1")
-	role, active := user.RoleWarehouse, false
-	updated, err := a.Users.Update(created.ID, user.UpdateUserRequest{Role: &role, Active: &active})
+	created := a.CreateUser(useriface.RoleBA, "password1")
+	role, active := useriface.RoleWarehouse, false
+	updated, err := a.Users.Update(created.ID, useriface.UpdateUserRequest{Role: &role, Active: &active})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if updated.Role != user.RoleWarehouse || updated.Active {
+	if updated.Role != useriface.RoleWarehouse || updated.Active {
 		t.Errorf("role=%s active=%v, want WAREHOUSE/false", updated.Role, updated.Active)
 	}
 	if updated.FullName != created.FullName {
@@ -34,24 +34,24 @@ func TestAdminCanEditRoleAndDeactivateUser(t *testing.T) {
 
 func TestSyncConfigValidatesCronAndPersists(t *testing.T) {
 	a := testutil.NewApp(t)
-	before, err := a.SyncConfig.Get(syncconfig.TypeERP)
+	before, err := a.SyncConfig.Get(syncconfigiface.TypeERP)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = a.SyncConfig.Update(syncconfig.TypeERP, before.Enabled, before.Cron) })
+	t.Cleanup(func() { _, _ = a.SyncConfig.Update(syncconfigiface.TypeERP, before.Enabled, before.Cron) })
 
-	cfg, err := a.SyncConfig.Update(syncconfig.TypeERP, true, "0 0 */2 * * *")
+	cfg, err := a.SyncConfig.Update(syncconfigiface.TypeERP, true, "0 0 */2 * * *")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !cfg.Enabled || cfg.Cron != "0 0 */2 * * *" {
 		t.Errorf("saved %+v", cfg)
 	}
-	reread, _ := a.SyncConfig.Get(syncconfig.TypeERP)
+	reread, _ := a.SyncConfig.Get(syncconfigiface.TypeERP)
 	if reread.Cron != "0 0 */2 * * *" {
 		t.Errorf("not persisted: %+v", reread)
 	}
-	if _, err := a.SyncConfig.Update(syncconfig.TypeMember, true, "not a cron"); testutil.StatusOf(err) != http.StatusBadRequest {
+	if _, err := a.SyncConfig.Update(syncconfigiface.TypeMember, true, "not a cron"); testutil.StatusOf(err) != http.StatusBadRequest {
 		t.Errorf("bad cron: got %v, want 400", err)
 	}
 }
@@ -98,7 +98,7 @@ func TestEndOfEventReportTotalsAndCSV(t *testing.T) {
 	}
 
 	// Same report over HTTP for an admin.
-	admin := a.CreateUser(user.RoleAdmin, "Admin123!")
+	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
 	tok := login(t, a, admin.Email, "Admin123!").AccessToken
 	if rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+"/report.csv", nil, tok); rec.Code != http.StatusOK {
 		t.Errorf("report.csv: %d", rec.Code)
@@ -109,13 +109,13 @@ func TestOrderActivityIsInAppendOnlyAuditLog(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("20.00")
 	a.Allocate(ev.ID, p.ID, 50)
-	wh := a.CreateUser(user.RoleWarehouse, "Wh123456!")
+	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
 
 	conf, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Orders.AdvanceStatus(conf.ID, order.StatusPacking, &wh.ID); err != nil {
+	if _, err := a.Orders.AdvanceStatus(conf.ID, orderiface.StatusPacking, &wh.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -123,7 +123,7 @@ func TestOrderActivityIsInAppendOnlyAuditLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(trail) != 2 || trail[0].Action != audit.ActionOrderCreated || trail[1].Action != audit.ActionStatusChanged {
+	if len(trail) != 2 || trail[0].Action != auditiface.ActionOrderCreated || trail[1].Action != auditiface.ActionStatusChanged {
 		t.Fatalf("trail = %+v", trail)
 	}
 	if *trail[1].FromStatus != "NEW" || *trail[1].ToStatus != "PACKING" || trail[1].ActorName != wh.FullName {

@@ -10,27 +10,28 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
-	"github.com/krnskrll/event-mpos/internal/event"
-	"github.com/krnskrll/event-mpos/internal/order"
-	"github.com/krnskrll/event-mpos/internal/receipt"
-	"github.com/krnskrll/event-mpos/internal/stock"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
+	auditrepo "github.com/krnskrll/event-mpos/internal/audit/repository"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	receiptrepo "github.com/krnskrll/event-mpos/internal/receipt/repository"
+	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // EPIC-12 Milestone D: back-office fixes.
 
 func closeEvent(t *testing.T, a *testutil.TestApp, eventID uuid.UUID) {
 	t.Helper()
-	if _, err := a.Events.ChangeStatus(eventID, event.StatusClosed); err != nil {
+	if _, err := a.Events.ChangeStatus(eventID, eventiface.StatusClosed); err != nil {
 		t.Fatalf("close event: %v", err)
 	}
 }
 
 func adminToken(t *testing.T, a *testutil.TestApp) string {
 	t.Helper()
-	admin := a.CreateUser(user.RoleAdmin, "Admin123!")
+	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
 	return login(t, a, admin.Email, "Admin123!").AccessToken
 }
 
@@ -64,8 +65,8 @@ func TestFinalReportOnlyForClosedEvents(t *testing.T) {
 func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev := a.ActiveEvent()
-	ba := a.CreateUser(user.RoleBA, "Ba123456!")
-	wh := a.CreateUser(user.RoleWarehouse, "Wh123456!")
+	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
+	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
 	tok := adminToken(t, a)
 
 	// 125 entries, one second apart (entry 0 is the newest). Every 5th is a receipt print;
@@ -74,17 +75,17 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 	targetOrder := uuid.New()
 	base := time.Now().UTC()
 	for i := 0; i < total; i++ {
-		actor, action, orderID := wh.ID, audit.ActionStatusChanged, uuid.New()
+		actor, action, orderID := wh.ID, auditiface.ActionStatusChanged, uuid.New()
 		if i%2 == 0 {
 			actor = ba.ID
 		}
 		if i%5 == 0 {
-			action = audit.ActionReceiptPrinted
+			action = auditiface.ActionReceiptPrinted
 		}
 		if i < 3 {
 			orderID = targetOrder
 		}
-		row := audit.OrderAuditLog{
+		row := auditrepo.OrderAuditLog{
 			EventID: ev.ID, OrderID: orderID, OrderReference: fmt.Sprintf("ORD-%03d", i), Action: action,
 			ActorUserID: &actor, ActorName: "x", CreatedAt: base.Add(-time.Duration(i) * time.Second),
 		}
@@ -93,13 +94,13 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 		}
 	}
 
-	get := func(query string) audit.Page {
+	get := func(query string) auditiface.Page {
 		t.Helper()
 		rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+"/audit"+query, nil, tok)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("audit%s: %d %s", query, rec.Code, rec.Body.String())
 		}
-		return testutil.Decode[audit.Page](t, rec)
+		return testutil.Decode[auditiface.Page](t, rec)
 	}
 
 	first := get("")
@@ -157,11 +158,11 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("20.00")
 	a.Allocate(ev.ID, p.ID, 10)
-	ba := a.CreateUser(user.RoleBA, "Ba123456!")
-	other := a.CreateUser(user.RoleBA, "Ba123456!")
-	conf, err := a.Orders.Submit(ev.ID, ba.ID, order.SubmitOrderRequest{
-		IdempotencyKey: uuid.NewString(), Customer: order.CustomerInfo{Name: "Cara"},
-		Lines: []order.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
+	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
+	other := a.CreateUser(useriface.RoleBA, "Ba123456!")
+	conf, err := a.Orders.Submit(ev.ID, ba.ID, orderiface.SubmitOrderRequest{
+		IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "Cara"},
+		Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -176,14 +177,14 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	}
 	printCount := func() int {
 		var n int
-		a.DB.Model(&receipt.ReceiptLog{}).Where("order_id = ?", conf.ID).Pluck("print_count", &n)
+		a.DB.Model(&receiptrepo.ReceiptLog{}).Where("order_id = ?", conf.ID).Pluck("print_count", &n)
 		return n
 	}
 	if n := printCount(); n != 2 {
 		t.Errorf("print_count = %d, want 2", n)
 	}
 	trail, _ := a.Audit.ForOrder(conf.ID)
-	if len(trail) != 3 || trail[1].Action != audit.ActionReceiptPrinted || trail[2].Action != audit.ActionReceiptPrinted {
+	if len(trail) != 3 || trail[1].Action != auditiface.ActionReceiptPrinted || trail[2].Action != auditiface.ActionReceiptPrinted {
 		t.Fatalf("trail = %+v", trail)
 	}
 	if *trail[1].Detail != "Receipt printed" || *trail[2].Detail != "Receipt reprinted (print #2)" || trail[1].ActorName != ba.FullName {
@@ -241,7 +242,7 @@ func TestStockSummaryCacheIsInvalidatedByOrders(t *testing.T) {
 	}
 
 	// A write that bypasses the service is not seen until the entry is invalidated or expires.
-	a.DB.Model(&stock.EventStockAllocation{}).Where("event_id = ?", ev.ID).Update("sold_qty", 1)
+	a.DB.Model(&stockrepo.EventStockAllocation{}).Where("event_id = ?", ev.ID).Update("sold_qty", 1)
 	if b, w := remaining(); b != 10 || w != 10 {
 		t.Errorf("cache not used: remaining %d/%d, want the cached 10", b, w)
 	}

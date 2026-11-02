@@ -6,10 +6,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/audit"
-	"github.com/krnskrll/event-mpos/internal/order"
+	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // EPIC-12 C4: cancel restores stock, writes ORDER_CANCELLED, follows per-role rules, and leaves the report.
@@ -17,16 +17,16 @@ func TestCancelOrder(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("10.00")
 	a.Allocate(ev.ID, p.ID, 10)
-	owner, other := a.CreateUser(user.RoleBA, "Ba123456!"), a.CreateUser(user.RoleBA, "Ba123456!")
-	wh := a.CreateUser(user.RoleWarehouse, "Wh123456!")
-	place := func(qty int, status order.OrderStatus) uuid.UUID {
-		conf, err := a.Orders.Submit(ev.ID, owner.ID, order.SubmitOrderRequest{IdempotencyKey: uuid.NewString(),
-			Customer: order.CustomerInfo{Name: "C"}, Lines: []order.OrderLineRequest{{ProductID: p.ID, Qty: qty}}})
+	owner, other := a.CreateUser(useriface.RoleBA, "Ba123456!"), a.CreateUser(useriface.RoleBA, "Ba123456!")
+	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
+	place := func(qty int, status orderiface.OrderStatus) uuid.UUID {
+		conf, err := a.Orders.Submit(ev.ID, owner.ID, orderiface.SubmitOrderRequest{IdempotencyKey: uuid.NewString(),
+			Customer: orderiface.CustomerInfo{Name: "C"}, Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: qty}}})
 		if err != nil {
 			t.Fatal(err)
 		}
-		for st := order.StatusNew; st != status; {
-			next := map[order.OrderStatus]order.OrderStatus{order.StatusNew: order.StatusPacking, order.StatusPacking: order.StatusReady}[st]
+		for st := orderiface.StatusNew; st != status; {
+			next := map[orderiface.OrderStatus]orderiface.OrderStatus{orderiface.StatusNew: orderiface.StatusPacking, orderiface.StatusPacking: orderiface.StatusReady}[st]
 			if _, err := a.Orders.AdvanceStatus(conf.ID, next, &wh.ID); err != nil {
 				t.Fatal(err)
 			}
@@ -35,12 +35,12 @@ func TestCancelOrder(t *testing.T) {
 		return conf.ID
 	}
 	reason := "customer changed mind"
-	newOrder, packing, ready := place(3, order.StatusNew), place(2, order.StatusPacking), place(1, order.StatusReady)
+	newOrder, packing, ready := place(3, orderiface.StatusNew), place(2, orderiface.StatusPacking), place(1, orderiface.StatusReady)
 
 	cases := []struct {
 		name  string
 		order uuid.UUID
-		actor *user.UserResponse
+		actor *useriface.UserResponse
 		want  int
 	}{
 		{"BA cannot cancel another BA's order", newOrder, other, http.StatusNotFound},
@@ -60,11 +60,11 @@ func TestCancelOrder(t *testing.T) {
 	if got := a.Remaining(ev.ID, p.ID); got != 9 { // only the READY order (1 unit) is still sold
 		t.Errorf("remaining = %d, want 9", got)
 	}
-	if _, err := a.Orders.AdvanceStatus(packing, order.StatusReady, &wh.ID); testutil.StatusOf(err) != http.StatusConflict {
+	if _, err := a.Orders.AdvanceStatus(packing, orderiface.StatusReady, &wh.ID); testutil.StatusOf(err) != http.StatusConflict {
 		t.Errorf("advancing a cancelled order: %v, want 409", err)
 	}
 	trail, _ := a.Audit.ForOrder(newOrder)
-	if last := trail[len(trail)-1]; last.Action != audit.ActionOrderCancelled || *last.Detail != "Order cancelled: "+reason {
+	if last := trail[len(trail)-1]; last.Action != auditiface.ActionOrderCancelled || *last.Detail != "Order cancelled: "+reason {
 		t.Errorf("last audit entry = %+v", last)
 	}
 	// The BA endpoint goes through the same rules: the order is already cancelled → 409.

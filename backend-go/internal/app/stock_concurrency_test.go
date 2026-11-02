@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/stock"
+	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 )
 
@@ -58,7 +58,7 @@ func TestConcurrentDecrementsNeverOversell(t *testing.T) {
 	if ok != allocated || conflict != attempts-allocated {
 		t.Errorf("ok=%d conflict=%d, want %d/%d", ok, conflict, allocated, attempts-allocated)
 	}
-	var alloc stock.EventStockAllocation
+	var alloc stockrepo.EventStockAllocation
 	if err := a.DB.Where("event_id = ? AND product_id = ?", ev.ID, p.ID).First(&alloc).Error; err != nil {
 		t.Fatal(err)
 	}

@@ -8,10 +8,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/event"
-	"github.com/krnskrll/event-mpos/internal/order"
+	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	"github.com/krnskrll/event-mpos/internal/user"
+	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // EPIC-12 C1/C2: device number blocks (D1) and the late-sync window after close (D2).
@@ -19,24 +19,24 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("10.00")
 	a.Allocate(ev.ID, p.ID, 2)
-	ba := a.CreateUser(user.RoleBA, "Ba123456!")
+	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
 	device := "device-" + uuid.NewString()
-	deviceOrder := func(n int, createdAt time.Time) (*order.OrderConfirmation, error) {
-		return a.Orders.Submit(ev.ID, ba.ID, order.SubmitOrderRequest{
-			IdempotencyKey: uuid.NewString(), Customer: order.CustomerInfo{Name: "Offline"},
-			Lines:    []order.OrderLineRequest{{ProductID: p.ID, Qty: 2}},
+	deviceOrder := func(n int, createdAt time.Time) (*orderiface.OrderConfirmation, error) {
+		return a.Orders.Submit(ev.ID, ba.ID, orderiface.SubmitOrderRequest{
+			IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "Offline"},
+			Lines:    []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 2}},
 			DeviceID: &device, OrderNumber: &n, ClientCreatedAt: &createdAt,
 		})
 	}
 
 	// Blocks and server numbers come off one sequence, so they never overlap.
 	b1, err := a.Orders.IssueNumberBlock(ev.ID, device)
-	if err != nil || b1.RangeStart != 1 || b1.RangeEnd != order.NumberBlockSize {
+	if err != nil || b1.RangeStart != 1 || b1.RangeEnd != orderiface.NumberBlockSize {
 		t.Fatalf("first block = %+v, %v", b1, err)
 	}
 	server, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1))
-	if err != nil || server.OrderNumber != order.NumberBlockSize+1 {
-		t.Fatalf("server number after a block = %v, %v; want %d", server, err, order.NumberBlockSize+1)
+	if err != nil || server.OrderNumber != orderiface.NumberBlockSize+1 {
+		t.Fatalf("server number after a block = %v, %v; want %d", server, err, orderiface.NumberBlockSize+1)
 	}
 
 	// A device-numbered order keeps its number and is never rejected for stock: 1 left, 2 sold.
@@ -50,7 +50,7 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 	if got := a.Remaining(ev.ID, p.ID); got != -1 {
 		t.Errorf("remaining = %d, want -1 (the shortfall stays visible)", got)
 	}
-	for _, n := range []int{order.NumberBlockSize + 1, 999} { // outside this device's blocks
+	for _, n := range []int{orderiface.NumberBlockSize + 1, 999} { // outside this device's blocks
 		if _, err := deviceOrder(n, time.Now()); testutil.StatusOf(err) != http.StatusBadRequest {
 			t.Errorf("number %d outside the block: %v, want 400", n, err)
 		}
@@ -69,7 +69,7 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 	if _, err := deviceOrder(5, time.Now().Add(time.Minute)); testutil.StatusOf(err) != http.StatusConflict {
 		t.Errorf("order created after close: %v, want 409", err)
 	}
-	a.DB.Model(&event.Event{}).Where("id = ?", ev.ID).Update("closed_at", time.Now().Add(-25*time.Hour))
+	a.DB.Model(&eventrepo.Event{}).Where("id = ?", ev.ID).Update("closed_at", time.Now().Add(-25*time.Hour))
 	if _, err := deviceOrder(6, time.Now().Add(-26*time.Hour)); testutil.StatusOf(err) != http.StatusConflict {
 		t.Errorf("upload more than 24h after close: %v, want 409", err)
 	}
