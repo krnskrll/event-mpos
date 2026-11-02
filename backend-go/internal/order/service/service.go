@@ -1,4 +1,4 @@
-package order
+package service
 
 import (
 	"errors"
@@ -15,12 +15,17 @@ import (
 
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
+	"github.com/krnskrll/event-mpos/internal/order/iface"
+	"github.com/krnskrll/event-mpos/internal/order/repository"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
+
+var _ iface.Orders = (*Service)(nil)
 
 type Service struct {
 	db         *gorm.DB
@@ -32,7 +37,7 @@ type Service struct {
 	users      useriface.Users
 	jakarta    *time.Location
 	// broadcast pushes an order change to the warehouse board after commit; nil is a no-op.
-	broadcast func(eventID uuid.UUID, view WarehouseOrderView)
+	broadcast func(eventID uuid.UUID, view iface.WarehouseOrderView)
 }
 
 func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, promotions promotioniface.Promotions, aud auditiface.Audit, users useriface.Users) *Service {
@@ -43,7 +48,7 @@ func NewService(db *gorm.DB, events eventiface.Events, products productiface.Pro
 	return &Service{db: db, events: events, products: products, stock: stk, promotions: promotions, audit: aud, users: users, jakarta: loc}
 }
 
-func (s *Service) SetBroadcaster(fn func(eventID uuid.UUID, view WarehouseOrderView)) {
+func (s *Service) SetBroadcaster(fn func(eventID uuid.UUID, view iface.WarehouseOrderView)) {
 	s.broadcast = fn
 }
 
@@ -60,7 +65,7 @@ type draftItem struct {
 // Submit creates an order ATOMICALLY: idempotency → validate → decrement stock (row locks) → apply
 // best promotion → allocate the daily number → persist + audit. Any failure rolls the whole thing
 // back. A retried submit with the same idempotency key returns the original order.
-func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*OrderConfirmation, error) {
+func (s *Service) Submit(eventID, baUserID uuid.UUID, req iface.SubmitOrderRequest) (*iface.OrderConfirmation, error) {
 	// 1) idempotency fast-path
 	if existing, err := s.findByIdempotencyKey(req.IdempotencyKey); err != nil {
 		return nil, err
@@ -79,7 +84,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 	}
 
 	// 2) build line items from the catalogue (server-authoritative prices)
-	var lines []OrderLineRequest
+	var lines []iface.OrderLineRequest
 	for _, l := range req.Lines {
 		if l.Qty > 0 {
 			lines = append(lines, l)
@@ -153,18 +158,18 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 
 	dateKey := time.Now().In(s.jakarta).Format("20060102")
 
-	order := Order{
+	order := repository.Order{
 		EventID: eventID, BaUserID: baUserID, IdempotencyKey: req.IdempotencyKey,
 		ReferenceID: "", CustomerName: strings.TrimSpace(req.Customer.Name), CustomerQr: req.Customer.QRCode,
 		CustomerTier: req.Customer.Tier, Subtotal: subtotal, Discount: discount, Total: total,
-		PromotionID: promoID, PromotionName: promoName, Status: StatusNew,
+		PromotionID: promoID, PromotionName: promoName, Status: iface.StatusNew,
 		DeviceID: req.DeviceID, ClientCreatedAt: req.ClientCreatedAt, LateSynced: lateSynced,
 	}
 
 	// 3+5+6) atomic tx: stock decrement (row locks) → daily number → persist + audit
 	// Lock allocation rows in a fixed (product id) order so two multi-line orders can't each hold
 	// one row and wait on the other.
-	lockOrder := append([]OrderLineRequest(nil), lines...)
+	lockOrder := append([]iface.OrderLineRequest(nil), lines...)
 	sort.Slice(lockOrder, func(i, j int) bool { return lockOrder[i].ProductID.String() < lockOrder[j].ProductID.String() })
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
 		for _, line := range lockOrder {
@@ -185,7 +190,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 		order.OrderNumber = number
 		order.ReferenceID = fmt.Sprintf("ORD-%s-%s-%03d", businessDate, ev.Code, number)
 		for _, d := range drafts {
-			order.Items = append(order.Items, OrderItem{
+			order.Items = append(order.Items, repository.OrderItem{
 				ProductID: d.productID, VariantID: d.variantID, VariantName: d.variantName,
 				SKU: d.sku, Name: d.name, UnitPrice: d.unitPrice, Qty: d.qty, LineTotal: d.lineTotal,
 			})
@@ -218,16 +223,16 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 
 // ---- warehouse board ----
 
-func (s *Service) WarehouseOrders(eventID uuid.UUID, status *OrderStatus) ([]WarehouseOrderView, error) {
+func (s *Service) WarehouseOrders(eventID uuid.UUID, status *iface.OrderStatus) ([]iface.WarehouseOrderView, error) {
 	q := s.db.Preload("Items").Where("event_id = ?", eventID)
 	if status != nil {
 		q = q.Where("status = ?", *status)
 	}
-	var orders []Order
+	var orders []repository.Order
 	if err := q.Order("created_at DESC").Find(&orders).Error; err != nil {
 		return nil, err
 	}
-	views := make([]WarehouseOrderView, 0, len(orders))
+	views := make([]iface.WarehouseOrderView, 0, len(orders))
 	for i := range orders {
 		v, err := s.toWarehouseView(&orders[i])
 		if err != nil {
@@ -240,8 +245,8 @@ func (s *Service) WarehouseOrders(eventID uuid.UUID, status *OrderStatus) ([]War
 
 // AdvanceStatus moves an order one step forward, auditing + broadcasting the change. The order row is
 // locked so a concurrent cancel can't be overtaken by a stale advance.
-func (s *Service) AdvanceStatus(orderID uuid.UUID, target OrderStatus, actorUserID *uuid.UUID) (*WarehouseOrderView, error) {
-	var o Order
+func (s *Service) AdvanceStatus(orderID uuid.UUID, target iface.OrderStatus, actorUserID *uuid.UUID) (*iface.WarehouseOrderView, error) {
+	var o repository.Order
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := lockOrder(tx, orderID, &o); err != nil {
 			return err
@@ -265,8 +270,8 @@ func (s *Service) AdvanceStatus(orderID uuid.UUID, target OrderStatus, actorUser
 // Cancel cancels an order and returns its stock, in one transaction with the audit entry. A BA may
 // cancel only their own order while it is NEW (others' orders are a 404); warehouse and admin may
 // cancel any order that is NEW or PACKING. Anything else is a 409.
-func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole useriface.Role, reason *string) (*WarehouseOrderView, error) {
-	var o Order
+func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole useriface.Role, reason *string) (*iface.WarehouseOrderView, error) {
+	var o repository.Order
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := lockOrder(tx, orderID, &o); err != nil {
 			return err
@@ -275,7 +280,7 @@ func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole useriface.Role, r
 		if isBa && o.BaUserID != actorID {
 			return common.NewAppError(http.StatusNotFound, "Order not found")
 		}
-		if !o.Status.CanCancel() || (isBa && o.Status != StatusNew) {
+		if !o.Status.CanCancel() || (isBa && o.Status != iface.StatusNew) {
 			return common.NewAppError(http.StatusConflict, "Order "+o.ReferenceID+" is "+string(o.Status)+" and can no longer be cancelled")
 		}
 		for _, it := range o.Items {
@@ -284,10 +289,10 @@ func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole useriface.Role, r
 			}
 		}
 		from := o.Status
-		if err := tx.Model(&o).Update("status", StatusCancelled).Error; err != nil {
+		if err := tx.Model(&o).Update("status", iface.StatusCancelled).Error; err != nil {
 			return err
 		}
-		o.Status = StatusCancelled
+		o.Status = iface.StatusCancelled
 		return s.audit.RecordCancelled(tx, o.EventID, o.ID, o.ReferenceID, string(from), &actorID, reason)
 	})
 	if err != nil {
@@ -298,7 +303,7 @@ func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole useriface.Role, r
 }
 
 // lockOrder loads an order with its items, holding a row lock until the transaction ends.
-func lockOrder(tx *gorm.DB, orderID uuid.UUID, o *Order) error {
+func lockOrder(tx *gorm.DB, orderID uuid.UUID, o *repository.Order) error {
 	err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).First(o, "id = ?", orderID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return common.NewAppError(http.StatusNotFound, "Order not found")
@@ -310,7 +315,7 @@ func lockOrder(tx *gorm.DB, orderID uuid.UUID, o *Order) error {
 }
 
 // publish pushes the order's current board view to the warehouse WebSocket after commit.
-func (s *Service) publish(o *Order) (*WarehouseOrderView, error) {
+func (s *Service) publish(o *repository.Order) (*iface.WarehouseOrderView, error) {
 	view, err := s.toWarehouseView(o)
 	if err != nil {
 		return nil, err
@@ -323,21 +328,21 @@ func (s *Service) publish(o *Order) (*WarehouseOrderView, error) {
 
 // ---- BA history / detail ----
 
-func (s *Service) History(eventID, baUserID uuid.UUID) ([]OrderSummary, error) {
-	var orders []Order
+func (s *Service) History(eventID, baUserID uuid.UUID) ([]iface.OrderSummary, error) {
+	var orders []repository.Order
 	if err := s.db.Preload("Items").
 		Where("event_id = ? AND ba_user_id = ?", eventID, baUserID).
 		Order("created_at DESC").Find(&orders).Error; err != nil {
 		return nil, err
 	}
-	out := make([]OrderSummary, 0, len(orders))
+	out := make([]iface.OrderSummary, 0, len(orders))
 	for i := range orders {
 		o := &orders[i]
 		count := 0
 		for _, it := range o.Items {
 			count += it.Qty
 		}
-		out = append(out, OrderSummary{
+		out = append(out, iface.OrderSummary{
 			ID: o.ID, OrderNumberDisplay: fmt.Sprintf("#%03d", o.OrderNumber), ReferenceID: o.ReferenceID,
 			Status: o.Status, CustomerName: o.CustomerName, Total: o.Total, ItemCount: count, CreatedAt: o.CreatedAt,
 		})
@@ -345,8 +350,8 @@ func (s *Service) History(eventID, baUserID uuid.UUID) ([]OrderSummary, error) {
 	return out, nil
 }
 
-func (s *Service) Get(orderID uuid.UUID) (*OrderConfirmation, error) {
-	var o Order
+func (s *Service) Get(orderID uuid.UUID) (*iface.OrderConfirmation, error) {
+	var o repository.Order
 	if err := s.db.Preload("Items").First(&o, "id = ?", orderID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, common.NewAppError(http.StatusNotFound, "Order not found")
@@ -358,8 +363,8 @@ func (s *Service) Get(orderID uuid.UUID) (*OrderConfirmation, error) {
 
 // ---- helpers ----
 
-func (s *Service) findByIdempotencyKey(key string) (*Order, error) {
-	var o Order
+func (s *Service) findByIdempotencyKey(key string) (*repository.Order, error) {
+	var o repository.Order
 	err := s.db.Preload("Items").Where("idempotency_key = ?", key).First(&o).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
@@ -372,7 +377,7 @@ func (s *Service) findByIdempotencyKey(key string) (*Order, error) {
 
 // createdDetail is the ORDER_CREATED audit text; it carries the late-sync / stock-conflict markers the
 // report's audit trail shows per order.
-func createdDetail(o *Order) string {
+func createdDetail(o *repository.Order) string {
 	d := "Order created"
 	if o.LateSynced {
 		d += " · late-synced after event close"
@@ -385,9 +390,6 @@ func createdDetail(o *Order) string {
 
 // lateSyncGrace is how long after closing an event still takes orders confirmed before the close (D2).
 const lateSyncGrace = 24 * time.Hour
-
-// NumberBlockSize is how many order numbers a device gets per block (it asks for more below 10 left).
-const NumberBlockSize = 50
 
 // acceptsOrders applies decision D2: an ACTIVE event takes orders; a CLOSED one only takes orders the
 // device created before closed_at and uploads within 24h of closing — those are marked late-synced.
@@ -407,7 +409,7 @@ func acceptsOrders(ev *eventiface.EventResponse, clientCreatedAt *time.Time) (la
 
 // orderNumber returns the order's daily number and business date: the device's own number when it
 // confirmed the order itself (it must lie in one of the device's blocks), else the next server number.
-func (s *Service) orderNumber(tx *gorm.DB, eventID uuid.UUID, today string, req SubmitOrderRequest) (int, string, error) {
+func (s *Service) orderNumber(tx *gorm.DB, eventID uuid.UUID, today string, req iface.SubmitOrderRequest) (int, string, error) {
 	if req.OrderNumber == nil {
 		n, err := s.nextOrderNumber(tx, eventID, today)
 		return n, today, err
@@ -416,7 +418,7 @@ func (s *Service) orderNumber(tx *gorm.DB, eventID uuid.UUID, today string, req 
 	if req.DeviceID != nil {
 		deviceID = *req.DeviceID
 	}
-	var b NumberBlock
+	var b repository.NumberBlock
 	err := tx.Where("device_id = ? AND event_id = ? AND range_start <= ? AND range_end >= ?", deviceID, eventID, n, n).Take(&b).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return 0, "", common.NewAppError(http.StatusBadRequest, fmt.Sprintf("Order number %d is not in a block issued to this device", n))
@@ -430,7 +432,7 @@ func (s *Service) orderNumber(tx *gorm.DB, eventID uuid.UUID, today string, req 
 
 // IssueNumberBlock reserves the next NumberBlockSize numbers of today's sequence for a device. The
 // range comes off the same locked sequence row as server-assigned numbers, so they never collide.
-func (s *Service) IssueNumberBlock(eventID uuid.UUID, deviceID string) (*NumberBlockResponse, error) {
+func (s *Service) IssueNumberBlock(eventID uuid.UUID, deviceID string) (*iface.NumberBlockResponse, error) {
 	ev, err := s.events.Get(eventID)
 	if err != nil {
 		return nil, common.NewAppError(http.StatusNotFound, "Event not found")
@@ -439,20 +441,20 @@ func (s *Service) IssueNumberBlock(eventID uuid.UUID, deviceID string) (*NumberB
 		return nil, common.NewAppError(http.StatusConflict, "Event "+ev.Code+" is "+string(ev.Status)+" — no new order numbers")
 	}
 	today := time.Now().In(s.jakarta).Format("20060102")
-	var b NumberBlock
+	var b repository.NumberBlock
 	err = s.db.Transaction(func(tx *gorm.DB) error {
-		end, err := s.advanceSequence(tx, eventID, today, NumberBlockSize)
+		end, err := s.advanceSequence(tx, eventID, today, iface.NumberBlockSize)
 		if err != nil {
 			return err
 		}
-		start := end - NumberBlockSize + 1
-		b = NumberBlock{DeviceID: deviceID, EventID: eventID, BusinessDate: today, RangeStart: start, RangeEnd: end, NextUnused: start, CreatedAt: time.Now().UTC()}
+		start := end - iface.NumberBlockSize + 1
+		b = repository.NumberBlock{DeviceID: deviceID, EventID: eventID, BusinessDate: today, RangeStart: start, RangeEnd: end, NextUnused: start, CreatedAt: time.Now().UTC()}
 		return tx.Create(&b).Error
 	})
 	if err != nil {
 		return nil, err
 	}
-	return &NumberBlockResponse{EventID: eventID, BusinessDate: today, RangeStart: b.RangeStart, RangeEnd: b.RangeEnd}, nil
+	return &iface.NumberBlockResponse{EventID: eventID, BusinessDate: today, RangeStart: b.RangeStart, RangeEnd: b.RangeEnd}, nil
 }
 
 func (s *Service) nextOrderNumber(tx *gorm.DB, eventID uuid.UUID, dateKey string) (int, error) {
@@ -464,10 +466,10 @@ func (s *Service) nextOrderNumber(tx *gorm.DB, eventID uuid.UUID, dateKey string
 func (s *Service) advanceSequence(tx *gorm.DB, eventID uuid.UUID, dateKey string, n int) (int, error) {
 	// Ensure the row exists without aborting the tx on a concurrent create.
 	if err := tx.Clauses(clause.OnConflict{DoNothing: true}).
-		Create(&OrderDailySequence{EventID: eventID, DateKey: dateKey, LastNumber: 0}).Error; err != nil {
+		Create(&repository.OrderDailySequence{EventID: eventID, DateKey: dateKey, LastNumber: 0}).Error; err != nil {
 		return 0, err
 	}
-	var seq OrderDailySequence
+	var seq repository.OrderDailySequence
 	if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
 		Where("event_id = ? AND date_key = ?", eventID, dateKey).First(&seq).Error; err != nil {
 		return 0, err
@@ -479,35 +481,35 @@ func (s *Service) advanceSequence(tx *gorm.DB, eventID uuid.UUID, dateKey string
 	return seq.LastNumber, nil
 }
 
-func (s *Service) toWarehouseView(o *Order) (*WarehouseOrderView, error) {
+func (s *Service) toWarehouseView(o *repository.Order) (*iface.WarehouseOrderView, error) {
 	baName := "BA"
 	if u, err := s.users.FindByID(o.BaUserID); err == nil && u != nil {
 		baName = u.FullName
 	}
-	items := make([]WarehouseItem, 0, len(o.Items))
+	items := make([]iface.WarehouseItem, 0, len(o.Items))
 	for _, it := range o.Items {
-		items = append(items, WarehouseItem{Name: it.Name, SKU: it.SKU, Qty: it.Qty})
+		items = append(items, iface.WarehouseItem{Name: it.Name, SKU: it.SKU, Qty: it.Qty})
 	}
-	return &WarehouseOrderView{
+	return &iface.WarehouseOrderView{
 		ID: o.ID, OrderNumber: o.OrderNumber, OrderNumberDisplay: fmt.Sprintf("#%03d", o.OrderNumber),
 		ReferenceID: o.ReferenceID, CustomerName: o.CustomerName, BaName: baName, Items: items,
 		Status: o.Status, Total: o.Total, CreatedAt: o.CreatedAt, StockConflict: o.StockConflict, LateSynced: o.LateSynced,
 	}, nil
 }
 
-func (s *Service) toConfirmation(o *Order, duplicate bool) (*OrderConfirmation, error) {
+func (s *Service) toConfirmation(o *repository.Order, duplicate bool) (*iface.OrderConfirmation, error) {
 	code, name := "", ""
 	if ev, err := s.events.Get(o.EventID); err == nil {
 		code, name = ev.Code, ev.Name
 	}
-	items := make([]OrderItemView, 0, len(o.Items))
+	items := make([]iface.OrderItemView, 0, len(o.Items))
 	for _, it := range o.Items {
-		items = append(items, OrderItemView{
+		items = append(items, iface.OrderItemView{
 			ProductID: it.ProductID, SKU: it.SKU, Name: it.Name, UnitPrice: it.UnitPrice,
 			Qty: it.Qty, LineTotal: it.LineTotal, VariantName: it.VariantName,
 		})
 	}
-	return &OrderConfirmation{
+	return &iface.OrderConfirmation{
 		ID: o.ID, OrderNumber: o.OrderNumber, OrderNumberDisplay: fmt.Sprintf("#%03d", o.OrderNumber),
 		ReferenceID: o.ReferenceID, Status: o.Status, EventCode: code, EventName: name,
 		CustomerName: o.CustomerName, CustomerTier: o.CustomerTier, Items: items,
@@ -515,4 +517,39 @@ func (s *Service) toConfirmation(o *Order, duplicate bool) (*OrderConfirmation, 
 		CreatedAt: o.CreatedAt, CashierNote: "Please proceed to the cashier to complete payment.",
 		Duplicate: duplicate, StockConflict: o.StockConflict, LateSynced: o.LateSynced,
 	}, nil
+}
+
+func (s *Service) ForReceipt(tx database.Tx, orderID, baUserID uuid.UUID) (*iface.ReceiptOrder, error) {
+	var o repository.Order
+	err := tx.Select("id", "event_id", "reference_id", "ba_user_id").
+		Where("id = ? AND ba_user_id = ?", orderID, baUserID).Take(&o).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &iface.ReceiptOrder{ID: o.ID, EventID: o.EventID, ReferenceID: o.ReferenceID}, nil
+}
+
+func (s *Service) ForReport(eventID uuid.UUID) ([]iface.SoldOrder, int, error) {
+	var orders []repository.Order
+	if err := s.db.Preload("Items").Where("event_id = ? AND status <> ?", eventID, iface.StatusCancelled).
+		Order("created_at DESC").Find(&orders).Error; err != nil {
+		return nil, 0, err
+	}
+	var cancelled int64
+	if err := s.db.Model(&repository.Order{}).Where("event_id = ? AND status = ?", eventID, iface.StatusCancelled).
+		Count(&cancelled).Error; err != nil {
+		return nil, 0, err
+	}
+	out := make([]iface.SoldOrder, 0, len(orders))
+	for _, o := range orders {
+		items := make([]iface.SoldItem, 0, len(o.Items))
+		for _, it := range o.Items {
+			items = append(items, iface.SoldItem{ProductID: it.ProductID, SKU: it.SKU, Name: it.Name, Qty: it.Qty, LineTotal: it.LineTotal})
+		}
+		out = append(out, iface.SoldOrder{Total: o.Total, Discount: o.Discount, LateSynced: o.LateSynced, StockConflict: o.StockConflict, Items: items})
+	}
+	return out, int(cancelled), nil
 }

@@ -220,7 +220,7 @@ func (s *Service) SnapshotForEvent(eventID uuid.UUID) (*iface.EventSnapshot, err
 	}
 	if e.Status != iface.StatusActive {
 		return nil, common.NewAppError(http.StatusConflict,
-			"repository.Event '"+e.Code+"' is "+string(e.Status)+" — selling is only allowed while ACTIVE")
+			"Event '"+e.Code+"' is "+string(e.Status)+" — selling is only allowed while ACTIVE")
 	}
 	var products, members, promotions []any
 	if s.providers.Products != nil {
@@ -332,7 +332,7 @@ func (s *Service) find(id uuid.UUID) (*repository.Event, error) {
 	var e repository.Event
 	err := s.db.First(&e, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, common.NewAppError(http.StatusNotFound, "repository.Event not found")
+		return nil, common.NewAppError(http.StatusNotFound, "Event not found")
 	}
 	if err != nil {
 		return nil, err

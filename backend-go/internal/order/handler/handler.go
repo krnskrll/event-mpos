@@ -1,4 +1,4 @@
-package order
+package handler
 
 import (
 	"net/http"
@@ -7,15 +7,17 @@ import (
 	"github.com/google/uuid"
 
 	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
+	"github.com/krnskrll/event-mpos/internal/order/iface"
+	"github.com/krnskrll/event-mpos/internal/order/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
 // WarehouseHandler exposes the warehouse order board under /api/warehouse.
 type WarehouseHandler struct {
-	svc *Service
+	svc *service.Service
 }
 
-func NewWarehouseHandler(svc *Service) *WarehouseHandler { return &WarehouseHandler{svc: svc} }
+func NewWarehouseHandler(svc *service.Service) *WarehouseHandler { return &WarehouseHandler{svc: svc} }
 
 func (h *WarehouseHandler) Orders(c *gin.Context) {
 	eventID, err := uuid.Parse(c.Param("eventId"))
@@ -23,9 +25,9 @@ func (h *WarehouseHandler) Orders(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
 		return
 	}
-	var status *OrderStatus
+	var status *iface.OrderStatus
 	if raw := c.Query("status"); raw != "" {
-		st, ok := ParseStatus(raw)
+		st, ok := iface.ParseStatus(raw)
 		if !ok {
 			common.AbortError(c, http.StatusBadRequest, "status: must be one of NEW, PACKING, READY, COLLECTED, CANCELLED")
 			return
@@ -46,12 +48,12 @@ func (h *WarehouseHandler) Advance(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid order id")
 		return
 	}
-	var req AdvanceStatusRequest
+	var req iface.AdvanceStatusRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
 	}
-	if _, ok := ParseStatus(string(req.Status)); !ok {
+	if _, ok := iface.ParseStatus(string(req.Status)); !ok {
 		common.AbortError(c, http.StatusBadRequest, "status: must be one of NEW, PACKING, READY, COLLECTED")
 		return
 	}
@@ -72,7 +74,7 @@ func (h *WarehouseHandler) Cancel(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid order id")
 		return
 	}
-	var req CancelOrderRequest
+	var req iface.CancelOrderRequest
 	_ = c.ShouldBindJSON(&req) // body is optional
 	p, _ := authiface.PrincipalFrom(c)
 	view, err := h.svc.Cancel(orderID, p.UserID, p.Role, req.Reason)

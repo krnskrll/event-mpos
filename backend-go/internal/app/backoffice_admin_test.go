@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -115,7 +115,7 @@ func TestOrderActivityIsInAppendOnlyAuditLog(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := a.Orders.AdvanceStatus(conf.ID, order.StatusPacking, &wh.ID); err != nil {
+	if _, err := a.Orders.AdvanceStatus(conf.ID, orderiface.StatusPacking, &wh.ID); err != nil {
 		t.Fatal(err)
 	}
 

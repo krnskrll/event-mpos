@@ -70,7 +70,7 @@ func DiscountFor(promo *repository.Promotion, lines []iface.CartLine, now time.T
 				applicable = append(applicable, l)
 			}
 		}
-	default: // iface.ScopeAll
+	default: // ScopeAll
 		applicable = lines
 	}
 	if len(applicable) == 0 {

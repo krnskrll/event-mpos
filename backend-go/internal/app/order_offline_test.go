@@ -9,7 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
@@ -21,22 +21,22 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 	a.Allocate(ev.ID, p.ID, 2)
 	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
 	device := "device-" + uuid.NewString()
-	deviceOrder := func(n int, createdAt time.Time) (*order.OrderConfirmation, error) {
-		return a.Orders.Submit(ev.ID, ba.ID, order.SubmitOrderRequest{
-			IdempotencyKey: uuid.NewString(), Customer: order.CustomerInfo{Name: "Offline"},
-			Lines:    []order.OrderLineRequest{{ProductID: p.ID, Qty: 2}},
+	deviceOrder := func(n int, createdAt time.Time) (*orderiface.OrderConfirmation, error) {
+		return a.Orders.Submit(ev.ID, ba.ID, orderiface.SubmitOrderRequest{
+			IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "Offline"},
+			Lines:    []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 2}},
 			DeviceID: &device, OrderNumber: &n, ClientCreatedAt: &createdAt,
 		})
 	}
 
 	// Blocks and server numbers come off one sequence, so they never overlap.
 	b1, err := a.Orders.IssueNumberBlock(ev.ID, device)
-	if err != nil || b1.RangeStart != 1 || b1.RangeEnd != order.NumberBlockSize {
+	if err != nil || b1.RangeStart != 1 || b1.RangeEnd != orderiface.NumberBlockSize {
 		t.Fatalf("first block = %+v, %v", b1, err)
 	}
 	server, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1))
-	if err != nil || server.OrderNumber != order.NumberBlockSize+1 {
-		t.Fatalf("server number after a block = %v, %v; want %d", server, err, order.NumberBlockSize+1)
+	if err != nil || server.OrderNumber != orderiface.NumberBlockSize+1 {
+		t.Fatalf("server number after a block = %v, %v; want %d", server, err, orderiface.NumberBlockSize+1)
 	}
 
 	// A device-numbered order keeps its number and is never rejected for stock: 1 left, 2 sold.
@@ -50,7 +50,7 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 	if got := a.Remaining(ev.ID, p.ID); got != -1 {
 		t.Errorf("remaining = %d, want -1 (the shortfall stays visible)", got)
 	}
-	for _, n := range []int{order.NumberBlockSize + 1, 999} { // outside this device's blocks
+	for _, n := range []int{orderiface.NumberBlockSize + 1, 999} { // outside this device's blocks
 		if _, err := deviceOrder(n, time.Now()); testutil.StatusOf(err) != http.StatusBadRequest {
 			t.Errorf("number %d outside the block: %v, want 400", n, err)
 		}

@@ -8,7 +8,7 @@ import (
 
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 )
 
@@ -50,9 +50,9 @@ func TestSellingOnlyWhileActive(t *testing.T) {
 			t.Fatal(err)
 		}
 		a.Allocate(ev.ID, p.ID, 10)
-		_, err := a.Orders.Submit(ev.ID, uuid.New(), order.SubmitOrderRequest{
-			IdempotencyKey: uuid.NewString(), Customer: order.CustomerInfo{Name: "X"},
-			Lines: []order.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
+		_, err := a.Orders.Submit(ev.ID, uuid.New(), orderiface.SubmitOrderRequest{
+			IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "X"},
+			Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
 		})
 		if testutil.StatusOf(err) != http.StatusConflict {
 			t.Errorf("submit to %s event: got %v, want 409", status, err)
@@ -65,9 +65,9 @@ func TestSellingOnlyWhileActive(t *testing.T) {
 	// The same order on an ACTIVE event goes through.
 	ev := a.ActiveEvent()
 	a.Allocate(ev.ID, p.ID, 10)
-	if _, err := a.Orders.Submit(ev.ID, uuid.New(), order.SubmitOrderRequest{
-		IdempotencyKey: uuid.NewString(), Customer: order.CustomerInfo{Name: "X"},
-		Lines: []order.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
+	if _, err := a.Orders.Submit(ev.ID, uuid.New(), orderiface.SubmitOrderRequest{
+		IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "X"},
+		Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
 	}); err != nil {
 		t.Fatalf("submit to ACTIVE event: %v", err)
 	}

@@ -12,7 +12,7 @@ import (
 	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	memberiface "github.com/krnskrll/event-mpos/internal/member/iface"
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
@@ -41,11 +41,11 @@ type Handler struct {
 	members    memberiface.Members
 	stock      stockiface.Stock
 	promotions promotioniface.Promotions
-	orders     *order.Service
+	orders     orderiface.Orders
 	receipts   *receipt.Service
 }
 
-func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk stockiface.Stock, promotions promotioniface.Promotions, orders *order.Service, receipts *receipt.Service) *Handler {
+func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk stockiface.Stock, promotions promotioniface.Promotions, orders orderiface.Orders, receipts *receipt.Service) *Handler {
 	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions, orders: orders, receipts: receipts}
 }
 
@@ -177,7 +177,7 @@ func (h *Handler) SubmitOrder(c *gin.Context) {
 		common.Fail(c, err)
 		return
 	}
-	var req order.SubmitOrderRequest
+	var req orderiface.SubmitOrderRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
@@ -352,7 +352,7 @@ func (h *Handler) IssueNumberBlock(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
 		return
 	}
-	var req order.NumberBlockRequest
+	var req orderiface.NumberBlockRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return

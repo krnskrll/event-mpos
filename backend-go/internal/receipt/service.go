@@ -3,7 +3,6 @@
 package receipt
 
 import (
-	"errors"
 	"net/http"
 	"time"
 
@@ -12,7 +11,7 @@ import (
 	"gorm.io/gorm/clause"
 
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
@@ -34,25 +33,26 @@ func (r *ReceiptLog) BeforeCreate(_ *gorm.DB) error {
 }
 
 type Service struct {
-	db    *gorm.DB
-	audit auditiface.Audit
+	db     *gorm.DB
+	orders orderiface.Orders
+	audit  auditiface.Audit
 }
 
-func NewService(db *gorm.DB, aud auditiface.Audit) *Service { return &Service{db: db, audit: aud} }
+func NewService(db *gorm.DB, orders orderiface.Orders, aud auditiface.Audit) *Service {
+	return &Service{db: db, orders: orders, audit: aud}
+}
 
 // LogPrint records a print/reprint of one of the BA's own orders. In one transaction it bumps the
 // receipt_logs counter (atomic upsert, safe under concurrent prints) and appends a RECEIPT_PRINTED
 // audit entry. An unknown order, or another BA's order, is a 404.
 func (s *Service) LogPrint(orderID, baUserID uuid.UUID) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		var o order.Order
-		err := tx.Select("id", "event_id", "reference_id", "ba_user_id").
-			Where("id = ? AND ba_user_id = ?", orderID, baUserID).Take(&o).Error
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return common.NewAppError(http.StatusNotFound, "Order not found")
-		}
+		o, err := s.orders.ForReceipt(tx, orderID, baUserID)
 		if err != nil {
 			return err
+		}
+		if o == nil {
+			return common.NewAppError(http.StatusNotFound, "Order not found")
 		}
 
 		now := time.Now().UTC()

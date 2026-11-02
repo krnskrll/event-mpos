@@ -8,21 +8,21 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 )
 
 // Ported from the Kotlin OrderSubmissionTest.
 
-func submit(a *testutil.TestApp, eventID uuid.UUID, key string, lines ...order.OrderLineRequest) (*order.OrderConfirmation, error) {
-	return a.Orders.Submit(eventID, uuid.New(), order.SubmitOrderRequest{
-		IdempotencyKey: key, Customer: order.CustomerInfo{Name: "Aisha"}, Lines: lines,
+func submit(a *testutil.TestApp, eventID uuid.UUID, key string, lines ...orderiface.OrderLineRequest) (*orderiface.OrderConfirmation, error) {
+	return a.Orders.Submit(eventID, uuid.New(), orderiface.SubmitOrderRequest{
+		IdempotencyKey: key, Customer: orderiface.CustomerInfo{Name: "Aisha"}, Lines: lines,
 	})
 }
 
-func line(productID uuid.UUID, qty int) order.OrderLineRequest {
-	return order.OrderLineRequest{ProductID: productID, Qty: qty}
+func line(productID uuid.UUID, qty int) orderiface.OrderLineRequest {
+	return orderiface.OrderLineRequest{ProductID: productID, Qty: qty}
 }
 
 func dec(s string) decimal.Decimal { return decimal.RequireFromString(s) }

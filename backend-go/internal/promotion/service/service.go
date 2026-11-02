@@ -116,7 +116,7 @@ func (s *Service) Update(id uuid.UUID, req iface.PromotionRequest) (*iface.Promo
 	var promo repository.Promotion
 	err := s.db.First(&promo, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, common.NewAppError(http.StatusNotFound, "repository.Promotion not found")
+		return nil, common.NewAppError(http.StatusNotFound, "Promotion not found")
 	}
 	if err != nil {
 		return nil, err
@@ -138,7 +138,7 @@ func (s *Service) Delete(id uuid.UUID) error {
 		return err
 	}
 	if count == 0 {
-		return common.NewAppError(http.StatusNotFound, "repository.Promotion not found")
+		return common.NewAppError(http.StatusNotFound, "Promotion not found")
 	}
 	return s.db.Delete(&repository.Promotion{}, "id = ?", id).Error
 }

@@ -14,7 +14,7 @@ import (
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
-// Service records order activity into the append-only repository.OrderAuditLog, resolving the actor's name at
+// Service records order activity into the append-only OrderAuditLog, resolving the actor's name at
 // write time. Purely additive — never updates or deletes.
 type Service struct {
 	db    *gorm.DB

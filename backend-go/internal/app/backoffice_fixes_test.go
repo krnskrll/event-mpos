@@ -13,7 +13,7 @@ import (
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	auditrepo "github.com/krnskrll/event-mpos/internal/audit/repository"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
@@ -160,9 +160,9 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	a.Allocate(ev.ID, p.ID, 10)
 	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
 	other := a.CreateUser(useriface.RoleBA, "Ba123456!")
-	conf, err := a.Orders.Submit(ev.ID, ba.ID, order.SubmitOrderRequest{
-		IdempotencyKey: uuid.NewString(), Customer: order.CustomerInfo{Name: "Cara"},
-		Lines: []order.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
+	conf, err := a.Orders.Submit(ev.ID, ba.ID, orderiface.SubmitOrderRequest{
+		IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "Cara"},
+		Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
 	})
 	if err != nil {
 		t.Fatal(err)

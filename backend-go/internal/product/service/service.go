@@ -353,7 +353,7 @@ func (s *Service) find(id uuid.UUID) (*repository.Product, error) {
 	var p repository.Product
 	err := s.preloaded().First(&p, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, common.NewAppError(http.StatusNotFound, "repository.Product not found")
+		return nil, common.NewAppError(http.StatusNotFound, "Product not found")
 	}
 	if err != nil {
 		return nil, err

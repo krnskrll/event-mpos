@@ -14,7 +14,7 @@ import (
 	"gorm.io/gorm"
 
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
@@ -54,10 +54,11 @@ type Service struct {
 	events   eventiface.Events
 	products productiface.Products
 	stock    stockiface.Stock
+	orders   orderiface.Orders
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock) *Service {
-	return &Service{db: db, events: events, products: products, stock: stk}
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, orders orderiface.Orders) *Service {
+	return &Service{db: db, events: events, products: products, stock: stk, orders: orders}
 }
 
 func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
@@ -70,14 +71,8 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 		return nil, common.NewAppError(http.StatusConflict,
 			"The end-of-event report is available once "+ev.Code+" is CLOSED (it is "+string(ev.Status)+").")
 	}
-	var orders []order.Order
-	if err := s.db.Preload("Items").Where("event_id = ? AND status <> ?", eventID, order.StatusCancelled).
-		Order("created_at DESC").Find(&orders).Error; err != nil {
-		return nil, err
-	}
-	var cancelled int64
-	if err := s.db.Model(&order.Order{}).Where("event_id = ? AND status = ?", eventID, order.StatusCancelled).
-		Count(&cancelled).Error; err != nil {
+	orders, cancelled, err := s.orders.ForReport(eventID)
+	if err != nil {
 		return nil, err
 	}
 
@@ -164,7 +159,7 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*EndOfEventReport, error) {
 
 	return &EndOfEventReport{
 		EventID: ev.ID, EventCode: ev.Code, EventName: ev.Name, Status: ev.Status,
-		GeneratedAt: time.Now().UTC(), TotalOrders: len(orders), CancelledOrders: int(cancelled), LateSyncedOrders: lateSynced, StockConflictOrders: conflicts, TotalItems: totalItems,
+		GeneratedAt: time.Now().UTC(), TotalOrders: len(orders), CancelledOrders: cancelled, LateSyncedOrders: lateSynced, StockConflictOrders: conflicts, TotalItems: totalItems,
 		TotalRevenue: totalRevenue.Round(2), TotalDiscount: totalDiscount.Round(2), Products: rows,
 	}, nil
 }

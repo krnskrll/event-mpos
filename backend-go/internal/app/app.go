@@ -19,7 +19,9 @@ import (
 	"github.com/krnskrll/event-mpos/internal/me"
 	memberhandler "github.com/krnskrll/event-mpos/internal/member/handler"
 	membersvc "github.com/krnskrll/event-mpos/internal/member/service"
-	"github.com/krnskrll/event-mpos/internal/order"
+	orderhandler "github.com/krnskrll/event-mpos/internal/order/handler"
+	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	ordersvc "github.com/krnskrll/event-mpos/internal/order/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
 	"github.com/krnskrll/event-mpos/internal/platform/realtime"
@@ -53,7 +55,7 @@ type App struct {
 	Promotions *promotionsvc.Service
 	Audit      *auditsvc.Service
 	Receipts   *receipt.Service
-	Orders     *order.Service
+	Orders     *ordersvc.Service
 	Reports    *report.Service
 	SyncConfig *syncsvc.Service
 	Scheduler  *syncsvc.Scheduler
@@ -82,18 +84,18 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Stock = stocksvc.NewService(db, a.Events, a.Products)
 	a.Promotions = promotionsvc.NewService(db, a.Products)
 	a.Audit = auditsvc.NewService(db, a.Users)
-	a.Receipts = receipt.NewService(db, a.Audit)
-	a.Orders = order.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
+	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
+	a.Receipts = receipt.NewService(db, a.Orders, a.Audit)
 
 	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.
 	a.Hub = realtime.NewHub()
 	go a.Hub.Run()
-	a.Orders.SetBroadcaster(func(eventID uuid.UUID, view order.WarehouseOrderView) {
+	a.Orders.SetBroadcaster(func(eventID uuid.UUID, view orderiface.WarehouseOrderView) {
 		a.Hub.Broadcast(eventID.String(), view)
 	})
 
 	// Reporting + runtime-editable sync schedules with a dynamic cron scheduler.
-	a.Reports = report.NewService(db, a.Events, a.Products, a.Stock)
+	a.Reports = report.NewService(db, a.Events, a.Products, a.Stock, a.Orders)
 	a.SyncConfig = syncsvc.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
 	if err := a.SyncConfig.SeedDefaults(); err != nil {
 		return nil, err
@@ -127,7 +129,7 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock)
 	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
 	promotionHandler := promotionhandler.NewHandler(a.Promotions)
-	warehouseOrderHandler := order.NewWarehouseHandler(a.Orders)
+	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders)
 	reportHandler := report.NewHandler(a.Reports, a.Audit)
 	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)
 	meHandler := me.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
