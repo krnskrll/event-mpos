@@ -1,4 +1,4 @@
-package promotion
+package service
 
 import (
 	"encoding/json"
@@ -9,6 +9,9 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
+
+	"github.com/krnskrll/event-mpos/internal/promotion/iface"
+	"github.com/krnskrll/event-mpos/internal/promotion/repository"
 )
 
 // TestPromotionParityFixture runs the shared fixture at testdata/promotion-cases.json (repo root).
@@ -68,18 +71,18 @@ func optTime(t *testing.T, s *string) *time.Time {
 	return &v
 }
 
-func (f fixturePromotion) toPromotion(t *testing.T) Promotion {
-	scope := ScopeAll
+func (f fixturePromotion) toPromotion(t *testing.T) repository.Promotion {
+	scope := iface.ScopeAll
 	if f.Scope != "" {
-		scope = PromotionScope(f.Scope)
+		scope = iface.PromotionScope(f.Scope)
 	}
 	var ids *string
 	if len(f.ProductIDs) > 0 {
 		csv := strings.Join(f.ProductIDs, ",")
 		ids = &csv
 	}
-	return Promotion{
-		ID: uuid.New(), Name: f.Name, Type: PromotionType(f.Type),
+	return repository.Promotion{
+		ID: uuid.New(), Name: f.Name, Type: iface.PromotionType(f.Type),
 		PercentOff: optDecimal(f.PercentOff), AmountOff: optDecimal(f.AmountOff),
 		Scope: scope, ProductIdsCsv: ids, MinQty: f.MinQty, MinSubtotal: optDecimal(f.MinSubtotal),
 		StartsAt: optTime(t, f.StartsAt), EndsAt: optTime(t, f.EndsAt), Active: true, Priority: f.Priority,
@@ -87,7 +90,7 @@ func (f fixturePromotion) toPromotion(t *testing.T) Promotion {
 }
 
 func TestPromotionParityFixture(t *testing.T) {
-	raw, err := os.ReadFile("../../../testdata/promotion-cases.json")
+	raw, err := os.ReadFile("../../../../testdata/promotion-cases.json")
 	if err != nil {
 		t.Fatalf("read fixture: %v", err)
 	}
@@ -109,13 +112,13 @@ func TestPromotionParityFixture(t *testing.T) {
 			if !ok {
 				t.Fatalf("unknown cart %q", c.Cart)
 			}
-			lines := make([]CartLine, 0, len(cartLines))
+			lines := make([]iface.CartLine, 0, len(cartLines))
 			for _, l := range cartLines {
-				lines = append(lines, CartLine{
+				lines = append(lines, iface.CartLine{
 					ProductID: uuid.MustParse(l.ProductID), UnitPrice: decimal.RequireFromString(l.UnitPrice), Qty: l.Qty,
 				})
 			}
-			promos := make([]Promotion, 0, len(c.Promotions))
+			promos := make([]repository.Promotion, 0, len(c.Promotions))
 			for _, p := range c.Promotions {
 				promos = append(promos, p.toPromotion(t))
 			}

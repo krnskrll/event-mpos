@@ -1,29 +1,25 @@
-package promotion
+package service
 
 import (
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-)
 
-// CartLine is a normalized cart line for promotion evaluation.
-type CartLine struct {
-	ProductID uuid.UUID
-	UnitPrice decimal.Decimal
-	Qty       int
-}
+	"github.com/krnskrll/event-mpos/internal/promotion/iface"
+	"github.com/krnskrll/event-mpos/internal/promotion/repository"
+)
 
 // AppliedPromotion is the single promotion chosen for a cart, plus the discount it yields.
 type AppliedPromotion struct {
-	Promotion *Promotion
+	Promotion *repository.Promotion
 	Discount  decimal.Decimal
 }
 
 // BestPromotion evaluates every active+in-window promotion and returns the one with the largest
 // discount (ties broken by higher priority, then higher name). One promotion per order. Mirrors the
 // Kotlin PromotionEngine — keep the Android copy identical.
-func BestPromotion(lines []CartLine, promotions []Promotion, now time.Time) *AppliedPromotion {
+func BestPromotion(lines []iface.CartLine, promotions []repository.Promotion, now time.Time) *AppliedPromotion {
 	var best *AppliedPromotion
 	for i := range promotions {
 		promo := &promotions[i]
@@ -51,7 +47,7 @@ func greater(a, b *AppliedPromotion) bool {
 }
 
 // DiscountFor returns the discount this promotion yields for the cart, and whether it applies.
-func DiscountFor(promo *Promotion, lines []CartLine, now time.Time) (decimal.Decimal, bool) {
+func DiscountFor(promo *repository.Promotion, lines []iface.CartLine, now time.Time) (decimal.Decimal, bool) {
 	if !promo.Active {
 		return decimal.Zero, false
 	}
@@ -62,9 +58,9 @@ func DiscountFor(promo *Promotion, lines []CartLine, now time.Time) (decimal.Dec
 		return decimal.Zero, false
 	}
 
-	var applicable []CartLine
+	var applicable []iface.CartLine
 	switch promo.Scope {
-	case ScopeSpecific:
+	case iface.ScopeSpecific:
 		ids := map[uuid.UUID]bool{}
 		for _, id := range promo.ProductIDs() {
 			ids[id] = true
@@ -74,7 +70,7 @@ func DiscountFor(promo *Promotion, lines []CartLine, now time.Time) (decimal.Dec
 				applicable = append(applicable, l)
 			}
 		}
-	default: // ScopeAll
+	default: // iface.ScopeAll
 		applicable = lines
 	}
 	if len(applicable) == 0 {
@@ -97,17 +93,17 @@ func DiscountFor(promo *Promotion, lines []CartLine, now time.Time) (decimal.Dec
 
 	var raw decimal.Decimal
 	switch promo.Type {
-	case TypePercentage:
+	case iface.TypePercentage:
 		if promo.PercentOff == nil {
 			return decimal.Zero, false
 		}
 		raw = subtotal.Mul(*promo.PercentOff).Div(decimal.NewFromInt(100))
-	case TypeFixed:
+	case iface.TypeFixed:
 		if promo.AmountOff == nil {
 			return decimal.Zero, false
 		}
 		raw = *promo.AmountOff
-	case TypeBundle:
+	case iface.TypeBundle:
 		if promo.MinQty == nil {
 			return decimal.Zero, false
 		}

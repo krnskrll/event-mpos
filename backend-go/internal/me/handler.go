@@ -15,7 +15,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/order"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
-	"github.com/krnskrll/event-mpos/internal/promotion"
+	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -40,12 +40,12 @@ type Handler struct {
 	products   productiface.Products
 	members    memberiface.Members
 	stock      *stock.Service
-	promotions *promotion.Service
+	promotions promotioniface.Promotions
 	orders     *order.Service
 	receipts   *receipt.Service
 }
 
-func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk *stock.Service, promotions *promotion.Service, orders *order.Service, receipts *receipt.Service) *Handler {
+func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk *stock.Service, promotions promotioniface.Promotions, orders *order.Service, receipts *receipt.Service) *Handler {
 	return &Handler{events: events, products: products, members: members, stock: stk, promotions: promotions, orders: orders, receipts: receipts}
 }
 
@@ -268,7 +268,7 @@ func (h *Handler) Quote(c *gin.Context) {
 		common.Fail(c, err)
 		return
 	}
-	var req promotion.QuoteRequest
+	var req promotioniface.QuoteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return

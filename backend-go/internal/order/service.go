@@ -17,7 +17,7 @@ import (
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
-	"github.com/krnskrll/event-mpos/internal/promotion"
+	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
@@ -27,7 +27,7 @@ type Service struct {
 	events     eventiface.Events
 	products   productiface.Products
 	stock      *stock.Service
-	promotions *promotion.Service
+	promotions promotioniface.Promotions
 	audit      *audit.Service
 	users      useriface.Users
 	jakarta    *time.Location
@@ -35,7 +35,7 @@ type Service struct {
 	broadcast func(eventID uuid.UUID, view WarehouseOrderView)
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk *stock.Service, promotions *promotion.Service, aud *audit.Service, users useriface.Users) *Service {
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk *stock.Service, promotions promotioniface.Promotions, aud *audit.Service, users useriface.Users) *Service {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
@@ -89,7 +89,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 		return nil, common.NewAppError(http.StatusBadRequest, "Cart is empty")
 	}
 
-	cartLines := make([]promotion.CartLine, 0, len(lines))
+	cartLines := make([]promotioniface.CartLine, 0, len(lines))
 	drafts := make([]draftItem, 0, len(lines))
 	for _, line := range lines {
 		p, err := s.products.Find(line.ProductID)
@@ -120,7 +120,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 			variantName = &name
 		}
 		lineTotal := unitPrice.Mul(decimal.NewFromInt(int64(line.Qty)))
-		cartLines = append(cartLines, promotion.CartLine{ProductID: p.ID, UnitPrice: unitPrice, Qty: line.Qty})
+		cartLines = append(cartLines, promotioniface.CartLine{ProductID: p.ID, UnitPrice: unitPrice, Qty: line.Qty})
 		drafts = append(drafts, draftItem{
 			productID: p.ID, variantID: variantID, variantName: variantName, sku: p.SKU, name: p.Name,
 			unitPrice: unitPrice, qty: line.Qty, lineTotal: lineTotal,
@@ -142,8 +142,8 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*
 	var promoName *string
 	if applied != nil {
 		discount = applied.Discount
-		promoID = &applied.Promotion.ID
-		promoName = &applied.Promotion.Name
+		promoID = &applied.ID
+		promoName = &applied.Name
 	}
 	total := subtotal.Sub(discount)
 	if total.IsNegative() {

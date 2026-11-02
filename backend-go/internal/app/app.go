@@ -25,7 +25,8 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/realtime"
 	producthandler "github.com/krnskrll/event-mpos/internal/product/handler"
 	productsvc "github.com/krnskrll/event-mpos/internal/product/service"
-	"github.com/krnskrll/event-mpos/internal/promotion"
+	promotionhandler "github.com/krnskrll/event-mpos/internal/promotion/handler"
+	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
 	"github.com/krnskrll/event-mpos/internal/receipt"
 	"github.com/krnskrll/event-mpos/internal/report"
 	"github.com/krnskrll/event-mpos/internal/stock"
@@ -48,7 +49,7 @@ type App struct {
 	Members    *membersvc.Service
 	MemberSync *membersrc.Service
 	Stock      *stock.Service
-	Promotions *promotion.Service
+	Promotions *promotionsvc.Service
 	Audit      *audit.Service
 	Receipts   *receipt.Service
 	Orders     *order.Service
@@ -78,7 +79,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
 	a.Stock = stock.NewService(db, a.Events, a.Products)
-	a.Promotions = promotion.NewService(db, a.Products)
+	a.Promotions = promotionsvc.NewService(db, a.Products)
 	a.Audit = audit.NewService(db, a.Users)
 	a.Receipts = receipt.NewService(db, a.Audit)
 	a.Orders = order.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
@@ -124,7 +125,7 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
 	stockAdminHandler := stock.NewAdminHandler(a.Stock)
 	warehouseStockHandler := stock.NewWarehouseHandler(a.Stock, a.Events)
-	promotionHandler := promotion.NewHandler(a.Promotions)
+	promotionHandler := promotionhandler.NewHandler(a.Promotions)
 	warehouseOrderHandler := order.NewWarehouseHandler(a.Orders)
 	reportHandler := report.NewHandler(a.Reports, a.Audit)
 	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)

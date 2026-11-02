@@ -17,7 +17,8 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/security"
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
-	"github.com/krnskrll/event-mpos/internal/promotion"
+	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
+	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 	userrepo "github.com/krnskrll/event-mpos/internal/user/repository"
@@ -28,7 +29,7 @@ import (
 //	admin@eventmpos.local / Admin123!  (ADMIN)
 //	ba@eventmpos.local    / Ba123456!  (BA)
 //	wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stock.Service, promoSvc *promotion.Service) error {
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stock.Service, promoSvc *promotionsvc.Service) error {
 	var count int64
 	if err := db.Model(&userrepo.User{}).Count(&count).Error; err != nil {
 		return err
@@ -128,21 +129,21 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 	off30k := decimal.RequireFromString("30000")
 	pri1, pri2, pri3 := 1, 2, 3
 	bundleQty := 3
-	specific := promotion.ScopeSpecific
-	if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
-		Name: "10% off everything", Type: promotion.TypePercentage, PercentOff: &pct, Priority: &pri1,
+	specific := promotioniface.ScopeSpecific
+	if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+		Name: "10% off everything", Type: promotioniface.TypePercentage, PercentOff: &pct, Priority: &pri1,
 	}); err != nil {
 		return err
 	}
-	if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
-		Name: "Rp20.000 off when you spend Rp200.000", Type: promotion.TypeFixed,
+	if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+		Name: "Rp20.000 off when you spend Rp200.000", Type: promotioniface.TypeFixed,
 		AmountOff: &off20k, MinSubtotal: &min200k, Priority: &pri2,
 	}); err != nil {
 		return err
 	}
 	if lipstick.ID != uuid.Nil {
-		if _, err := promoSvc.Create(ev.ID, promotion.PromotionRequest{
-			Name: "Lipstick bundle: buy 3, Rp30.000 off", Type: promotion.TypeBundle,
+		if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+			Name: "Lipstick bundle: buy 3, Rp30.000 off", Type: promotioniface.TypeBundle,
 			AmountOff: &off30k, Scope: &specific, ProductIDs: []uuid.UUID{lipstick.ID},
 			MinQty: &bundleQty, Priority: &pri3,
 		}); err != nil {

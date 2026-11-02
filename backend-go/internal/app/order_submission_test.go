@@ -9,7 +9,7 @@ import (
 	"github.com/shopspring/decimal"
 
 	"github.com/krnskrll/event-mpos/internal/order"
-	"github.com/krnskrll/event-mpos/internal/promotion"
+	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 )
 
@@ -128,7 +128,7 @@ func TestBestPromotionIsAppliedAtSubmit(t *testing.T) {
 	ev, p := a.ActiveEvent(), a.Product("100.00")
 	a.Allocate(ev.ID, p.ID, 100)
 	pct := dec("10")
-	if _, err := a.Promotions.Create(ev.ID, promotion.PromotionRequest{Name: "10% off", Type: promotion.TypePercentage, PercentOff: &pct}); err != nil {
+	if _, err := a.Promotions.Create(ev.ID, promotioniface.PromotionRequest{Name: "10% off", Type: promotioniface.TypePercentage, PercentOff: &pct}); err != nil {
 		t.Fatal(err)
 	}
 

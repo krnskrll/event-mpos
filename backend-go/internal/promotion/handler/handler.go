@@ -1,4 +1,4 @@
-package promotion
+package handler
 
 import (
 	"net/http"
@@ -7,14 +7,16 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/promotion/iface"
+	"github.com/krnskrll/event-mpos/internal/promotion/service"
 )
 
 // Handler exposes the admin promotion endpoints under /api/admin.
 type Handler struct {
-	svc *Service
+	svc *service.Service
 }
 
-func NewHandler(svc *Service) *Handler { return &Handler{svc: svc} }
+func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) List(c *gin.Context) {
 	eventID, err := uuid.Parse(c.Param("id"))
@@ -79,13 +81,13 @@ func (h *Handler) Delete(c *gin.Context) {
 	c.Status(http.StatusNoContent)
 }
 
-func bindPromotion(c *gin.Context) (PromotionRequest, bool) {
-	var req PromotionRequest
+func bindPromotion(c *gin.Context) (iface.PromotionRequest, bool) {
+	var req iface.PromotionRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return req, false
 	}
-	if _, ok := ParseType(string(req.Type)); !ok {
+	if _, ok := iface.ParseType(string(req.Type)); !ok {
 		common.AbortError(c, http.StatusBadRequest, "type: must be one of PERCENTAGE, FIXED, BUNDLE")
 		return req, false
 	}

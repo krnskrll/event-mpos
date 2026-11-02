@@ -1,4 +1,4 @@
-package promotion
+package service
 
 import (
 	"errors"
@@ -14,9 +14,13 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
+	"github.com/krnskrll/event-mpos/internal/promotion/iface"
+	"github.com/krnskrll/event-mpos/internal/promotion/repository"
 )
 
 // Service holds promotion CRUD + the authoritative quote — the Go analogue of Kotlin PromotionService.
+var _ iface.Promotions = (*Service)(nil)
+
 type Service struct {
 	db       *gorm.DB
 	products productiface.Products
@@ -26,33 +30,37 @@ func NewService(db *gorm.DB, products productiface.Products) *Service {
 	return &Service{db: db, products: products}
 }
 
-func (s *Service) ListForEvent(eventID uuid.UUID) ([]PromotionResponse, error) {
-	var promos []Promotion
+func (s *Service) ListForEvent(eventID uuid.UUID) ([]iface.PromotionResponse, error) {
+	var promos []repository.Promotion
 	if err := s.db.Where("event_id = ?", eventID).Find(&promos).Error; err != nil {
 		return nil, err
 	}
 	sort.SliceStable(promos, func(i, j int) bool { return promos[i].Priority > promos[j].Priority })
-	out := make([]PromotionResponse, 0, len(promos))
+	out := make([]iface.PromotionResponse, 0, len(promos))
 	for i := range promos {
 		out = append(out, promos[i].ToResponse())
 	}
 	return out, nil
 }
 
-func (s *Service) activeForEvent(eventID uuid.UUID) ([]Promotion, error) {
-	var promos []Promotion
+func (s *Service) activeForEvent(eventID uuid.UUID) ([]repository.Promotion, error) {
+	var promos []repository.Promotion
 	err := s.db.Where("event_id = ? AND active = ?", eventID, true).Find(&promos).Error
 	return promos, err
 }
 
 // BestFor evaluates the active promotions for an event against a cart and returns the single best
 // applied promotion (or nil). Shared by the quote endpoint and order submission.
-func (s *Service) BestFor(eventID uuid.UUID, cart []CartLine, now time.Time) (*AppliedPromotion, error) {
+func (s *Service) BestFor(eventID uuid.UUID, cart []iface.CartLine, now time.Time) (*iface.Applied, error) {
 	promos, err := s.activeForEvent(eventID)
 	if err != nil {
 		return nil, err
 	}
-	return BestPromotion(cart, promos, now), nil
+	best := BestPromotion(cart, promos, now)
+	if best == nil {
+		return nil, nil
+	}
+	return &iface.Applied{ID: best.Promotion.ID, Name: best.Promotion.Name, Discount: best.Discount}, nil
 }
 
 // SnapshotPromotions returns active promotions as compact snapshot DTOs.
@@ -71,7 +79,7 @@ func (s *Service) SnapshotPromotions(eventID uuid.UUID) ([]any, error) {
 // Fingerprint is the promotion config fingerprint folded into the (opaque, backend-relative)
 // snapshot version. Deterministic given the data.
 func (s *Service) Fingerprint(eventID uuid.UUID) (string, error) {
-	var promos []Promotion
+	var promos []repository.Promotion
 	if err := s.db.Where("event_id = ?", eventID).Find(&promos).Error; err != nil {
 		return "", err
 	}
@@ -88,11 +96,11 @@ func (s *Service) Fingerprint(eventID uuid.UUID) (string, error) {
 	return strings.Join(parts, ","), nil
 }
 
-func (s *Service) Create(eventID uuid.UUID, req PromotionRequest) (*PromotionResponse, error) {
+func (s *Service) Create(eventID uuid.UUID, req iface.PromotionRequest) (*iface.PromotionResponse, error) {
 	if err := validate(req); err != nil {
 		return nil, err
 	}
-	promo := Promotion{EventID: eventID, Name: strings.TrimSpace(req.Name), Type: req.Type}
+	promo := repository.Promotion{EventID: eventID, Name: strings.TrimSpace(req.Name), Type: req.Type}
 	applyReq(&promo, req)
 	if err := s.db.Create(&promo).Error; err != nil {
 		return nil, err
@@ -101,14 +109,14 @@ func (s *Service) Create(eventID uuid.UUID, req PromotionRequest) (*PromotionRes
 	return &resp, nil
 }
 
-func (s *Service) Update(id uuid.UUID, req PromotionRequest) (*PromotionResponse, error) {
+func (s *Service) Update(id uuid.UUID, req iface.PromotionRequest) (*iface.PromotionResponse, error) {
 	if err := validate(req); err != nil {
 		return nil, err
 	}
-	var promo Promotion
+	var promo repository.Promotion
 	err := s.db.First(&promo, "id = ?", id).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, common.NewAppError(http.StatusNotFound, "Promotion not found")
+		return nil, common.NewAppError(http.StatusNotFound, "repository.Promotion not found")
 	}
 	if err != nil {
 		return nil, err
@@ -126,18 +134,18 @@ func (s *Service) Update(id uuid.UUID, req PromotionRequest) (*PromotionResponse
 
 func (s *Service) Delete(id uuid.UUID) error {
 	var count int64
-	if err := s.db.Model(&Promotion{}).Where("id = ?", id).Count(&count).Error; err != nil {
+	if err := s.db.Model(&repository.Promotion{}).Where("id = ?", id).Count(&count).Error; err != nil {
 		return err
 	}
 	if count == 0 {
-		return common.NewAppError(http.StatusNotFound, "Promotion not found")
+		return common.NewAppError(http.StatusNotFound, "repository.Promotion not found")
 	}
-	return s.db.Delete(&Promotion{}, "id = ?", id).Error
+	return s.db.Delete(&repository.Promotion{}, "id = ?", id).Error
 }
 
 // Quote is the authoritative cart quote: DB prices + the shared engine picks the single best promo.
-func (s *Service) Quote(eventID uuid.UUID, lines []QuoteLine) (*QuoteResponse, error) {
-	cart := make([]CartLine, 0, len(lines))
+func (s *Service) Quote(eventID uuid.UUID, lines []iface.QuoteLine) (*iface.QuoteResponse, error) {
+	cart := make([]iface.CartLine, 0, len(lines))
 	for _, line := range lines {
 		if line.Qty <= 0 {
 			continue
@@ -149,7 +157,7 @@ func (s *Service) Quote(eventID uuid.UUID, lines []QuoteLine) (*QuoteResponse, e
 		if p == nil {
 			continue
 		}
-		cart = append(cart, CartLine{ProductID: p.ID, UnitPrice: p.Price, Qty: line.Qty})
+		cart = append(cart, iface.CartLine{ProductID: p.ID, UnitPrice: p.Price, Qty: line.Qty})
 	}
 	subtotal := decimal.Zero
 	for _, l := range cart {
@@ -163,7 +171,7 @@ func (s *Service) Quote(eventID uuid.UUID, lines []QuoteLine) (*QuoteResponse, e
 	}
 	applied := BestPromotion(cart, promos, time.Now())
 	discount := decimal.Zero.Round(2)
-	resp := QuoteResponse{Subtotal: subtotal}
+	resp := iface.QuoteResponse{Subtotal: subtotal}
 	if applied != nil {
 		discount = applied.Discount
 		id := applied.Promotion.ID
@@ -182,18 +190,18 @@ func (s *Service) Quote(eventID uuid.UUID, lines []QuoteLine) (*QuoteResponse, e
 
 // ---- validation + apply ----
 
-func validate(req PromotionRequest) error {
+func validate(req iface.PromotionRequest) error {
 	pos := func(d *decimal.Decimal) bool { return d != nil && d.GreaterThan(decimal.Zero) }
 	switch req.Type {
-	case TypePercentage:
+	case iface.TypePercentage:
 		if !pos(req.PercentOff) {
 			return common.NewAppError(http.StatusBadRequest, "percentOff required for a percentage promotion")
 		}
-	case TypeFixed:
+	case iface.TypeFixed:
 		if !pos(req.AmountOff) {
 			return common.NewAppError(http.StatusBadRequest, "amountOff required for a fixed promotion")
 		}
-	case TypeBundle:
+	case iface.TypeBundle:
 		if !pos(req.AmountOff) {
 			return common.NewAppError(http.StatusBadRequest, "amountOff required for a bundle promotion")
 		}
@@ -203,20 +211,20 @@ func validate(req PromotionRequest) error {
 	default:
 		return common.NewAppError(http.StatusBadRequest, "type must be one of PERCENTAGE, FIXED, BUNDLE")
 	}
-	scope := ScopeAll
+	scope := iface.ScopeAll
 	if req.Scope != nil {
 		scope = *req.Scope
 	}
-	if scope == ScopeSpecific && len(req.ProductIDs) == 0 {
+	if scope == iface.ScopeSpecific && len(req.ProductIDs) == 0 {
 		return common.NewAppError(http.StatusBadRequest, "SPECIFIC scope needs at least one product")
 	}
 	return nil
 }
 
-func applyReq(promo *Promotion, req PromotionRequest) {
+func applyReq(promo *repository.Promotion, req iface.PromotionRequest) {
 	promo.PercentOff = req.PercentOff
 	promo.AmountOff = req.AmountOff
-	promo.Scope = ScopeAll
+	promo.Scope = iface.ScopeAll
 	if req.Scope != nil {
 		promo.Scope = *req.Scope
 	}
