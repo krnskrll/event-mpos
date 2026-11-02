@@ -40,6 +40,9 @@ class ReceiptService {
 
   Future<List<String>?> lines(String orderKey) async => (await _row(orderKey))?.receiptText.split('\n');
 
+  /// Whether the last print of [orderKey]'s receipt succeeded; null when there is no receipt.
+  Future<bool?> printed(String orderKey) async => (await _row(orderKey))?.printedOk;
+
   /// Prints the stored receipt again — no new order, no network needed.
   Future<String?> reprint(String orderKey) async {
     final row = await _row(orderKey);

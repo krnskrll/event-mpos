@@ -47,6 +47,7 @@ abstract final class Brand {
 abstract final class AppShadows {
   static const card = [BoxShadow(color: Color(0x14143A24), blurRadius: 4, offset: Offset(0, 4), spreadRadius: -2)];
   static const panel = [BoxShadow(color: Color(0x1F143A24), blurRadius: 16, offset: Offset(0, 8), spreadRadius: -4)];
+  static const paper = [BoxShadow(color: Color(0x400F1829), blurRadius: 18, offset: Offset(0, 8), spreadRadius: -8)];
 }
 
 /// The type scale: Lato, tabular figures so prices line up. Each style names the family because

@@ -92,6 +92,9 @@ class PendingOrders extends Table {
   IntColumn get orderNumber => integer().nullable()();
   TextColumn get serverOrderId => text().nullable()();
   DateTimeColumn get claimedAt => dateTime().nullable()(); // set while an upload is in flight
+  RealColumn get subtotal => real().nullable()(); // v3: kept so the order detail shows what was charged
+  RealColumn get discount => real().nullable()();
+  TextColumn get promotionName => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {idempotencyKey};

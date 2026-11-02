@@ -15,6 +15,8 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | U7 | Card **+** adds one (opens the sheet if the product has variants); tapping the card opens the sheet. Save draft lives inside Drafts | 2026-11-02 |
 | U8 | Offline keeps selling (chip + gold note only); **event closed** stops selling (Sell tab disabled, closed card). A status chip replaces the full-width banners | 2026-11-02 |
 | U9 | End session: tablet Home header and the avatar menu (all sizes); Orders tab shows a badge for orders still sending | 2026-11-02 |
+| U10 | Every order has a detail view (items, totals, progress) with a Details / Receipt switch; tablet shows it beside the list. An order the server has accepted reads **"Processing"** (not yet sent: "Sending to server"); never the platform name | 2026-11-02 |
+| U11 | Orders keep subtotal, discount and promotion name (database v3) so the detail shows what was charged | 2026-11-02 |
 
 ## Phases
 
@@ -23,7 +25,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | 1 Foundation | Tokens, Lato, type scale, component themes, shared widgets, wording | ✅ | ✅ PR #15 |
 | 2 Selling | Tablet products + order panel, phone grid + cart bar, product sheet, cart | ✅ | ✅ PR #17 |
 | 3 Shell + Home | Floating forest rail, phone bottom bar, Home dashboard, status in top bar | ✅ | ✅ PR #18 |
-| 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | — | — |
+| 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | ✅ | ✅ PR #20 |
 | 5 Entry flow | Login, events, sync | — | — |
 | 6 Utilities | Printer, customer scan, scanner, drafts | — | — |
 
@@ -80,12 +82,15 @@ Touch targets ≥ 44 px. Main action 56 px.
 | `showProductSheet` | `features/sell/product_sheet.dart` | Bottom sheet on phone, dialog on tablet; card taps and scans |
 | `Pill`, `SectionCard`, `EmptyState`, `ProductImage` | `widgets.dart` | |
 | `BhoomyLogo` | `logo.dart` | Drawn in code from the brand SVG |
+| `OrderDetail` / `OrderDetailScreen` | `features/orders/order_detail.dart` | Details / Receipt switch, items, totals, progress, Reprint, Cancel |
+| `ReceiptPaper`, `reprintReceipt` | `features/receipt/receipt_paper.dart` | Centred 58 mm slip, aligned as printed |
 | `SyncChip`, `UserAvatar`, `showSessionMenu` | `status.dart` | Synced / Sending n / Offline · n to send; avatar opens printer + End session |
 
 ## Open items
 
 - [x] Warm `StockBadge`, `QtyStepper`, `CountChip` (Phase 2)
 - [ ] **Parked:** customer is required to confirm (EPIC-04/07 rule; backend `customer.name` required). Options: walk-in default (app only), fully optional (DB + API), or per-outlet setting — decide with Bhoomy outlets
+- [ ] **Parked:** discounts beyond automatic promotions. Not built in any version (only the design prototype had a mock promo-code box). Options: promotion tags / crossed-out price on products (app only), promo codes or a cashier discount (backend + app)
 - [ ] Launch screen and launcher icon still Flutter default
 - [x] Status-bar icons over the forest rail on tablet (rail now floats inside the safe area)
 
@@ -109,3 +114,14 @@ Touch targets ≥ 44 px. Main action 56 px.
 | 4 | Reconnect → #003 Confirmed, badge clears | ✅ |
 | 5 | Tablet: floating rail (printer dot, avatar), End session, event + device + live promotions | ✅ |
 | 6 | Clear order asks first, empties the order | ✅ |
+
+## Phase 4 checks (emulator, phone + tablet width — 2026-11-02)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Upgrade from database v2 keeps old orders; new order saves subtotal, discount, promotion name | ✅ |
+| 2 | After Confirm: "Order #004 confirmed", receipt printed, "Processing", centred receipt, New order | ✅ |
+| 3 | Orders: count chips, search, reason line per order, real item counts | ✅ |
+| 4 | Phone detail: items, "10% off everything" discount, progress to "Processing", Reprint, Cancel | ✅ |
+| 5 | Details / Receipt switch shows the centred slip | ✅ |
+| 6 | Tablet: list beside the selected order's detail | ✅ |
