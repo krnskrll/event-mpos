@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/user/iface"
 	"github.com/krnskrll/event-mpos/internal/user/service"
@@ -25,7 +26,7 @@ func (h *Handler) List(c *gin.Context) {
 			common.AbortError(c, http.StatusBadRequest, "role: must be one of ADMIN, BA, WAREHOUSE")
 			return
 		}
-		users, err := h.svc.ListByRole(role)
+		users, err := h.svc.ListByRole(authiface.StoreOf(c), role)
 		if err != nil {
 			common.Fail(c, err)
 			return
@@ -33,7 +34,7 @@ func (h *Handler) List(c *gin.Context) {
 		c.JSON(http.StatusOK, users)
 		return
 	}
-	users, err := h.svc.List()
+	users, err := h.svc.List(authiface.StoreOf(c))
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -51,7 +52,7 @@ func (h *Handler) Create(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "role: must be one of ADMIN, BA, WAREHOUSE")
 		return
 	}
-	resp, err := h.svc.Create(req)
+	resp, err := h.svc.Create(authiface.StoreOf(c), req)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -76,7 +77,7 @@ func (h *Handler) Update(c *gin.Context) {
 			return
 		}
 	}
-	resp, err := h.svc.Update(id, req)
+	resp, err := h.svc.Update(authiface.StoreOf(c), id, req)
 	if err != nil {
 		common.Fail(c, err)
 		return

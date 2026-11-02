@@ -11,6 +11,7 @@ import (
 
 type User struct {
 	ID           uuid.UUID  `gorm:"type:uuid;primaryKey" json:"id"`
+	StoreID      uuid.UUID  `gorm:"column:store_id;type:uuid;not null" json:"storeId"`
 	Email        string     `gorm:"uniqueIndex;not null" json:"email"`
 	PasswordHash string     `gorm:"column:password_hash;not null" json:"-"`
 	FullName     string     `gorm:"column:full_name;not null" json:"fullName"`
@@ -32,9 +33,9 @@ func (u *User) BeforeCreate(_ *gorm.DB) error {
 }
 
 func (u *User) ToResponse() iface.UserResponse {
-	return iface.UserResponse{ID: u.ID, Email: u.Email, FullName: u.FullName, Role: u.Role, Active: u.Active, CreatedAt: u.CreatedAt}
+	return iface.UserResponse{ID: u.ID, StoreID: u.StoreID, Email: u.Email, FullName: u.FullName, Role: u.Role, Active: u.Active, CreatedAt: u.CreatedAt}
 }
 
 func (u *User) ToAccount() *iface.Account {
-	return &iface.Account{ID: u.ID, Email: u.Email, PasswordHash: u.PasswordHash, FullName: u.FullName, Role: u.Role, Active: u.Active}
+	return &iface.Account{ID: u.ID, StoreID: u.StoreID, Email: u.Email, PasswordHash: u.PasswordHash, FullName: u.FullName, Role: u.Role, Active: u.Active}
 }

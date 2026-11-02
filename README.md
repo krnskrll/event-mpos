@@ -57,6 +57,11 @@ Code layout (same rules as the Bhoomy backend):
 | `internal/integration` | ERP and member-system sync jobs; `bhoomy` connector |
 | `internal/app` | Composition root: the only place concrete services meet; routes |
 
+**Stores:** every user, event, product and member belongs to a store (`pos_stores`; existing data is in
+the default store from migration `000004`). The login token carries the store, and a request never
+sees another store's data — lookups answer 404. An event is either `type: event` (temporary) or
+`type: store` (a permanent shop: needs an address, no end date, stock editable while active).
+
 Modules call each other only through `iface`; `internal/archtest` fails the build otherwise, and
 `internal/app/testdata/routes.golden` pins every route.
 

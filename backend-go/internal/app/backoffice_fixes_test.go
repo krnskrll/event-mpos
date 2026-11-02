@@ -14,6 +14,7 @@ import (
 	auditrepo "github.com/krnskrll/event-mpos/internal/audit/repository"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	receiptrepo "github.com/krnskrll/event-mpos/internal/receipt/repository"
 	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
@@ -24,7 +25,7 @@ import (
 
 func closeEvent(t *testing.T, a *testutil.TestApp, eventID uuid.UUID) {
 	t.Helper()
-	if _, err := a.Events.ChangeStatus(eventID, eventiface.StatusClosed); err != nil {
+	if _, err := a.Events.ChangeStatus(tenant.DefaultStoreID, eventID, eventiface.StatusClosed); err != nil {
 		t.Fatalf("close event: %v", err)
 	}
 }

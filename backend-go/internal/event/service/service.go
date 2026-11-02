@@ -41,9 +41,14 @@ func (s *Service) Get(id uuid.UUID) (*iface.EventResponse, error) {
 	return &resp, nil
 }
 
-func (s *Service) ListEvents() ([]iface.EventResponse, error) {
+func (s *Service) RequireInStore(storeID, eventID uuid.UUID) error {
+	_, err := s.findIn(storeID, eventID)
+	return err
+}
+
+func (s *Service) ListEvents(storeID uuid.UUID) ([]iface.EventResponse, error) {
 	var events []repository.Event
-	if err := s.db.Order("created_at").Find(&events).Error; err != nil {
+	if err := s.db.Where("store_id = ?", storeID).Order("created_at").Find(&events).Error; err != nil {
 		return nil, err
 	}
 	out := make([]iface.EventResponse, 0, len(events))
@@ -53,7 +58,14 @@ func (s *Service) ListEvents() ([]iface.EventResponse, error) {
 	return out, nil
 }
 
-func (s *Service) CreateEvent(req iface.CreateEventRequest) (*iface.EventResponse, error) {
+func (s *Service) CreateEvent(storeID uuid.UUID, req iface.CreateEventRequest) (*iface.EventResponse, error) {
+	outletType, ok := iface.ParseOutletType(string(req.Type))
+	if !ok {
+		return nil, common.NewAppError(http.StatusBadRequest, "type: must be one of event, store")
+	}
+	if err := validateOutlet(outletType, req.Address, req.EndDate); err != nil {
+		return nil, err
+	}
 	code := strings.TrimSpace(req.Code)
 	var count int64
 	if err := s.db.Model(&repository.Event{}).Where("code = ?", code).Count(&count).Error; err != nil {
@@ -63,6 +75,9 @@ func (s *Service) CreateEvent(req iface.CreateEventRequest) (*iface.EventRespons
 		return nil, common.NewAppError(http.StatusConflict, "An event with code '"+req.Code+"' already exists")
 	}
 	e := repository.Event{
+		StoreID:   storeID,
+		Type:      outletType,
+		Address:   trimmed(req.Address),
 		Code:      code,
 		Name:      strings.TrimSpace(req.Name),
 		StartDate: req.StartDate,
@@ -76,8 +91,8 @@ func (s *Service) CreateEvent(req iface.CreateEventRequest) (*iface.EventRespons
 	return &resp, nil
 }
 
-func (s *Service) UpdateEvent(id uuid.UUID, req iface.UpdateEventRequest) (*iface.EventResponse, error) {
-	e, err := s.find(id)
+func (s *Service) UpdateEvent(storeID, id uuid.UUID, req iface.UpdateEventRequest) (*iface.EventResponse, error) {
+	e, err := s.findIn(storeID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -93,6 +108,12 @@ func (s *Service) UpdateEvent(id uuid.UUID, req iface.UpdateEventRequest) (*ifac
 	if req.EndDate != nil {
 		e.EndDate = req.EndDate
 	}
+	if req.Address != nil {
+		e.Address = trimmed(req.Address)
+	}
+	if err := validateOutlet(e.Type, e.Address, e.EndDate); err != nil {
+		return nil, err
+	}
 	e.UpdatedAt = time.Now().UTC()
 	if err := s.db.Save(e).Error; err != nil {
 		return nil, err
@@ -101,8 +122,8 @@ func (s *Service) UpdateEvent(id uuid.UUID, req iface.UpdateEventRequest) (*ifac
 	return &resp, nil
 }
 
-func (s *Service) ChangeStatus(id uuid.UUID, target iface.EventStatus) (*iface.EventResponse, error) {
-	e, err := s.find(id)
+func (s *Service) ChangeStatus(storeID, id uuid.UUID, target iface.EventStatus) (*iface.EventResponse, error) {
+	e, err := s.findIn(storeID, id)
 	if err != nil {
 		return nil, err
 	}
@@ -123,18 +144,18 @@ func (s *Service) ChangeStatus(id uuid.UUID, target iface.EventStatus) (*iface.E
 
 // ---- BA assignment ----
 
-func (s *Service) AssignBaToEvent(userID, eventID uuid.UUID) (*iface.EventResponse, error) {
+func (s *Service) AssignBaToEvent(storeID, userID, eventID uuid.UUID) (*iface.EventResponse, error) {
 	u, err := s.users.FindByID(userID)
 	if err != nil {
 		return nil, err
 	}
-	if u == nil {
+	if u == nil || u.StoreID != storeID {
 		return nil, common.NewAppError(http.StatusNotFound, "User not found")
 	}
 	if u.Role != useriface.RoleBA {
 		return nil, common.NewAppError(http.StatusBadRequest, "Only BA accounts can be assigned to an event")
 	}
-	e, err := s.find(eventID)
+	e, err := s.findIn(storeID, eventID)
 	if err != nil {
 		return nil, err
 	}
@@ -229,7 +250,7 @@ func (s *Service) SnapshotForEvent(eventID uuid.UUID) (*iface.EventSnapshot, err
 		}
 	}
 	if s.providers.Members != nil {
-		if members, err = s.providers.Members.ActiveSnapshotMembers(); err != nil {
+		if members, err = s.providers.Members.ActiveSnapshotMembers(e.StoreID); err != nil {
 			return nil, err
 		}
 	}
@@ -270,7 +291,7 @@ func (s *Service) versionOf(e *repository.Event) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	memberFp, err := s.memberFingerprint()
+	memberFp, err := s.memberFingerprint(e.StoreID)
 	if err != nil {
 		return "", err
 	}
@@ -305,11 +326,11 @@ func (s *Service) productFingerprint(eventID uuid.UUID) (string, error) {
 	return s.providers.Products.AvailabilityFingerprint(eventID)
 }
 
-func (s *Service) memberFingerprint() (string, error) {
+func (s *Service) memberFingerprint(storeID uuid.UUID) (string, error) {
 	if s.providers.Members == nil {
 		return "", nil
 	}
-	return s.providers.Members.Fingerprint()
+	return s.providers.Members.Fingerprint(storeID)
 }
 
 func (s *Service) stockFingerprint(eventID uuid.UUID) (string, error) {
@@ -338,6 +359,39 @@ func (s *Service) find(id uuid.UUID) (*repository.Event, error) {
 		return nil, err
 	}
 	return &e, nil
+}
+
+func (s *Service) findIn(storeID, id uuid.UUID) (*repository.Event, error) {
+	e, err := s.find(id)
+	if err != nil {
+		return nil, err
+	}
+	if e.StoreID != storeID {
+		return nil, common.NewAppError(http.StatusNotFound, "Event not found")
+	}
+	return e, nil
+}
+
+// validateOutlet: a store is a permanent shop, so it needs an address and has no end date.
+func validateOutlet(t iface.OutletType, address *string, endDate *common.Date) error {
+	if t != iface.TypeStore {
+		return nil
+	}
+	if address == nil || strings.TrimSpace(*address) == "" {
+		return common.NewAppError(http.StatusBadRequest, "address: required for a store")
+	}
+	if endDate != nil {
+		return common.NewAppError(http.StatusBadRequest, "endDate: a store has no end date")
+	}
+	return nil
+}
+
+func trimmed(s *string) *string {
+	if s == nil {
+		return nil
+	}
+	t := strings.TrimSpace(*s)
+	return &t
 }
 
 func (s *Service) activeAssignment(userID uuid.UUID) (*repository.BaEventAssignment, error) {

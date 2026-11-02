@@ -6,21 +6,24 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 
+	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
+	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/product/iface"
 	"github.com/krnskrll/event-mpos/internal/product/service"
 )
 
 type Handler struct {
-	svc *service.Service
+	svc    *service.Service
+	events eventiface.Events
 }
 
-func NewHandler(svc *service.Service) *Handler {
-	return &Handler{svc: svc}
+func NewHandler(svc *service.Service, events eventiface.Events) *Handler {
+	return &Handler{svc: svc, events: events}
 }
 
 func (h *Handler) List(c *gin.Context) {
-	products, err := h.svc.List()
+	products, err := h.svc.List(authiface.StoreOf(c))
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -34,7 +37,7 @@ func (h *Handler) Get(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid product id")
 		return
 	}
-	resp, err := h.svc.Get(id)
+	resp, err := h.svc.Get(authiface.StoreOf(c), id)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -56,7 +59,7 @@ func (h *Handler) Create(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, msg)
 		return
 	}
-	resp, err := h.svc.Create(req)
+	resp, err := h.svc.Create(authiface.StoreOf(c), req)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -85,7 +88,7 @@ func (h *Handler) Update(c *gin.Context) {
 			return
 		}
 	}
-	resp, err := h.svc.Update(id, req)
+	resp, err := h.svc.Update(authiface.StoreOf(c), id, req)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -99,7 +102,11 @@ func (h *Handler) EventProducts(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
 		return
 	}
-	resp, err := h.svc.EventProducts(eventID)
+	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	resp, err := h.svc.EventProducts(authiface.StoreOf(c), eventID)
 	if err != nil {
 		common.Fail(c, err)
 		return
@@ -123,7 +130,11 @@ func (h *Handler) SetAvailability(c *gin.Context) {
 		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
 		return
 	}
-	resp, err := h.svc.SetAvailability(eventID, productID, *req.Available)
+	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	resp, err := h.svc.SetAvailability(authiface.StoreOf(c), eventID, productID, *req.Available)
 	if err != nil {
 		common.Fail(c, err)
 		return

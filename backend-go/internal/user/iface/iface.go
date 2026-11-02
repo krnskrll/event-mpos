@@ -28,6 +28,7 @@ func ParseRole(s string) (Role, bool) {
 // Account is a user as other modules see it; PasswordHash is only for auth.
 type Account struct {
 	ID           uuid.UUID
+	StoreID      uuid.UUID
 	Email        string
 	PasswordHash string
 	FullName     string
@@ -58,6 +59,7 @@ type UpdateUserRequest struct {
 
 type UserResponse struct {
 	ID        uuid.UUID `json:"id"`
+	StoreID   uuid.UUID `json:"storeId"`
 	Email     string    `json:"email"`
 	FullName  string    `json:"fullName"`
 	Role      Role      `json:"role"`

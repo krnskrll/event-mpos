@@ -48,8 +48,8 @@ type MemberRecord struct {
 }
 
 type Members interface {
-	ByQr(qrCode string) (*MemberResponse, error)
-	ActiveSnapshotMembers() ([]any, error)
-	Fingerprint() (string, error)
-	Upsert(tx database.Tx, rec MemberRecord) (created bool, err error)
+	ByQr(storeID uuid.UUID, qrCode string) (*MemberResponse, error)
+	ActiveSnapshotMembers(storeID uuid.UUID) ([]any, error)
+	Fingerprint(storeID uuid.UUID) (string, error)
+	Upsert(tx database.Tx, storeID uuid.UUID, rec MemberRecord) (created bool, err error)
 }

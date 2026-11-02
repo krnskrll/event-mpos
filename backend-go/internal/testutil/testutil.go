@@ -30,6 +30,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
+	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -100,10 +101,15 @@ func Unique(prefix string) string {
 	return prefix + strings.ToUpper(uuid.NewString()[:8])
 }
 
-// CreateUser creates a user with the given role and returns it (email is made unique).
+// CreateUser creates a user in the default store (email is made unique).
 func (a *TestApp) CreateUser(role useriface.Role, password string) *useriface.UserResponse {
 	a.t.Helper()
-	u, err := a.Users.Create(useriface.CreateUserRequest{
+	return a.CreateUserIn(tenant.DefaultStoreID, role, password)
+}
+
+func (a *TestApp) CreateUserIn(storeID uuid.UUID, role useriface.Role, password string) *useriface.UserResponse {
+	a.t.Helper()
+	u, err := a.Users.Create(storeID, useriface.CreateUserRequest{
 		Email: strings.ToLower(Unique("u-")) + "@test.local", Password: password, FullName: "Test " + string(role), Role: role,
 	})
 	if err != nil {
@@ -112,21 +118,41 @@ func (a *TestApp) CreateUser(role useriface.Role, password string) *useriface.Us
 	return u
 }
 
-// ActiveEvent inserts an ACTIVE event with a unique code.
+// NewStore inserts another store, for tenant isolation tests.
+func (a *TestApp) NewStore(name string) uuid.UUID {
+	a.t.Helper()
+	id := uuid.New()
+	if err := a.DB.Exec("INSERT INTO pos_stores (id, name) VALUES (?, ?)", id, name).Error; err != nil {
+		a.t.Fatalf("create store: %v", err)
+	}
+	return id
+}
+
+// ActiveEvent inserts an ACTIVE event with a unique code in the default store.
 func (a *TestApp) ActiveEvent() *eventrepo.Event {
 	a.t.Helper()
-	ev := &eventrepo.Event{Code: Unique("T"), Name: "Test event", Status: eventiface.StatusActive}
+	return a.ActiveEventIn(tenant.DefaultStoreID)
+}
+
+func (a *TestApp) ActiveEventIn(storeID uuid.UUID) *eventrepo.Event {
+	a.t.Helper()
+	ev := &eventrepo.Event{StoreID: storeID, Type: eventiface.TypeEvent, Code: Unique("T"), Name: "Test event", Status: eventiface.StatusActive}
 	if err := a.DB.Create(ev).Error; err != nil {
 		a.t.Fatalf("create event: %v", err)
 	}
 	return ev
 }
 
-// Product inserts a product with the given price and a unique SKU.
+// Product inserts a product with the given price and a unique SKU in the default store.
 func (a *TestApp) Product(price string) *productrepo.Product {
 	a.t.Helper()
+	return a.ProductIn(tenant.DefaultStoreID, price)
+}
+
+func (a *TestApp) ProductIn(storeID uuid.UUID, price string) *productrepo.Product {
+	a.t.Helper()
 	p := &productrepo.Product{
-		SKU: Unique("SKU-"), Name: "Widget", Price: decimal.RequireFromString(price),
+		StoreID: storeID, SKU: Unique("SKU-"), Name: "Widget", Price: decimal.RequireFromString(price),
 		WarehouseStock: 100000, Source: productiface.SourceManual, Active: true,
 	}
 	if err := a.DB.Create(p).Error; err != nil {
