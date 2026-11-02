@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../app/logo.dart';
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
 import '../../core/network/api_failure.dart';
@@ -52,45 +53,36 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24),
-          child: Column(
-            children: [
-              Container(
-                width: 80,
-                height: 80,
-                decoration: BoxDecoration(color: Brand.navy, borderRadius: BorderRadius.circular(20)),
-                child: const Icon(Icons.spa_outlined, color: Brand.teal, size: 40),
-              ),
-              const SizedBox(height: 14),
-              const Text(
-                'BEAUTY POS',
-                style: TextStyle(color: Brand.teal, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 3),
-              ),
-              const SizedBox(height: 24),
-              const Text(
-                'Welcome Back',
-                style: TextStyle(color: Brand.heading, fontSize: 26, fontWeight: FontWeight.bold),
-              ),
-              const Text('Sign in to continue', style: TextStyle(color: Brand.textFaint, fontSize: 15)),
-              const SizedBox(height: 24),
-              _Field(label: 'Email', controller: _email, keyboard: TextInputType.emailAddress),
-              _Field(label: 'Password', controller: _password, password: true, onSubmitted: _login),
-              if (_error != null)
-                Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Align(
-                    alignment: Alignment.centerLeft,
-                    child: Text(_error!, style: const TextStyle(color: Brand.danger, fontSize: 13)),
-                  ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Row(
+                  children: [
+                    BhoomyLogo(size: 48),
+                    SizedBox(width: 12),
+                    Text('Bhoomy POS', style: AppText.subhead),
+                  ],
                 ),
-              const SizedBox(height: 20),
-              BrandButton(text: 'Sign In', onPressed: _login, loading: _loading),
-              const SizedBox(height: 28),
-              const Text('Powered by event-mpos', style: TextStyle(color: Brand.textGhost, fontSize: 12)),
-            ],
+                const SizedBox(height: 40),
+                const Text('Welcome back', style: AppText.title),
+                Text('Sign in with your Bhoomy account', style: AppText.body.copyWith(color: Brand.slate)),
+                const SizedBox(height: 16),
+                _Field(label: 'Email', controller: _email, keyboard: TextInputType.emailAddress),
+                _Field(label: 'Password', controller: _password, password: true, onSubmitted: _login),
+                if (_error != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Text(_error!, style: AppText.label.copyWith(color: Brand.errorInk)),
+                  ),
+                const SizedBox(height: 24),
+                BrandButton(text: 'Sign in', onPressed: _login, loading: _loading),
+              ],
+            ),
           ),
         ),
       ),
@@ -110,14 +102,11 @@ class _Field extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(top: 12),
+      padding: const EdgeInsets.only(top: 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: const TextStyle(color: Color(0xFF374151), fontSize: 14, fontWeight: FontWeight.w500),
-          ),
+          Text(label, style: AppText.label),
           const SizedBox(height: 6),
           TextField(
             controller: controller,

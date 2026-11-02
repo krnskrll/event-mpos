@@ -9,6 +9,7 @@ import '../data/sync/sync_coordinator.dart';
 import '../domain/event.dart';
 import '../domain/order.dart';
 import '../features/orders/orders_screen.dart';
+import 'logo.dart';
 import 'theme.dart';
 
 /// The selling session's frame: bottom bar on phones, side rail on tablets. Keeps background sync
@@ -42,7 +43,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       (Icons.assignment_outlined, 'Orders', null),
     ];
     Widget icon(IconData data, int? badge) =>
-        Badge(isLabelVisible: (badge ?? 0) > 0, label: Text('$badge'), backgroundColor: Brand.teal, child: Icon(data));
+        Badge(isLabelVisible: (badge ?? 0) > 0, label: Text('$badge'), child: Icon(data));
     void select(int i) => widget.shell.goBranch(i, initialLocation: i == widget.shell.currentIndex);
     final body = Column(
       children: [
@@ -59,6 +60,10 @@ class _AppShellState extends ConsumerState<AppShell> {
               selectedIndex: widget.shell.currentIndex,
               onDestinationSelected: select,
               labelType: NavigationRailLabelType.all,
+              leading: const Padding(
+                padding: EdgeInsets.fromLTRB(0, 8, 0, 24),
+                child: BhoomyLogo(size: 44, tile: false),
+              ),
               destinations: [
                 for (final (data, label, badge) in destinations)
                   NavigationRailDestination(icon: icon(data, badge), label: Text(label)),
@@ -74,8 +79,6 @@ class _AppShellState extends ConsumerState<AppShell> {
       bottomNavigationBar: NavigationBar(
         selectedIndex: widget.shell.currentIndex,
         onDestinationSelected: select,
-        backgroundColor: Colors.white,
-        indicatorColor: Brand.navActiveBg,
         destinations: [
           for (final (data, label, badge) in destinations) NavigationDestination(icon: icon(data, badge), label: label),
         ],
@@ -94,14 +97,14 @@ class _ClosedEventBanner extends ConsumerWidget {
     final pending = (ref.watch(ordersProvider).value ?? const []).where((o) => o.state == OrderState.pending).length;
     if (!closed || pending == 0) return const SizedBox.shrink();
     return Material(
-      color: Brand.navy,
+      color: Brand.forest,
       child: SafeArea(
         bottom: false,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
           child: Text(
             "Event closed — $pending order(s) still syncing. Keep the app open and online; they're accepted for 24h.",
-            style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+            style: AppText.caption.copyWith(color: Colors.white, fontWeight: FontWeight.w700),
           ),
         ),
       ),

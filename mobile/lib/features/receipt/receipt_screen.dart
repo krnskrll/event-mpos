@@ -43,35 +43,39 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
     final cancelled = lines?.firstOrNull == ReceiptFormatter.cancelled;
 
     return Scaffold(
-      backgroundColor: Brand.bg,
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
             children: [
-              const CircleAvatar(
+              CircleAvatar(
                 radius: 32,
-                backgroundColor: Brand.tealSoft,
-                child: Icon(Icons.check, color: Brand.teal, size: 34),
+                backgroundColor: cancelled ? Brand.sunken : Brand.greenSoft,
+                child: Icon(
+                  cancelled ? Icons.block : Icons.check,
+                  color: cancelled ? Brand.slate : Brand.green,
+                  size: 34,
+                ),
               ),
               const SizedBox(height: 12),
-              Text(
-                cancelled ? 'Order cancelled' : 'Order confirmed',
-                style: const TextStyle(color: Brand.heading, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const Text('Receipt printed automatically', style: TextStyle(color: Brand.textMuted, fontSize: 13)),
+              Text(cancelled ? 'Order cancelled' : 'Order confirmed', style: AppText.heading),
+              Text('Receipt printed automatically', style: AppText.caption.copyWith(color: Brand.slate)),
               const SizedBox(height: 16),
               Expanded(
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)),
+                  decoration: BoxDecoration(
+                    color: Brand.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Brand.cardLine),
+                  ),
                   child: lines == null
-                      ? const Center(child: CircularProgressIndicator(color: Brand.navy))
+                      ? const Center(child: CircularProgressIndicator())
                       : SingleChildScrollView(
                           child: Text(
                             lines.join('\n'),
-                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Brand.text),
+                            style: const TextStyle(fontFamily: 'monospace', fontSize: 12, color: Brand.ink),
                           ),
                         ),
                 ),
@@ -79,23 +83,26 @@ class _ReceiptScreenState extends ConsumerState<ReceiptScreen> {
               if (_message != null)
                 Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text(_message!, style: TextStyle(color: _failed ? Brand.danger : Brand.teal, fontSize: 13)),
+                  child: Text(
+                    _message!,
+                    style: AppText.label.copyWith(color: _failed ? Brand.errorInk : Brand.successInk),
+                  ),
                 ),
               const SizedBox(height: 12),
-              BrandButton(text: _printing ? 'Printing…' : 'Reprint receipt', loading: _printing, onPressed: _reprint),
+              BrandButton(text: 'New order', onPressed: () => context.go('/catalogue')),
               const SizedBox(height: 8),
               Row(
                 children: [
                   Expanded(
-                    child: BrandButton(text: 'New order', color: Brand.teal, onPressed: () => context.go('/catalogue')),
+                    child: BrandButton(
+                      text: _printing ? 'Printing…' : 'Reprint',
+                      secondary: true,
+                      onPressed: _printing ? null : _reprint,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   Expanded(
-                    child: BrandButton(
-                      text: 'View orders',
-                      color: Brand.textMuted,
-                      onPressed: () => context.go('/orders'),
-                    ),
+                    child: BrandButton(text: 'View orders', secondary: true, onPressed: () => context.go('/orders')),
                   ),
                 ],
               ),

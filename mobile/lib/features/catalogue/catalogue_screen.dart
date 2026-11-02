@@ -57,12 +57,15 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
     ref.listen(sunmiScansProvider, (_, scan) => scan.whenData(_onHardwareScan));
     final customer = ref.watch(cartProvider.select((c) => c.customer));
     final products = ref.watch(productsProvider).value ?? const <Product>[];
-    final brands = {for (final p in products) ?p.brand}.toList()..sort();
+    final counts = <String, int>{'All': products.length};
+    for (final p in products) {
+      if (p.brand != null) counts[p.brand!] = (counts[p.brand!] ?? 0) + 1;
+    }
+    final brands = counts.keys.skip(1).toList()..sort();
     final shown = products.where(_matches).toList();
     final online = ref.isOnline;
 
     return Scaffold(
-      backgroundColor: Colors.white,
       body: SafeArea(
         bottom: false,
         child: Column(
@@ -75,21 +78,19 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text('Current Event', style: TextStyle(color: Brand.textFaint, fontSize: 11)),
+                        Text('Selling at', style: AppText.caption.copyWith(color: Brand.slate)),
                         Text(
                           ref.watch(sessionEventProvider)?.name ?? '',
-                          style: const TextStyle(color: Brand.heading, fontSize: 13, fontWeight: FontWeight.bold),
+                          style: AppText.label.copyWith(color: Brand.forest),
                         ),
                       ],
                     ),
                   ),
+                  Icon(Icons.circle, size: 8, color: online ? Brand.success : Brand.warning),
+                  const SizedBox(width: 6),
                   Text(
-                    online ? '● Synced' : '● Offline',
-                    style: TextStyle(
-                      color: online ? Brand.teal : Brand.warn,
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                    ),
+                    online ? 'Synced' : 'Offline',
+                    style: AppText.label.copyWith(color: online ? Brand.successInk : Brand.warningInk),
                   ),
                 ],
               ),
@@ -102,8 +103,8 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
                     child: TextField(
                       onChanged: (v) => setState(() => _query = v.trim()),
                       decoration: const InputDecoration(
-                        hintText: 'Search product…',
-                        prefixIcon: Icon(Icons.search, color: Brand.textFaint),
+                        hintText: 'Search name, SKU or barcode',
+                        prefixIcon: Icon(Icons.search, color: Brand.muted),
                         isDense: true,
                       ),
                     ),
@@ -111,13 +112,18 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
                   const SizedBox(width: 8),
                   IconButton.filled(
                     onPressed: () => context.push('/scan'),
+                    tooltip: 'Scan barcode',
                     icon: const Icon(Icons.qr_code_scanner),
-                    style: IconButton.styleFrom(backgroundColor: Brand.navy),
                   ),
-                  IconButton.filled(
+                  IconButton.outlined(
                     onPressed: () => context.push('/customer'),
-                    icon: Icon(Icons.qr_code_2, color: customer != null ? Brand.teal : Brand.textMuted),
-                    style: IconButton.styleFrom(backgroundColor: customer != null ? Brand.tealSoft : Brand.cardBorder),
+                    tooltip: 'Identify customer',
+                    icon: Icon(customer != null ? Icons.how_to_reg : Icons.person_outline),
+                    style: IconButton.styleFrom(
+                      foregroundColor: customer != null ? Brand.green : Brand.ink,
+                      backgroundColor: customer != null ? Brand.greenSoft : Brand.surface,
+                      side: BorderSide(color: customer != null ? Brand.green : Brand.fieldLine),
+                    ),
                   ),
                 ],
               ),
@@ -126,19 +132,12 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
               Container(
                 width: double.infinity,
                 margin: const EdgeInsets.fromLTRB(16, 10, 16, 0),
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Brand.tealSoft,
-                  border: Border.all(color: Brand.tealBorder),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Text(
-                  '✓ Customer linked: ${customer.name}',
-                  style: const TextStyle(color: Brand.ready, fontSize: 13, fontWeight: FontWeight.w600),
-                ),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(color: Brand.greenSoft, borderRadius: BorderRadius.circular(12)),
+                child: Text('Customer: ${customer.name}', style: AppText.label.copyWith(color: Brand.forest)),
               ),
             SizedBox(
-              height: 48,
+              height: 56,
               child: ListView(
                 scrollDirection: Axis.horizontal,
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
@@ -147,15 +146,9 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 4),
                       child: ChoiceChip(
-                        label: Text(brand),
+                        label: Text('$brand  ${counts[brand]}'),
                         selected: brand == _brand,
                         onSelected: (_) => setState(() => _brand = brand),
-                        showCheckmark: false,
-                        selectedColor: Brand.navy,
-                        backgroundColor: Brand.cardBorder,
-                        side: BorderSide.none,
-                        shape: const StadiumBorder(),
-                        labelStyle: TextStyle(color: brand == _brand ? Colors.white : Brand.textMuted, fontSize: 13),
                       ),
                     ),
                 ],
@@ -165,13 +158,13 @@ class _CatalogueScreenState extends ConsumerState<CatalogueScreen> {
               child: RefreshIndicator(
                 onRefresh: _refresh,
                 child: GridView.builder(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                   physics: const AlwaysScrollableScrollPhysics(),
                   gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
                     maxCrossAxisExtent: 220, // 2 columns on phones, more on tablets
                     mainAxisSpacing: 12,
                     crossAxisSpacing: 12,
-                    childAspectRatio: 0.68,
+                    childAspectRatio: 0.66,
                   ),
                   itemCount: shown.length,
                   itemBuilder: (_, i) => _ProductCard(shown[i]),
@@ -192,19 +185,10 @@ class _ProductCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stock = stockStatus(product.remainingStock);
-    final plenty = !product.outOfStock && !product.lowStock;
     return Opacity(
-      opacity: product.outOfStock ? 0.5 : 1,
+      opacity: product.outOfStock ? 0.55 : 1,
       child: Card(
-        margin: EdgeInsets.zero,
-        color: Brand.card,
-        elevation: 0,
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: const BorderSide(color: Brand.cardBorder),
-        ),
         child: InkWell(
           onTap: product.outOfStock ? null : () => context.push('/product/${product.id}'),
           child: Column(
@@ -212,41 +196,26 @@ class _ProductCard extends StatelessWidget {
             children: [
               // The photo takes whatever height the text leaves, so long names never overflow.
               Expanded(
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    ProductImage(product.imageUrl),
-                    Align(
-                      alignment: Alignment.topRight,
-                      child: Padding(
-                        padding: const EdgeInsets.all(8),
-                        child: Pill(
-                          stock.label,
-                          color: plenty ? Brand.textMuted : Colors.white,
-                          background: plenty ? Colors.white : stock.color,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+                child: SizedBox(width: double.infinity, child: ProductImage(product.imageUrl)),
               ),
               Padding(
-                padding: const EdgeInsets.all(10),
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (product.brand != null)
-                      Text(product.brand!, style: const TextStyle(color: Brand.textFaint, fontSize: 11)),
+                    if (product.brand != null) Text(product.brand!, style: AppText.caption),
                     Text(
                       product.name,
                       maxLines: 2,
                       overflow: TextOverflow.ellipsis,
-                      style: const TextStyle(color: Brand.text, fontSize: 13, fontWeight: FontWeight.w600),
+                      style: AppText.body.copyWith(fontWeight: FontWeight.w700),
                     ),
-                    const SizedBox(height: 2),
+                    const SizedBox(height: 4),
+                    StockLabel(product.remainingStock),
+                    const SizedBox(height: 6),
                     Text(
                       rupiah(product.price),
-                      style: const TextStyle(color: Brand.teal, fontSize: 13, fontWeight: FontWeight.bold),
+                      style: AppText.bodyLarge.copyWith(color: Brand.forest, fontWeight: FontWeight.w900),
                     ),
                   ],
                 ),

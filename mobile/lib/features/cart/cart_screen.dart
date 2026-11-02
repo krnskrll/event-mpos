@@ -48,81 +48,67 @@ class _CartScreenState extends ConsumerState<CartScreen> {
     final customer = cart.customer;
 
     return Scaffold(
-      backgroundColor: Brand.bg,
       body: Column(
         children: [
-          Container(
-            color: Brand.navy,
-            padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 12, 12, 12),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text(
-                        'Cart',
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold),
-                      ),
-                      Text('${cart.count} items', style: const TextStyle(color: Colors.white60, fontSize: 13)),
-                    ],
-                  ),
-                ),
-                if (cart.items.isNotEmpty) _HeaderAction('Save draft', () => showSaveDraftDialog(context, ref)),
-                _HeaderAction('Drafts', () => showDraftsDialog(context, ref)),
-              ],
-            ),
+          ScreenHeader(
+            title: 'Cart',
+            subtitle: '${cart.count} items',
+            actions: [
+              if (cart.items.isNotEmpty)
+                TextButton(onPressed: () => showSaveDraftDialog(context, ref), child: const Text('Save draft')),
+              TextButton(onPressed: () => showDraftsDialog(context, ref), child: const Text('Drafts')),
+            ],
           ),
           if (priced.items.isEmpty)
             const Expanded(
-              child: Center(
-                child: Text(
-                  'Cart is empty.\nAdd products from the catalogue.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Brand.textMuted),
-                ),
-              ),
+              child: EmptyState('Cart is empty.\nAdd products from the catalogue.', icon: Icons.shopping_cart_outlined),
             )
           else ...[
             Expanded(
               child: ListView.separated(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
                 itemCount: priced.items.length,
                 separatorBuilder: (_, _) => const SizedBox(height: 10),
                 itemBuilder: (_, i) {
                   final item = priced.items[i];
                   return SectionCard(
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: SizedBox.square(dimension: 52, child: ProductImage(item.product.imageUrl)),
+                          borderRadius: BorderRadius.circular(12),
+                          child: SizedBox.square(dimension: 64, child: ProductImage(item.product.imageUrl)),
                         ),
-                        const SizedBox(width: 10),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                item.displayName,
-                                maxLines: 2,
-                                style: const TextStyle(color: Brand.text, fontSize: 13, fontWeight: FontWeight.w600),
+                              Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      item.displayName,
+                                      maxLines: 2,
+                                      style: AppText.body.copyWith(fontWeight: FontWeight.w700),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    rupiah(item.lineTotal.toDouble()),
+                                    style: AppText.body.copyWith(color: Brand.forest, fontWeight: FontWeight.w700),
+                                  ),
+                                ],
                               ),
-                              Text(
-                                rupiah(item.lineTotal.toDouble()),
-                                style: const TextStyle(color: Brand.teal, fontSize: 13, fontWeight: FontWeight.bold),
+                              const SizedBox(height: 8),
+                              QtyStepper(
+                                qty: item.qty,
+                                onMinus: () => notifier.adjust(item.key, -1),
+                                onPlus: () => notifier.adjust(item.key, 1),
                               ),
                             ],
                           ),
-                        ),
-                        IconButton.filledTonal(
-                          onPressed: () => notifier.adjust(item.key, -1),
-                          icon: const Icon(Icons.remove),
-                        ),
-                        Text('${item.qty}', style: const TextStyle(fontWeight: FontWeight.bold)),
-                        IconButton.filledTonal(
-                          onPressed: () => notifier.adjust(item.key, 1),
-                          icon: const Icon(Icons.add),
                         ),
                       ],
                     ),
@@ -139,32 +125,48 @@ class _CartScreenState extends ConsumerState<CartScreen> {
                       contentPadding: EdgeInsets.zero,
                       onTap: () => context.push('/customer'),
                       leading: CircleAvatar(
-                        backgroundColor: customer != null ? Brand.tealSoft : Brand.cardBorder,
+                        backgroundColor: customer != null ? Brand.greenSoft : Brand.sunken,
                         child: Icon(
                           customer != null ? Icons.check : Icons.person_outline,
-                          color: customer != null ? Brand.teal : Brand.textMuted,
+                          color: customer != null ? Brand.green : Brand.muted,
                         ),
                       ),
                       title: Text(
-                        customer == null
-                            ? 'Identify customer'
-                            : '${customer.name}${customer.tier == null ? '' : ' · ${customer.tier}'}',
-                        style: TextStyle(color: customer == null ? Brand.danger : Brand.text, fontSize: 14),
+                        customer == null ? 'Identify customer' : customer.name,
+                        style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: Brand.forest),
                       ),
+                      subtitle: customer == null
+                          ? Text('Needed before confirming', style: AppText.caption.copyWith(color: Brand.errorInk))
+                          : customer.tier == null
+                          ? null
+                          : Text(
+                              '${customer.tier} member',
+                              style: AppText.caption.copyWith(color: Brand.goldInk, fontWeight: FontWeight.w700),
+                            ),
                       trailing: Text(
                         customer == null ? 'Add' : 'Change',
-                        style: const TextStyle(color: Brand.teal, fontWeight: FontWeight.w600),
+                        style: AppText.label.copyWith(color: Brand.green),
                       ),
                     ),
-                    const Divider(color: Brand.cardBorder),
+                    const Divider(),
+                    const SizedBox(height: 8),
                     _TotalRow('Subtotal', priced.subtotal.toDouble()),
                     if (priced.discount.toDouble() > 0)
-                      _TotalRow('Discount (${priced.promotionName})', -priced.discount.toDouble(), color: Brand.teal),
-                    _TotalRow('Total', priced.total.toDouble(), color: Brand.heading, bold: true),
+                      _TotalRow(priced.promotionName ?? 'Discount', priced.discount.toDouble(), discount: true),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
+                      children: [
+                        Text('Total', style: AppText.bodyLarge.copyWith(color: Brand.forest)),
+                        Text(rupiah(priced.total.toDouble()), style: AppText.total),
+                      ],
+                    ),
                     if (_error != null)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
-                        child: Text(_error!, style: const TextStyle(color: Brand.danger, fontSize: 13)),
+                        child: Text(_error!, style: AppText.label.copyWith(color: Brand.errorInk)),
                       ),
                     const SizedBox(height: 12),
                     BrandButton(
@@ -183,44 +185,27 @@ class _CartScreenState extends ConsumerState<CartScreen> {
   }
 }
 
-class _HeaderAction extends StatelessWidget {
-  const _HeaderAction(this.label, this.onPressed);
-
-  final String label;
-  final VoidCallback onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return TextButton(
-      onPressed: onPressed,
-      style: TextButton.styleFrom(foregroundColor: Colors.white),
-      child: Text(label, style: const TextStyle(fontWeight: FontWeight.w600)),
-    );
-  }
-}
-
 class _TotalRow extends StatelessWidget {
-  const _TotalRow(this.label, this.amount, {this.color = Brand.textMuted, this.bold = false});
+  const _TotalRow(this.label, this.amount, {this.discount = false});
 
   final String label;
   final double amount;
-  final Color color;
-  final bool bold;
+  final bool discount;
 
   @override
   Widget build(BuildContext context) {
-    final style = TextStyle(
-      color: color,
-      fontSize: bold ? 16 : 14,
-      fontWeight: bold ? FontWeight.bold : FontWeight.normal,
-    );
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 2),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Flexible(child: Text(label, style: style)),
-          Text(rupiah(amount), style: style),
+          Flexible(
+            child: Text(label, style: AppText.body.copyWith(color: Brand.muted)),
+          ),
+          Text(
+            discount ? '−${rupiah(amount)}' : rupiah(amount),
+            style: AppText.body.copyWith(color: discount ? Brand.successInk : Brand.ink),
+          ),
         ],
       ),
     );

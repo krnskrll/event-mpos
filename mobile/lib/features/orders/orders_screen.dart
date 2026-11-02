@@ -16,16 +16,16 @@ final ordersProvider = StreamProvider.autoDispose(
 const _filters = <(String, OrderState?)>[
   ('All', null),
   ('Confirmed', OrderState.confirmed),
-  ('Syncing', OrderState.pending),
+  ('Sending', OrderState.pending),
   ('Failed', OrderState.failed),
   ('Cancelled', OrderState.cancelled),
 ];
 
 ({String label, Color color, Color background}) _badge(OrderState state) => switch (state) {
-  OrderState.pending => (label: 'SYNCING', color: Brand.packing, background: Brand.packingBg),
-  OrderState.confirmed => (label: 'CONFIRMED', color: Brand.ready, background: Brand.readyBg),
-  OrderState.failed => (label: 'FAILED', color: Brand.danger, background: Brand.collectedBg),
-  OrderState.cancelled => (label: 'CANCELLED', color: Brand.collected, background: Brand.collectedBg),
+  OrderState.pending => (label: 'Sending', color: Brand.infoInk, background: Brand.infoSoft),
+  OrderState.confirmed => (label: 'Confirmed', color: Brand.successInk, background: Brand.successSoft),
+  OrderState.failed => (label: 'Failed', color: Brand.errorInk, background: Brand.errorSoft),
+  OrderState.cancelled => (label: 'Cancelled', color: Brand.slate, background: Brand.sunken),
 };
 
 class OrdersScreen extends ConsumerStatefulWidget {
@@ -52,7 +52,8 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
           TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            child: const Text('Cancel order', style: TextStyle(color: Brand.danger)),
+            style: TextButton.styleFrom(foregroundColor: Brand.errorInk),
+            child: const Text('Cancel order'),
           ),
         ],
       ),
@@ -68,59 +69,38 @@ class _OrdersScreenState extends ConsumerState<OrdersScreen> {
     final shown = orders.where((o) => _filter == null || o.state == _filter).toList();
 
     return Scaffold(
-      backgroundColor: Brand.bg,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            color: Colors.white,
-            width: double.infinity,
-            padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 12, 20, 4),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          ScreenHeader(title: "Today's orders", subtitle: '${orders.length} this session'),
+          SizedBox(
+            height: 56,
+            child: ListView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               children: [
-                const Text('Session summary', style: TextStyle(color: Brand.textFaint, fontSize: 12)),
-                Row(
-                  children: [
-                    const Text(
-                      "Today's Orders",
-                      style: TextStyle(color: Brand.heading, fontSize: 18, fontWeight: FontWeight.bold),
+                for (final (label, state) in _filters)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: ChoiceChip(
+                      label: Text('$label  ${orders.where((o) => state == null || o.state == state).length}'),
+                      selected: _filter == state,
+                      onSelected: (_) => setState(() => _filter = state),
                     ),
-                    const SizedBox(width: 8),
-                    Pill('${orders.length}', color: Brand.navy, background: Brand.navActiveBg),
-                  ],
-                ),
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final (label, state) in _filters)
-                        TextButton(
-                          onPressed: () => setState(() => _filter = state),
-                          style: TextButton.styleFrom(
-                            foregroundColor: _filter == state ? Brand.navy : Brand.textFaint,
-                            textStyle: TextStyle(fontWeight: _filter == state ? FontWeight.bold : FontWeight.normal),
-                          ),
-                          child: Text('$label ${orders.where((o) => state == null || o.state == state).length}'),
-                        ),
-                    ],
                   ),
-                ),
               ],
             ),
           ),
           if (_message != null)
             Padding(
-              padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-              child: Text(_message!, style: const TextStyle(color: Brand.textMuted, fontSize: 12)),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
+              child: Text(_message!, style: AppText.caption.copyWith(color: Brand.slate)),
             ),
           Expanded(
             child: shown.isEmpty
-                ? const Center(
-                    child: Text('No orders yet. Start selling!', style: TextStyle(color: Brand.textMuted)),
-                  )
+                ? const EmptyState('No orders yet. Start selling!', icon: Icons.receipt_long_outlined)
                 : ListView.separated(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                     itemCount: shown.length,
                     separatorBuilder: (_, _) => const SizedBox(height: 10),
                     itemBuilder: (_, i) => _OrderRow(shown[i], onCancel: () => _cancel(shown[i])),
@@ -143,50 +123,38 @@ class _OrderRow extends StatelessWidget {
     final badge = _badge(order.state);
     final time =
         '${order.createdAt.hour.toString().padLeft(2, '0')}:${order.createdAt.minute.toString().padLeft(2, '0')}';
-    return Material(
-      color: Brand.card,
-      borderRadius: BorderRadius.circular(16),
+    return Card(
+      clipBehavior: Clip.antiAlias,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        // Every numbered order has a receipt on the device, including ones still syncing.
+        // Every numbered order has a receipt on the device, including ones still sending.
         onTap: () => context.push('/receipt/${order.key}'),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    order.orderNumberDisplay ?? '—',
-                    style: const TextStyle(color: Brand.heading, fontSize: 20, fontWeight: FontWeight.w800),
-                  ),
-                  Text(order.customerName, style: const TextStyle(color: Brand.textFaint, fontSize: 11)),
-                  Text(time, style: const TextStyle(color: Brand.textGhost, fontSize: 10)),
-                ],
-              ),
-              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    if (order.referenceId != null)
-                      Text(
-                        order.referenceId!,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(color: Brand.textMuted, fontSize: 11),
-                      ),
-                    if (order.error != null)
-                      Text(order.error!, style: const TextStyle(color: Brand.danger, fontSize: 11)),
-                    const Text(
-                      'Tap for receipt ›',
-                      style: TextStyle(color: Brand.teal, fontSize: 11, fontWeight: FontWeight.w600),
+                    Row(
+                      children: [
+                        Text(
+                          order.orderNumberDisplay ?? '—',
+                          style: AppText.heading.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(time, style: AppText.caption),
+                      ],
                     ),
+                    Text(order.customerName, style: AppText.body),
+                    if (order.referenceId != null)
+                      Text(order.referenceId!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AppText.caption),
+                    if (order.error != null) Text(order.error!, style: AppText.caption.copyWith(color: Brand.errorInk)),
                     if (order.canCancel)
                       TextButton(
                         onPressed: onCancel,
-                        style: TextButton.styleFrom(foregroundColor: Brand.danger, padding: EdgeInsets.zero),
+                        style: TextButton.styleFrom(foregroundColor: Brand.errorInk, padding: EdgeInsets.zero),
                         child: const Text('Cancel order'),
                       ),
                   ],
@@ -198,12 +166,14 @@ class _OrderRow extends StatelessWidget {
                   Pill(badge.label, color: badge.color, background: badge.background),
                   if (order.total != null)
                     Padding(
-                      padding: const EdgeInsets.only(top: 6),
-                      child: Text(
-                        rupiah(order.total!),
-                        style: const TextStyle(color: Brand.heading, fontSize: 14, fontWeight: FontWeight.bold),
-                      ),
+                      padding: const EdgeInsets.only(top: 8),
+                      child: Text(rupiah(order.total!), style: AppText.bodyLarge.copyWith(color: Brand.forest)),
                     ),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Receipt ›',
+                    style: AppText.caption.copyWith(color: Brand.green, fontWeight: FontWeight.w700),
+                  ),
                 ],
               ),
             ],

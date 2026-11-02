@@ -40,7 +40,6 @@ class BarcodeScanScreen extends ConsumerWidget {
             onPressed: () => context.go('/cart'),
             icon: Badge(
               label: Text('$cartCount'),
-              backgroundColor: Brand.teal,
               child: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
             ),
           ),
@@ -57,7 +56,6 @@ class ProductSheet extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final stock = stockStatus(product.remainingStock);
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 16),
@@ -76,15 +74,11 @@ class ProductSheet extends ConsumerWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      if (product.brand != null)
-                        Text(product.brand!, style: const TextStyle(color: Brand.textFaint, fontSize: 12)),
-                      Text(
-                        product.name,
-                        style: const TextStyle(color: Brand.heading, fontSize: 15, fontWeight: FontWeight.bold),
-                      ),
+                      if (product.brand != null) Text(product.brand!, style: AppText.caption),
+                      Text(product.name, style: AppText.bodyLarge.copyWith(color: Brand.forest)),
                       Text(
                         rupiah(product.price),
-                        style: const TextStyle(color: Brand.teal, fontSize: 16, fontWeight: FontWeight.bold),
+                        style: AppText.bodyLarge.copyWith(color: Brand.forest, fontWeight: FontWeight.w900),
                       ),
                     ],
                   ),
@@ -92,10 +86,10 @@ class ProductSheet extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            Text(stock.label, style: TextStyle(color: stock.color, fontSize: 13)),
+            StockLabel(product.remainingStock),
             const SizedBox(height: 16),
             BrandButton(
-              text: product.outOfStock ? 'Out of stock' : 'Add to Cart',
+              text: product.outOfStock ? 'Sold out' : 'Add to cart',
               onPressed: product.outOfStock
                   ? null
                   : () {

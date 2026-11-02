@@ -48,22 +48,24 @@ Future<void> showDraftsDialog(BuildContext context, WidgetRef ref) => showDialog
       return AlertDialog(
         title: const Text('Drafts'),
         content: drafts.isEmpty
-            ? const Text('No saved drafts for this event.', style: TextStyle(color: Brand.textMuted))
+            ? Text('No saved drafts for this event.', style: AppText.body.copyWith(color: Brand.muted))
             : Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   for (final d in drafts)
                     ListTile(
                       contentPadding: EdgeInsets.zero,
-                      title: Text(d.label, style: const TextStyle(fontWeight: FontWeight.w600)),
+                      title: Text(d.label, style: AppText.body.copyWith(fontWeight: FontWeight.w700)),
                       subtitle: Text(
                         '${d.cart.count} items · ${d.cart.customer?.name ?? 'no customer'} · '
                         '${d.createdAt.hour.toString().padLeft(2, '0')}:${d.createdAt.minute.toString().padLeft(2, '0')}',
+                        style: AppText.caption,
                       ),
                       onTap: () => resume(d),
                       trailing: IconButton(
                         onPressed: () => ref.read(draftRepositoryProvider).delete(d.id),
-                        icon: const Icon(Icons.delete_outline, color: Brand.danger),
+                        tooltip: 'Delete draft',
+                        icon: const Icon(Icons.delete_outline, color: Brand.errorInk),
                       ),
                     ),
                 ],

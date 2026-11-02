@@ -21,17 +21,22 @@ class OfflineBanner extends ConsumerWidget {
           child: online
               ? const SizedBox(width: double.infinity)
               : Material(
-                  color: Brand.warn,
+                  color: Brand.warningSoft,
                   child: Padding(
                     padding: EdgeInsets.fromLTRB(16, MediaQuery.paddingOf(context).top + 8, 16, 8),
                     child: const Row(
                       children: [
-                        Icon(Icons.cloud_off_outlined, color: Colors.white, size: 16),
+                        Icon(Icons.cloud_off_outlined, color: Brand.warningInk, size: 16),
                         SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'Offline — keep selling; orders get final numbers and print now, and sync when reconnected',
-                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            style: TextStyle(
+                              color: Brand.warningInk,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w700,
+                              height: 1.35,
+                            ),
                           ),
                         ),
                       ],

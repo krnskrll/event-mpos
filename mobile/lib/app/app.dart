@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'offline_banner.dart';
@@ -11,11 +12,18 @@ class MposApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return MaterialApp.router(
-      title: 'event-mpos',
+      title: 'Bhoomy POS',
       theme: appTheme,
       routerConfig: ref.watch(routerProvider),
       debugShowCheckedModeBanner: false,
-      builder: (_, child) => OfflineBanner(child: child!),
+      builder: (_, child) => AnnotatedRegion(
+        value: SystemUiOverlayStyle.dark.copyWith(
+          statusBarColor: Colors.transparent,
+          systemNavigationBarColor: Brand.canvas,
+          systemNavigationBarIconBrightness: Brightness.dark,
+        ),
+        child: OfflineBanner(child: child!),
+      ),
     );
   }
 }

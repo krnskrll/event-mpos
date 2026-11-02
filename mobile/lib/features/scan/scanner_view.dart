@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -63,67 +64,68 @@ class _ScannerViewState extends State<ScannerView> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      body: Stack(
-        fit: StackFit.expand,
-        children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: (capture) => _handle(capture.barcodes.firstOrNull?.rawValue),
-            errorBuilder: (_, _) => const ColoredBox(color: Color(0xFF0A0A0A)),
-          ),
-          Center(
-            child: Container(
-              width: 240,
-              height: 240,
-              decoration: BoxDecoration(
-                border: Border.all(color: Brand.teal, width: 3),
-                borderRadius: BorderRadius.circular(16),
+    return AnnotatedRegion(
+      value: SystemUiOverlayStyle.light,
+      child: Scaffold(
+        backgroundColor: Colors.black,
+        body: Stack(
+          fit: StackFit.expand,
+          children: [
+            MobileScanner(
+              controller: _controller,
+              onDetect: (capture) => _handle(capture.barcodes.firstOrNull?.rawValue),
+              errorBuilder: (_, _) => const ColoredBox(color: Colors.black),
+            ),
+            Center(
+              child: Container(
+                width: 240,
+                height: 240,
+                decoration: BoxDecoration(
+                  border: Border.all(color: Brand.greenTint, width: 3),
+                  borderRadius: BorderRadius.circular(16),
+                ),
               ),
             ),
-          ),
-          SafeArea(
-            child: Column(
-              children: [
-                Row(
-                  children: [
-                    IconButton(
-                      onPressed: context.pop,
-                      icon: const Icon(Icons.close, color: Colors.white),
-                    ),
-                    Expanded(
-                      child: Text(
-                        widget.title,
-                        style: const TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
-                      ),
-                    ),
-                    ...widget.actions,
-                  ],
-                ),
-                const Spacer(),
-                Padding(
-                  padding: const EdgeInsets.all(24),
-                  child: Column(
+            SafeArea(
+              child: Column(
+                children: [
+                  Row(
                     children: [
-                      Text(
-                        widget.hint,
-                        textAlign: TextAlign.center,
-                        style: const TextStyle(color: Colors.white70, fontSize: 14),
+                      IconButton(
+                        onPressed: context.pop,
+                        tooltip: 'Close',
+                        icon: const Icon(Icons.close, color: Colors.white),
                       ),
-                      TextButton.icon(
-                        onPressed: _typeCode,
-                        icon: const Icon(Icons.keyboard_outlined, size: 18),
-                        label: Text(widget.manualLabel),
-                        style: TextButton.styleFrom(foregroundColor: const Color(0xFF5BB8F5)),
+                      Expanded(
+                        child: Text(widget.title, style: AppText.subhead.copyWith(color: Colors.white)),
                       ),
+                      ...widget.actions,
                     ],
                   ),
-                ),
-              ],
+                  const Spacer(),
+                  Padding(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      children: [
+                        Text(
+                          widget.hint,
+                          textAlign: TextAlign.center,
+                          style: AppText.body.copyWith(color: Colors.white70),
+                        ),
+                        TextButton.icon(
+                          onPressed: _typeCode,
+                          icon: const Icon(Icons.keyboard_outlined, size: 18),
+                          label: Text(widget.manualLabel),
+                          style: TextButton.styleFrom(foregroundColor: Brand.greenTint),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

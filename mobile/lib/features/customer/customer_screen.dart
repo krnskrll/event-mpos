@@ -83,33 +83,26 @@ class _ProfileSheet extends StatelessWidget {
           children: [
             const CircleAvatar(
               radius: 32,
-              backgroundColor: Brand.tealSoft,
-              child: Icon(Icons.check_circle, color: Brand.teal, size: 36),
+              backgroundColor: Brand.greenSoft,
+              child: Icon(Icons.check_circle, color: Brand.green, size: 36),
             ),
             const SizedBox(height: 14),
-            Text(
-              customer.name,
-              style: const TextStyle(color: Brand.heading, fontSize: 20, fontWeight: FontWeight.bold),
-            ),
+            Text(customer.name, style: AppText.heading),
             const SizedBox(height: 6),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 if (customer.tier != null) ...[
-                  Pill(customer.tier!, color: Brand.gold, background: Brand.goldBg),
+                  Pill('${customer.tier!} member', color: Brand.goldInk, background: Brand.goldSoft),
                   const SizedBox(width: 8),
                 ],
-                Text(source, style: const TextStyle(color: Brand.textFaint, fontSize: 12)),
+                Text(source, style: AppText.caption),
               ],
             ),
-            if (customer.qrCode != null)
-              Text(customer.qrCode!, style: const TextStyle(color: Brand.textMuted, fontSize: 12)),
+            if (customer.qrCode != null) Text(customer.qrCode!, style: AppText.caption),
             const SizedBox(height: 20),
             BrandButton(text: 'Confirm & Continue', onPressed: () => Navigator.pop(context, customer)),
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Scan a different member', style: TextStyle(color: Brand.teal)),
-            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Scan a different member')),
           ],
         ),
       ),
