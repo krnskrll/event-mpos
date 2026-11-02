@@ -2,9 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/status.dart';
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
-import '../../core/connectivity.dart';
 import '../../core/format/money.dart';
 import '../../core/network/api_failure.dart';
 import '../../core/printer/sunmi.dart';
@@ -156,14 +156,7 @@ class _Header extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final name = ref.watch(tokenStorageProvider).userName ?? 'Cashier';
     final event = ref.watch(sessionEventProvider)?.name ?? '';
-    final avatar = CircleAvatar(
-      radius: 21,
-      backgroundColor: Brand.gold,
-      child: Text(
-        initials(name),
-        style: AppText.label.copyWith(color: Brand.onGold, fontWeight: FontWeight.w900),
-      ),
-    );
+    const avatar = UserAvatar(radius: 21);
     final search = Expanded(
       child: TextField(
         onChanged: onSearch,
@@ -194,7 +187,7 @@ class _Header extends ConsumerWidget {
               const SizedBox(width: 10),
               scan,
               const SizedBox(width: 12),
-              const _SyncChip(),
+              const SyncChip(),
               const SizedBox(width: 12),
               if (box.maxWidth >= 760) ...[
                 Column(
@@ -237,27 +230,13 @@ class _Header extends ConsumerWidget {
                   ],
                 ),
               ),
-              const _SyncChip(),
+              const SyncChip(),
             ],
           ),
           const SizedBox(height: 12),
           Row(children: [search, const SizedBox(width: 8), scan]),
         ],
       ),
-    );
-  }
-}
-
-class _SyncChip extends ConsumerWidget {
-  const _SyncChip();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final online = ref.isOnline;
-    return Pill(
-      online ? '● Synced' : '● Offline',
-      color: online ? Brand.successInk : Brand.warningInk,
-      background: online ? Brand.successSoft : Brand.warningSoft,
     );
   }
 }

@@ -13,6 +13,8 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | U5 | One app, 3 size groups, 2 layouts: phone layout under 840 px, side-by-side tablet layout from 840 px | 2026-11-02 |
 | U6 | Phone tabs Home / **Sell** / Orders; the Cart tab becomes a floating cart bar + full-screen order | 2026-11-02 |
 | U7 | Card **+** adds one (opens the sheet if the product has variants); tapping the card opens the sheet. Save draft lives inside Drafts | 2026-11-02 |
+| U8 | Offline keeps selling (chip + gold note only); **event closed** stops selling (Sell tab disabled, closed card). A status chip replaces the full-width banners | 2026-11-02 |
+| U9 | End session: tablet Home header and the avatar menu (all sizes); Orders tab shows a badge for orders still sending | 2026-11-02 |
 
 ## Phases
 
@@ -20,7 +22,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 |---|---|---|---|
 | 1 Foundation | Tokens, Lato, type scale, component themes, shared widgets, wording | ✅ | ✅ PR #15 |
 | 2 Selling | Tablet products + order panel, phone grid + cart bar, product sheet, cart | ✅ | ✅ PR #17 |
-| 3 Shell + Home | Floating forest rail, phone bottom bar, Home dashboard, status in top bar | — | — |
+| 3 Shell + Home | Floating forest rail, phone bottom bar, Home dashboard, status in top bar | ✅ | ✅ PR #18 |
 | 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | — | — |
 | 5 Entry flow | Login, events, sync | — | — |
 | 6 Utilities | Printer, customer scan, scanner, drafts | — | — |
@@ -78,12 +80,14 @@ Touch targets ≥ 44 px. Main action 56 px.
 | `showProductSheet` | `features/sell/product_sheet.dart` | Bottom sheet on phone, dialog on tablet; card taps and scans |
 | `Pill`, `SectionCard`, `EmptyState`, `ProductImage` | `widgets.dart` | |
 | `BhoomyLogo` | `logo.dart` | Drawn in code from the brand SVG |
+| `SyncChip`, `UserAvatar`, `showSessionMenu` | `status.dart` | Synced / Sending n / Offline · n to send; avatar opens printer + End session |
 
 ## Open items
 
 - [x] Warm `StockBadge`, `QtyStepper`, `CountChip` (Phase 2)
+- [ ] **Parked:** customer is required to confirm (EPIC-04/07 rule; backend `customer.name` required). Options: walk-in default (app only), fully optional (DB + API), or per-outlet setting — decide with Bhoomy outlets
 - [ ] Launch screen and launcher icon still Flutter default
-- [ ] Status-bar icons over the forest rail on tablet (Phase 3)
+- [x] Status-bar icons over the forest rail on tablet (rail now floats inside the safe area)
 
 ## Phase 2 checks (emulator, phone + tablet width, Go backend — 2026-11-02)
 
@@ -94,3 +98,14 @@ Touch targets ≥ 44 px. Main action 56 px.
 | 3 | Card tap → product sheet above the tab bar → Add to order | ✅ |
 | 4 | Review → order page: identify customer (typed name) → Confirm → receipt #002 → New order clears | ✅ |
 | 5 | Tablet width: products + always-open order panel; product dialog adds to panel | ✅ |
+
+## Phase 3 checks (emulator, phone + tablet width — 2026-11-02)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Phone Home: greeting, Synced chip, Start selling (Scan, Drafts), 4 stats, recent orders, floating bottom bar | ✅ |
+| 2 | Airplane mode: chip "Offline", gold "Keep selling" note, Sell still enabled | ✅ |
+| 3 | Offline sale → #003 Sending, chip "Offline · 1 to send", Orders badge 1 | ✅ |
+| 4 | Reconnect → #003 Confirmed, badge clears | ✅ |
+| 5 | Tablet: floating rail (printer dot, avatar), End session, event + device + live promotions | ✅ |
+| 6 | Clear order asks first, empties the order | ✅ |
