@@ -36,7 +36,7 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
     final cartCount = ref.watch(cartProvider.select((c) => c.count));
 
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Brand.surface,
       body: Column(
         children: [
           SizedBox(
@@ -53,8 +53,13 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        _CircleButton(Icons.arrow_back, context.pop),
-                        _CircleButton(Icons.shopping_cart_outlined, () => context.go('/cart'), badge: cartCount),
+                        _CircleButton(Icons.arrow_back, context.pop, label: 'Back'),
+                        _CircleButton(
+                          Icons.shopping_cart_outlined,
+                          () => context.go('/cart'),
+                          label: 'Cart',
+                          badge: cartCount,
+                        ),
                       ],
                     ),
                   ),
@@ -81,11 +86,10 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
                 padding: const EdgeInsets.all(20),
                 child: BrandButton(
                   text: product.outOfStock
-                      ? 'Out of Stock'
+                      ? 'Sold out'
                       : _added
-                      ? 'Added to Cart ✓'
-                      : 'Add to Cart · ${rupiah((variant?.price ?? product.price) * _qty)}',
-                  color: _added ? Brand.teal : Brand.navy,
+                      ? 'Added to cart'
+                      : 'Add to cart · ${rupiah((variant?.price ?? product.price) * _qty)}',
                   onPressed: product.outOfStock
                       ? null
                       : () {
@@ -103,23 +107,24 @@ class _ProductDetailScreenState extends ConsumerState<ProductDetailScreen> {
 }
 
 class _CircleButton extends StatelessWidget {
-  const _CircleButton(this.icon, this.onPressed, {this.badge = 0});
+  const _CircleButton(this.icon, this.onPressed, {required this.label, this.badge = 0});
 
   final IconData icon;
   final VoidCallback onPressed;
+  final String label;
   final int badge;
 
   @override
   Widget build(BuildContext context) {
     return IconButton.filled(
       onPressed: onPressed,
+      tooltip: label,
       icon: Badge(
         isLabelVisible: badge > 0,
         label: Text('$badge'),
-        backgroundColor: Brand.teal,
-        child: Icon(icon, color: Brand.navy),
+        child: Icon(icon, color: Brand.forest),
       ),
-      style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.9)),
+      style: IconButton.styleFrom(backgroundColor: Colors.white.withValues(alpha: 0.92)),
     );
   }
 }
@@ -141,50 +146,25 @@ class _Details extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final stock = stockStatus(product.remainingStock);
-    final stockText = switch (product.remainingStock) {
-      <= 0 => 'Out of stock',
-      <= 10 => 'Low stock: ${product.remainingStock} units',
-      final n => 'In stock: $n units',
-    };
-    const label = TextStyle(color: Color(0xFF374151), fontSize: 13, fontWeight: FontWeight.w600);
-
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        if (product.brand != null) Text(product.brand!, style: const TextStyle(color: Brand.textFaint, fontSize: 13)),
+        if (product.brand != null) Text(product.brand!, style: AppText.caption),
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Expanded(
-              child: Text(
-                product.name,
-                style: const TextStyle(color: Brand.heading, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
-            const SizedBox(width: 8),
-            Text(
-              rupiah(variant?.price ?? product.price),
-              style: const TextStyle(color: Brand.teal, fontSize: 20, fontWeight: FontWeight.bold),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Row(
-          children: [
-            Icon(Icons.circle, size: 8, color: stock.color),
-            const SizedBox(width: 6),
-            Text(
-              stockText,
-              style: TextStyle(color: stock.color, fontSize: 13, fontWeight: FontWeight.w500),
-            ),
+            Expanded(child: Text(product.name, style: AppText.heading)),
+            const SizedBox(width: 12),
+            Text(rupiah(variant?.price ?? product.price), style: AppText.heading.copyWith(fontWeight: FontWeight.w900)),
           ],
         ),
         const SizedBox(height: 8),
-        Text('SKU: ${product.sku}', style: const TextStyle(color: Brand.textGhost, fontSize: 11)),
+        StockLabel(product.remainingStock),
+        const SizedBox(height: 4),
+        Text('SKU ${product.sku}', style: AppText.caption),
         if (product.variants.isNotEmpty) ...[
-          const SizedBox(height: 20),
-          const Text('Shade', style: label),
+          const SizedBox(height: 24),
+          const Text('Variant', style: AppText.label),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -195,51 +175,36 @@ class _Details extends StatelessWidget {
                   label: Text(v.name),
                   selected: v.id == variant?.id,
                   onSelected: (_) => onVariant(v),
-                  showCheckmark: false,
-                  selectedColor: Brand.navy,
-                  backgroundColor: Brand.navActiveBg,
-                  side: BorderSide.none,
-                  shape: const StadiumBorder(),
-                  labelStyle: TextStyle(color: v.id == variant?.id ? Colors.white : Brand.navy, fontSize: 13),
+                  selectedColor: Brand.greenSoft,
+                  labelStyle: AppText.label.copyWith(color: Brand.forest),
+                  side: BorderSide(
+                    color: v.id == variant?.id ? Brand.green : Brand.divider,
+                    width: v.id == variant?.id ? 2 : 1,
+                  ),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                 ),
             ],
           ),
         ],
-        const SizedBox(height: 20),
-        const Text('Quantity', style: label),
+        const SizedBox(height: 24),
+        const Text('Quantity', style: AppText.label),
         const SizedBox(height: 8),
         Row(
           children: [
-            IconButton.filledTonal(onPressed: qty > 1 ? () => onQty(qty - 1) : null, icon: const Icon(Icons.remove)),
-            SizedBox(
-              width: 44,
-              child: Text(
-                '$qty',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Brand.navy, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-            ),
-            IconButton.filledTonal(
-              onPressed: qty < product.remainingStock ? () => onQty(qty + 1) : null,
-              icon: const Icon(Icons.add),
+            QtyStepper(
+              qty: qty,
+              onMinus: qty > 1 ? () => onQty(qty - 1) : null,
+              onPlus: qty < product.remainingStock ? () => onQty(qty + 1) : null,
             ),
             const SizedBox(width: 12),
-            Text(
-              product.outOfStock ? 'Unavailable' : 'max ${product.remainingStock}',
-              style: const TextStyle(color: Brand.textFaint, fontSize: 13),
-            ),
+            Text(product.outOfStock ? 'Unavailable' : 'max ${product.remainingStock}', style: AppText.caption),
           ],
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 24),
         Card(
-          margin: EdgeInsets.zero,
-          elevation: 0,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-            side: const BorderSide(color: Brand.cardBorder),
-          ),
+          clipBehavior: Clip.antiAlias,
           child: ExpansionTile(
-            title: const Text('Details', style: label),
+            title: const Text('Details', style: AppText.label),
             shape: const Border(),
             expandedCrossAxisAlignment: CrossAxisAlignment.start,
             childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 14),
@@ -249,7 +214,7 @@ class _Details extends StatelessWidget {
                 'SKU: ${product.sku}',
                 if (product.barcodes.isNotEmpty) 'Barcodes: ${product.barcodes.join(', ')}',
               ])
-                Text(line, style: const TextStyle(color: Brand.textMuted, fontSize: 13)),
+                Text(line, style: AppText.caption),
             ],
           ),
         ),

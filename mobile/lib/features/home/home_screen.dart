@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -31,58 +30,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final event = ref.watch(sessionEventProvider);
-    final firstName = (ref.watch(tokenStorageProvider).userName ?? 'Beauty Advisor').split(' ').first;
+    final firstName = (ref.watch(tokenStorageProvider).userName ?? 'there').split(' ').first;
     final orders = ref.watch(ordersProvider).value ?? const <OrderRecord>[];
     int count(OrderState s) => orders.where((o) => o.state == s).length;
     final revenue = orders.where((o) => o.state == OrderState.confirmed).fold(0.0, (sum, o) => sum + (o.total ?? 0));
     final printer = ref.watch(printerProvider).value;
 
     return Scaffold(
-      backgroundColor: Brand.bg,
       body: Column(
         children: [
-          AnnotatedRegion(
-            value: SystemUiOverlayStyle.light,
-            child: Container(
-              color: Brand.navy,
-              padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 16, 16, 20),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Hello, $firstName 👋',
-                          style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          event == null ? '—' : '${event.name} · ${event.code}',
-                          style: const TextStyle(color: Colors.white60, fontSize: 13),
-                        ),
-                      ],
-                    ),
-                  ),
-                  TextButton(
-                    onPressed: () => ref.read(authRepositoryProvider).logout(),
-                    style: TextButton.styleFrom(foregroundColor: Colors.white70, backgroundColor: Colors.white12),
-                    child: const Text('End session'),
-                  ),
-                ],
-              ),
-            ),
+          ScreenHeader(
+            title: 'Hi, $firstName',
+            subtitle: event == null ? null : '${event.name} · ${event.code}',
+            actions: [
+              TextButton(onPressed: () => ref.read(authRepositoryProvider).logout(), child: const Text('End session')),
+            ],
           ),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
               children: [
                 _Tile(
                   icon: Icons.shopping_bag_outlined,
                   title: 'Product Catalogue',
                   subtitle: 'Browse & add items to cart',
-                  dark: true,
+                  primary: true,
                   onTap: () => context.go('/catalogue'),
                 ),
                 const SizedBox(height: 12),
@@ -94,17 +66,17 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       : [
                           for (final state in OrderState.values)
                             if (count(state) > 0)
-                              '${count(state)} ${state == OrderState.pending ? 'syncing' : state.name}',
+                              '${count(state)} ${state == OrderState.pending ? 'sending' : state.name}',
                         ].join(' · '),
-                  trailing: Pill('${orders.length}', color: Brand.navy, background: Brand.navActiveBg),
+                  trailing: Pill('${orders.length}', color: Brand.forest, background: Brand.greenSoft),
                   onTap: () => context.go('/orders'),
                 ),
                 const SizedBox(height: 12),
                 Row(
                   children: [
-                    Expanded(child: _Stat('Revenue Today', rupiah(revenue), Brand.teal)),
+                    Expanded(child: _Stat('Revenue today', rupiah(revenue))),
                     const SizedBox(width: 12),
-                    Expanded(child: _Stat('Orders', '${orders.length}', Brand.navy)),
+                    Expanded(child: _Stat('Orders', '${orders.length}')),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -130,7 +102,7 @@ class _Tile extends StatelessWidget {
     required this.subtitle,
     required this.onTap,
     this.trailing,
-    this.dark = false,
+    this.primary = false,
   });
 
   final IconData icon;
@@ -138,23 +110,24 @@ class _Tile extends StatelessWidget {
   final String subtitle;
   final VoidCallback onTap;
   final Widget? trailing;
-  final bool dark;
+  final bool primary;
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: dark ? Brand.navy : Brand.card,
+    final shape = RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(16),
+      side: primary ? BorderSide.none : const BorderSide(color: Brand.cardLine),
+    );
+    return Material(
+      color: primary ? Brand.forest : Brand.surface,
+      shape: shape,
       child: ListTile(
         onTap: onTap,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: shape,
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Icon(icon, color: dark ? Colors.white : Brand.ready),
-        title: Text(
-          title,
-          style: TextStyle(color: dark ? Colors.white : Brand.text, fontWeight: FontWeight.bold),
-        ),
-        subtitle: Text(subtitle, style: TextStyle(color: dark ? Colors.white60 : Brand.textFaint, fontSize: 12)),
+        leading: Icon(icon, color: primary ? Brand.gold : Brand.green),
+        title: Text(title, style: AppText.bodyLarge.copyWith(color: primary ? Colors.white : Brand.forest)),
+        subtitle: Text(subtitle, style: AppText.caption.copyWith(color: primary ? Brand.greenTint : Brand.muted)),
         trailing: trailing,
       ),
     );
@@ -162,11 +135,10 @@ class _Tile extends StatelessWidget {
 }
 
 class _Stat extends StatelessWidget {
-  const _Stat(this.label, this.value, this.color);
+  const _Stat(this.label, this.value);
 
   final String label;
   final String value;
-  final Color color;
 
   @override
   Widget build(BuildContext context) {
@@ -174,12 +146,9 @@ class _Stat extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(label, style: const TextStyle(color: Brand.textFaint, fontSize: 11)),
+          Text(label, style: AppText.caption),
           const SizedBox(height: 4),
-          Text(
-            value,
-            style: TextStyle(color: color, fontSize: 16, fontWeight: FontWeight.bold),
-          ),
+          Text(value, style: AppText.heading.copyWith(fontWeight: FontWeight.w900)),
         ],
       ),
     );

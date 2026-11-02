@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/logo.dart';
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
 import '../../core/network/api_failure.dart';
@@ -69,55 +70,32 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
     final progress = _done ? 1.0 : (_step + 1) / _steps.length;
     final message = _error ?? (_done ? 'All done! Starting session…' : _steps[_step]);
     return Scaffold(
-      backgroundColor: Colors.white,
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: Column(
-            children: [
-              const Text(
-                'SETTING UP EVENT',
-                style: TextStyle(color: Brand.textFaint, fontSize: 13, fontWeight: FontWeight.w500, letterSpacing: 1),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                ref.watch(sessionEventProvider)?.name ?? '',
-                textAlign: TextAlign.center,
-                style: const TextStyle(color: Brand.heading, fontSize: 20, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 32),
-              CircleAvatar(
-                radius: 44,
-                backgroundColor: _done ? Brand.tealSoft : Brand.navActiveBg,
-                child: Text(
-                  _done ? '✓' : '${(progress * 100).round()}%',
-                  style: TextStyle(
-                    color: _done ? Brand.teal : Brand.navy,
-                    fontSize: _done ? 40 : 18,
-                    fontWeight: FontWeight.bold,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const BhoomyLogo(size: 48),
+                const SizedBox(height: 32),
+                Text('Setting up', style: AppText.caption.copyWith(color: Brand.slate)),
+                Text(ref.watch(sessionEventProvider)?.name ?? '', style: AppText.title),
+                const SizedBox(height: 24),
+                LinearProgressIndicator(value: progress, minHeight: 6, borderRadius: BorderRadius.circular(999)),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  child: Text(
+                    message,
+                    style: AppText.body.copyWith(color: _error != null ? Brand.errorInk : Brand.slate),
                   ),
                 ),
-              ),
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 24),
-                child: Text(
-                  message,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: _error != null ? Brand.danger : Brand.textMuted, fontSize: 15),
-                ),
-              ),
-              LinearProgressIndicator(
-                value: progress,
-                minHeight: 6,
-                color: Brand.teal,
-                backgroundColor: Brand.cardBorder,
-                borderRadius: BorderRadius.circular(999),
-              ),
-              const SizedBox(height: 28),
-              for (final (i, step) in _steps.indexed)
-                _StepRow(step, done: _done || i < _step, current: !_done && i == _step),
-              if (_error != null) ...[const SizedBox(height: 24), BrandButton(text: 'Retry', onPressed: _retry)],
-            ],
+                for (final (i, step) in _steps.indexed)
+                  _StepRow(step, done: _done || i < _step, current: !_done && i == _step),
+                if (_error != null) ...[const SizedBox(height: 24), BrandButton(text: 'Retry', onPressed: _retry)],
+              ],
+            ),
           ),
         ),
       ),
@@ -135,21 +113,20 @@ class _StepRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 6),
       child: Row(
         children: [
           CircleAvatar(
             radius: 10,
-            backgroundColor: done ? Brand.teal : (current ? Brand.navActiveBg : Brand.cardBorder),
+            backgroundColor: done ? Brand.green : (current ? Brand.greenSoft : Brand.sunken),
             child: done ? const Icon(Icons.check, color: Colors.white, size: 12) : null,
           ),
           const SizedBox(width: 12),
           Text(
             label,
-            style: TextStyle(
-              color: done ? Brand.teal : (current ? Brand.heading : Brand.textGhost),
-              fontSize: 13,
-              fontWeight: current ? FontWeight.w600 : FontWeight.normal,
+            style: AppText.body.copyWith(
+              color: done || current ? Brand.ink : Brand.faint,
+              fontWeight: current ? FontWeight.w700 : FontWeight.w400,
             ),
           ),
         ],

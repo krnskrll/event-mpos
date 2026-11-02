@@ -1,12 +1,12 @@
 # Flutter mPOS — How to verify
 
-Flutter app in `mobile/` (plan: `Tech Stack Prompts/FLUTTER-MIGRATION-DETAILED-PLAN.md`).
+Flutter app in `mobile/` (plan: `Tech Stack Prompts/FLUTTER-MIGRATION-DETAILED-PLAN.md`; UI revamp: `docs/UI-REVAMP.md`).
 
 ## Run
 
 ```bash
 docker compose up -d                       # Go API on :8080 (repo root)
-cd mobile && flutter test                  # 40 tests
+cd mobile && flutter test                  # 42 tests
 flutter run                                # emulator → 10.0.2.2:8080
 ```
 

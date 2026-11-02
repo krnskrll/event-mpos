@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -23,44 +22,37 @@ class EventSelectionScreen extends ConsumerWidget {
       context.go('/sync');
     }
 
+    final name = ref.watch(tokenStorageProvider).userName ?? 'Cashier';
     return Scaffold(
-      backgroundColor: Brand.bg,
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _Header(
-            name: ref.watch(tokenStorageProvider).userName ?? 'Beauty Advisor',
-            onLogout: () => ref.read(authRepositoryProvider).logout(),
-          ),
-          const Padding(
-            padding: EdgeInsets.fromLTRB(20, 20, 20, 8),
-            child: Text(
-              'YOUR ASSIGNED EVENTS',
-              style: TextStyle(color: Brand.textFaint, fontSize: 13, fontWeight: FontWeight.w500, letterSpacing: 1),
-            ),
+          ScreenHeader(
+            title: 'Hi, ${name.split(' ').first}',
+            subtitle: 'Choose the event you are selling at',
+            actions: [
+              TextButton(onPressed: () => ref.read(authRepositoryProvider).logout(), child: const Text('Log out')),
+            ],
           ),
           Expanded(
             child: ref
                 .watch(_eventsProvider)
                 .when(
-                  loading: () => const Center(child: CircularProgressIndicator(color: Brand.navy)),
+                  loading: () => const Center(child: CircularProgressIndicator()),
                   error: (e, _) => Padding(
                     padding: const EdgeInsets.all(20),
                     child: Column(
                       children: [
-                        Text('$e', style: const TextStyle(color: Brand.danger)),
+                        Text('$e', style: AppText.body.copyWith(color: Brand.errorInk)),
                         const SizedBox(height: 12),
                         BrandButton(text: 'Retry', onPressed: () => ref.invalidate(_eventsProvider)),
                       ],
                     ),
                   ),
                   data: (events) => events.isEmpty
-                      ? const Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Text('No events assigned to you yet.', style: TextStyle(color: Brand.textMuted)),
-                        )
+                      ? const EmptyState('No events assigned to you yet.', icon: Icons.event_busy_outlined)
                       : ListView.separated(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
                           itemCount: events.length,
                           separatorBuilder: (_, _) => const SizedBox(height: 12),
                           itemBuilder: (_, i) => _EventCard(events[i], onStart: () => start(events[i])),
@@ -68,55 +60,6 @@ class EventSelectionScreen extends ConsumerWidget {
                 ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _Header extends StatelessWidget {
-  const _Header({required this.name, required this.onLogout});
-
-  final String name;
-  final VoidCallback onLogout;
-
-  @override
-  Widget build(BuildContext context) {
-    final initials = name.split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
-    return AnnotatedRegion(
-      value: SystemUiOverlayStyle.light, // light status-bar icons on navy
-      child: Container(
-        color: Brand.navy,
-        padding: EdgeInsets.fromLTRB(20, MediaQuery.paddingOf(context).top + 16, 20, 20),
-        child: Row(
-          children: [
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: Brand.teal,
-              child: Text(
-                initials,
-                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 14),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text('Welcome,', style: TextStyle(color: Colors.white60, fontSize: 13)),
-                  Text(
-                    name,
-                    style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-                  ),
-                ],
-              ),
-            ),
-            TextButton(
-              onPressed: onLogout,
-              style: TextButton.styleFrom(foregroundColor: Colors.white70, backgroundColor: Colors.white12),
-              child: const Text('Logout'),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -136,22 +79,19 @@ class _EventCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           active
-              ? const Pill('● ACTIVE', color: Brand.ready, background: Brand.readyBg)
-              : Pill(event.status.name.toUpperCase(), color: Brand.packing, background: Brand.packingBg),
+              ? const Pill('Active', color: Brand.successInk, background: Brand.successSoft)
+              : Pill(
+                  event.status.name[0].toUpperCase() + event.status.name.substring(1),
+                  color: Brand.warningInk,
+                  background: Brand.warningSoft,
+                ),
           const SizedBox(height: 10),
-          Text(
-            event.name,
-            style: const TextStyle(color: Brand.heading, fontSize: 18, fontWeight: FontWeight.bold),
-          ),
+          Text(event.name, style: AppText.subhead),
           const SizedBox(height: 6),
           _Meta(Icons.calendar_month_outlined, '${event.startDate ?? '—'} → ${event.endDate ?? '—'}'),
           _Meta(Icons.place_outlined, event.code),
-          const SizedBox(height: 14),
-          BrandButton(
-            text: active ? 'Start Session' : 'Not active yet',
-            onPressed: active ? onStart : null,
-            color: Brand.teal,
-          ),
+          const SizedBox(height: 16),
+          BrandButton(text: active ? 'Start selling' : 'Not active yet', onPressed: active ? onStart : null),
         ],
       ),
     );
@@ -170,9 +110,9 @@ class _Meta extends StatelessWidget {
       padding: const EdgeInsets.only(top: 2),
       child: Row(
         children: [
-          Icon(icon, color: Brand.textFaint, size: 15),
+          Icon(icon, color: Brand.muted, size: 15),
           const SizedBox(width: 6),
-          Text(text, style: const TextStyle(color: Brand.textMuted, fontSize: 13)),
+          Text(text, style: AppText.caption),
         ],
       ),
     );

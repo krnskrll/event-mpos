@@ -76,12 +76,9 @@ class _PrinterScreenState extends ConsumerState<PrinterScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('In use', style: TextStyle(color: Brand.textFaint, fontSize: 12)),
-                Text(
-                  printer?.name ?? 'Checking…',
-                  style: const TextStyle(color: Brand.heading, fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                if (_message != null) Text(_message!, style: const TextStyle(color: Brand.textMuted)),
+                const Text('In use', style: AppText.caption),
+                Text(printer?.name ?? 'Checking…', style: AppText.subhead),
+                if (_message != null) Text(_message!, style: AppText.body.copyWith(color: Brand.slate)),
                 const SizedBox(height: 12),
                 BrandButton(text: 'Print test page', onPressed: printer == null ? null : () => _testPrint(printer)),
               ],
@@ -91,26 +88,22 @@ class _PrinterScreenState extends ConsumerState<PrinterScreen> {
             const SizedBox(height: 20),
             Row(
               children: [
-                const Expanded(
-                  child: Text('Bluetooth printers', style: TextStyle(fontWeight: FontWeight.bold)),
-                ),
+                const Expanded(child: Text('Bluetooth printers', style: AppText.subhead)),
                 if (saved != null)
                   TextButton(
                     onPressed: ref.read(savedPrinterProvider.notifier).forget,
-                    child: const Text('Forget', style: TextStyle(color: Brand.danger)),
+                    style: TextButton.styleFrom(foregroundColor: Brand.errorInk),
+                    child: const Text('Forget'),
                   ),
                 TextButton(onPressed: scanning ? null : _startScan, child: Text(scanning ? 'Scanning…' : 'Scan')),
               ],
             ),
-            const Text(
-              'Use a 58 mm ESC/POS printer with Bluetooth Low Energy.',
-              style: TextStyle(color: Brand.textMuted, fontSize: 12),
-            ),
+            const Text('Use a 58 mm ESC/POS printer with Bluetooth Low Energy.', style: AppText.caption),
             for (final d in _found.values)
               ListTile(
                 title: Text(d.name!),
                 subtitle: Text(d.deviceId),
-                trailing: d.deviceId == saved?.id ? const Icon(Icons.check, color: Brand.teal) : null,
+                trailing: d.deviceId == saved?.id ? const Icon(Icons.check, color: Brand.green) : null,
                 onTap: () => ref.read(savedPrinterProvider.notifier).choose(d.deviceId, d.name!),
               ),
           ],

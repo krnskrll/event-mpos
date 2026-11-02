@@ -1,66 +1,219 @@
 import 'package:flutter/material.dart';
 
-/// Design tokens from the Phase-1 interface design: navy for structure, teal as accent.
+/// Bhoomy Brand Guidelines v2.0 tokens, with softer corners for touch.
 abstract final class Brand {
-  static const navy = Color(0xFF1F3864);
-  static const navyShadow = Color(0x401F3864);
-  static const teal = Color(0xFF17A589);
-  static const tealSoft = Color(0xFFECFDF5);
-  static const tealBorder = Color(0xFFA7F3D0);
+  static const green = Color(0xFF2E7D53);
+  static const greenPressed = Color(0xFF22633F);
+  static const greenSoft = Color(0xFFEDF6F0);
+  static const greenTint = Color(0xFFA9D6BC);
+  static const forest = Color(0xFF143A24);
+  static const gold = Color(0xFFD99A2B);
+  static const goldSoft = Color(0xFFFBF3E3);
+  static const goldInk = Color(0xFF6D4B00);
 
-  static const bg = Color(0xFFF8FAFC);
-  static const card = Color(0xFFFFFFFF);
-  static const cardBorder = Color(0xFFF3F4F6);
-  static const fieldBg = Color(0xFFFAFAFA);
-  static const fieldBorder = Color(0xFFE5E7EB);
-  static const navActiveBg = Color(0xFFEEF2FF);
+  static const canvas = Color(0xFFF7F6F1);
+  static const surface = Color(0xFFFFFFFF);
+  static const sunken = Color(0xFFEDF1F6);
+  static const divider = Color(0xFFDCE3EC);
+  static const cardLine = Color(0xFFE7E4DA);
+  static const fieldLine = Color(0xFF8A94A0);
 
-  static const heading = Color(0xFF1F3864);
-  static const text = Color(0xFF111827);
-  static const textMuted = Color(0xFF6B7280);
-  static const textFaint = Color(0xFF9CA3AF);
-  static const textGhost = Color(0xFFD1D5DB);
+  static const ink = Color(0xFF33415A);
+  static const slate = Color(0xFF47566B); // secondary text on the canvas
+  static const muted = Color(0xFF64748B);
+  static const faint = Color(0xFF94A3B4);
 
-  static const newOrder = Color(0xFF2563EB);
-  static const newOrderBg = Color(0xFFEFF6FF);
-  static const packing = Color(0xFFD97706);
-  static const packingBg = Color(0xFFFFFBEB);
-  static const ready = Color(0xFF059669);
-  static const readyBg = Color(0xFFECFDF5);
-  static const collected = Color(0xFF6B7280);
-  static const collectedBg = Color(0xFFF3F4F6);
-  static const danger = Color(0xFFEF4444);
-  static const warn = Color(0xFFF59E0B);
-  static const gold = Color(0xFFD97706);
-  static const goldBg = Color(0xFFFEF3C7);
+  // Status: the base colour for dots and fills, the ink shade for text on white or on the soft background.
+  static const success = Color(0xFF12885E);
+  static const successInk = Color(0xFF0B5239);
+  static const successSoft = Color(0xFFE7F6EF);
+  static const warning = Color(0xFFC98A00);
+  static const warningInk = goldInk;
+  static const warningSoft = goldSoft;
+  static const error = Color(0xFFD64550);
+  static const errorInk = Color(0xFF8A242C);
+  static const errorSoft = Color(0xFFFCECEE);
+  static const info = Color(0xFF2F6FB5);
+  static const infoInk = Color(0xFF1C436E);
+  static const infoSoft = Color(0xFFEAF2FA);
 }
+
+/// The type scale: Lato, tabular figures so prices line up. Each style names the family because
+/// button and chip text don't inherit the app font.
+abstract final class AppText {
+  static const _numbers = [FontFeature.tabularFigures()];
+  static const _lato = 'Lato';
+  static const total = TextStyle(
+    fontFamily: _lato,
+    fontSize: 28,
+    height: 1.2,
+    fontWeight: FontWeight.w900,
+    color: Brand.forest,
+    fontFeatures: _numbers,
+  );
+  static const title = TextStyle(
+    fontFamily: _lato,
+    fontSize: 24,
+    height: 1.25,
+    fontWeight: FontWeight.w900,
+    color: Brand.forest,
+  );
+  static const heading = TextStyle(
+    fontFamily: _lato,
+    fontSize: 20,
+    height: 1.3,
+    fontWeight: FontWeight.w700,
+    color: Brand.forest,
+  );
+  static const subhead = TextStyle(
+    fontFamily: _lato,
+    fontSize: 18,
+    height: 1.3,
+    fontWeight: FontWeight.w700,
+    color: Brand.forest,
+  );
+  static const bodyLarge = TextStyle(
+    fontFamily: _lato,
+    fontSize: 16,
+    height: 1.4,
+    fontWeight: FontWeight.w700,
+    color: Brand.ink,
+    fontFeatures: _numbers,
+  );
+  static const body = TextStyle(fontFamily: _lato, fontSize: 14, height: 1.4, color: Brand.ink, fontFeatures: _numbers);
+  static const label = TextStyle(
+    fontFamily: _lato,
+    fontSize: 13,
+    height: 1.4,
+    fontWeight: FontWeight.w700,
+    color: Brand.ink,
+  );
+  static const button = TextStyle(fontFamily: _lato, fontSize: 15, fontWeight: FontWeight.w700);
+  static const caption = TextStyle(
+    fontFamily: _lato,
+    fontSize: 12,
+    height: 1.35,
+    color: Brand.muted,
+    fontFeatures: _numbers,
+  );
+}
+
+RoundedRectangleBorder _rounded(double radius, [BorderSide side = BorderSide.none]) =>
+    RoundedRectangleBorder(borderRadius: BorderRadius.circular(radius), side: side);
+
+OutlineInputBorder _field(Color color, [double width = 1]) => OutlineInputBorder(
+  borderRadius: BorderRadius.circular(12),
+  borderSide: BorderSide(color: color, width: width),
+);
+
+WidgetStateProperty<T> _selected<T>(T on, T off) =>
+    WidgetStateProperty.resolveWith((s) => s.contains(WidgetState.selected) ? on : off);
 
 final appTheme = ThemeData(
   useMaterial3: true,
-  scaffoldBackgroundColor: Brand.bg,
+  fontFamily: 'Lato',
+  scaffoldBackgroundColor: Brand.canvas,
   colorScheme: const ColorScheme.light(
-    primary: Brand.navy,
+    primary: Brand.green,
     onPrimary: Colors.white,
-    secondary: Brand.teal,
+    secondary: Brand.forest,
     onSecondary: Colors.white,
-    secondaryContainer: Brand.navActiveBg, // tonal buttons, selected tab
-    onSecondaryContainer: Brand.navy,
-    surface: Brand.card,
-    onSurface: Brand.text,
-    surfaceContainerHighest: Brand.cardBorder,
-    onSurfaceVariant: Brand.textMuted,
-    error: Brand.danger,
+    secondaryContainer: Brand.greenSoft, // tonal buttons, selected tab
+    onSecondaryContainer: Brand.forest,
+    surface: Brand.surface,
+    onSurface: Brand.ink,
+    surfaceContainerHighest: Brand.sunken,
+    onSurfaceVariant: Brand.muted,
+    outline: Brand.fieldLine,
+    outlineVariant: Brand.divider,
+    error: Brand.error,
+  ),
+  textTheme: const TextTheme(bodyMedium: AppText.body, bodyLarge: AppText.body, titleMedium: AppText.subhead),
+  filledButtonTheme: FilledButtonThemeData(
+    style: FilledButton.styleFrom(minimumSize: const Size(64, 48), shape: _rounded(12), textStyle: AppText.button),
+  ),
+  outlinedButtonTheme: OutlinedButtonThemeData(
+    style: OutlinedButton.styleFrom(
+      minimumSize: const Size(64, 48),
+      foregroundColor: Brand.ink,
+      side: const BorderSide(color: Brand.fieldLine),
+      shape: _rounded(12),
+      textStyle: AppText.button,
+    ),
+  ),
+  textButtonTheme: TextButtonThemeData(
+    style: TextButton.styleFrom(
+      foregroundColor: Brand.green,
+      minimumSize: const Size(44, 44),
+      textStyle: AppText.button.copyWith(fontSize: 14),
+    ),
+  ),
+  chipTheme: ChipThemeData(
+    backgroundColor: Brand.surface,
+    selectedColor: Brand.forest,
+    side: WidgetStateBorderSide.resolveWith(
+      (s) => BorderSide(color: s.contains(WidgetState.selected) ? Brand.forest : Brand.divider),
+    ),
+    shape: const StadiumBorder(),
+    showCheckmark: false,
+    labelStyle: AppText.label.copyWith(
+      color: WidgetStateColor.resolveWith((s) => s.contains(WidgetState.selected) ? Colors.white : Brand.ink),
+    ),
+    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
   ),
   inputDecorationTheme: InputDecorationTheme(
     filled: true,
-    fillColor: Brand.fieldBg,
-    hintStyle: const TextStyle(color: Brand.textFaint),
-    enabledBorder: _fieldBorder(Brand.fieldBorder),
-    focusedBorder: _fieldBorder(Brand.navy),
+    fillColor: Brand.surface,
+    hintStyle: const TextStyle(color: Brand.faint),
+    contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+    enabledBorder: _field(Brand.fieldLine),
+    focusedBorder: _field(Brand.green, 2),
+    errorBorder: _field(Brand.error),
+    focusedErrorBorder: _field(Brand.error, 2),
   ),
-);
-
-OutlineInputBorder _fieldBorder(Color color) => OutlineInputBorder(
-  borderRadius: BorderRadius.circular(12),
-  borderSide: BorderSide(color: color),
+  cardTheme: CardThemeData(
+    color: Brand.surface,
+    elevation: 0,
+    margin: EdgeInsets.zero,
+    shape: _rounded(16, const BorderSide(color: Brand.cardLine)),
+  ),
+  appBarTheme: const AppBarTheme(
+    backgroundColor: Brand.canvas,
+    foregroundColor: Brand.forest,
+    elevation: 0,
+    scrolledUnderElevation: 0,
+    titleTextStyle: AppText.subhead,
+  ),
+  navigationBarTheme: NavigationBarThemeData(
+    backgroundColor: Brand.surface,
+    indicatorColor: Brand.greenSoft,
+    surfaceTintColor: Colors.transparent,
+    iconTheme: _selected(const IconThemeData(color: Brand.forest), const IconThemeData(color: Brand.muted)),
+    labelTextStyle: _selected(
+      const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Brand.forest),
+      const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Brand.muted),
+    ),
+  ),
+  navigationRailTheme: const NavigationRailThemeData(
+    backgroundColor: Brand.forest,
+    indicatorColor: Brand.green,
+    selectedIconTheme: IconThemeData(color: Colors.white),
+    unselectedIconTheme: IconThemeData(color: Brand.greenTint),
+    selectedLabelTextStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Colors.white),
+    unselectedLabelTextStyle: TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: Brand.greenTint),
+  ),
+  badgeTheme: const BadgeThemeData(backgroundColor: Brand.forest, textColor: Colors.white),
+  dialogTheme: DialogThemeData(backgroundColor: Brand.surface, shape: _rounded(24), titleTextStyle: AppText.heading),
+  bottomSheetTheme: const BottomSheetThemeData(
+    backgroundColor: Brand.surface,
+    showDragHandle: true,
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+  ),
+  snackBarTheme: SnackBarThemeData(
+    behavior: SnackBarBehavior.floating,
+    backgroundColor: Brand.forest,
+    shape: _rounded(12),
+  ),
+  progressIndicatorTheme: const ProgressIndicatorThemeData(color: Brand.green, linearTrackColor: Brand.sunken),
+  dividerTheme: const DividerThemeData(color: Brand.divider, space: 1),
 );
