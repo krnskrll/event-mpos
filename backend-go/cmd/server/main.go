@@ -4,8 +4,8 @@ import (
 	"log"
 
 	"github.com/krnskrll/event-mpos/internal/app"
-	"github.com/krnskrll/event-mpos/internal/config"
-	"github.com/krnskrll/event-mpos/internal/database"
+	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 	"github.com/krnskrll/event-mpos/internal/seed"
 )
 

@@ -6,8 +6,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/krnskrll/event-mpos/internal/common"
-	"github.com/krnskrll/event-mpos/internal/security"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/security"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 

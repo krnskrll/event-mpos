@@ -35,3 +35,6 @@ func Connect(dbURL string) (*gorm.DB, error) {
 	}
 	return db, nil
 }
+
+// Tx is a transaction handle passed between modules so their writes commit together.
+type Tx = *gorm.DB

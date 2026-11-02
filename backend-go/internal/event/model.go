@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/common"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
 // EventStatus is the event lifecycle. BAs can only sell while ACTIVE.

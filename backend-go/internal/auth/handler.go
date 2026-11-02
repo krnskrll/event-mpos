@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/krnskrll/event-mpos/internal/common"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
 // Handler exposes the /api/auth/* endpoints.

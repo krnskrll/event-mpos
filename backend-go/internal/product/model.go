@@ -18,19 +18,19 @@ const (
 
 // Product is a catalogue product. Per-event availability lives in EventProduct.
 type Product struct {
-	ID             uuid.UUID       `gorm:"type:uuid;primaryKey"`
-	SKU            string          `gorm:"column:sku;uniqueIndex;not null"`
-	Name           string          `gorm:"not null"`
-	Brand          *string         ``
-	Price          decimal.Decimal `gorm:"type:numeric(12,2);not null"`
-	ImageURL       *string         `gorm:"column:image_url"`
-	WarehouseStock int             `gorm:"column:warehouse_stock;not null"`
-	Source         ProductSource   `gorm:"type:varchar(20);not null"`
-	Active         bool            `gorm:"not null;default:true"`
+	ID             uuid.UUID        `gorm:"type:uuid;primaryKey"`
+	SKU            string           `gorm:"column:sku;uniqueIndex;not null"`
+	Name           string           `gorm:"not null"`
+	Brand          *string          ``
+	Price          decimal.Decimal  `gorm:"type:numeric(12,2);not null"`
+	ImageURL       *string          `gorm:"column:image_url"`
+	WarehouseStock int              `gorm:"column:warehouse_stock;not null"`
+	Source         ProductSource    `gorm:"type:varchar(20);not null"`
+	Active         bool             `gorm:"not null;default:true"`
 	Barcodes       []ProductBarcode `gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
 	Variants       []ProductVariant `gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
-	CreatedAt      time.Time       `gorm:"column:created_at;not null"`
-	UpdatedAt      time.Time       `gorm:"column:updated_at;not null"`
+	CreatedAt      time.Time        `gorm:"column:created_at;not null"`
+	UpdatedAt      time.Time        `gorm:"column:updated_at;not null"`
 }
 
 func (Product) TableName() string { return "products" }

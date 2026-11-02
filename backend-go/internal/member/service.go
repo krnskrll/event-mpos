@@ -9,7 +9,7 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/common"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
 // Service holds member directory logic — the Go analogue of Kotlin MemberService.

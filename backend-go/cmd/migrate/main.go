@@ -5,8 +5,8 @@ package main
 import (
 	"log"
 
-	"github.com/krnskrll/event-mpos/internal/config"
-	"github.com/krnskrll/event-mpos/internal/database"
+	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 )
 
 func main() {

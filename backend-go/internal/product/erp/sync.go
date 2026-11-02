@@ -13,12 +13,12 @@ import (
 
 // SyncStatus is a single-row record (id=1) of the most recent ERP sync.
 type SyncStatus struct {
-	ID          int        `gorm:"primaryKey" json:"id"`
-	LastSyncAt  *time.Time `gorm:"column:last_sync_at" json:"lastSyncAt,omitempty"`
-	LastResult  *string    `gorm:"column:last_result" json:"lastResult,omitempty"`
-	ProductCount int       `gorm:"column:product_count" json:"productCount"`
-	Source      *string    `json:"source,omitempty"`
-	Message     *string    `json:"message,omitempty"`
+	ID           int        `gorm:"primaryKey" json:"id"`
+	LastSyncAt   *time.Time `gorm:"column:last_sync_at" json:"lastSyncAt,omitempty"`
+	LastResult   *string    `gorm:"column:last_result" json:"lastResult,omitempty"`
+	ProductCount int        `gorm:"column:product_count" json:"productCount"`
+	Source       *string    `json:"source,omitempty"`
+	Message      *string    `json:"message,omitempty"`
 }
 
 func (SyncStatus) TableName() string { return "erp_sync_status" }

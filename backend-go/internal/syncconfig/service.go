@@ -8,12 +8,12 @@ import (
 
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/common"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
 // Service owns the DB-stored sync schedules: seeds one row per type, validates cron on update.
 type Service struct {
-	db               *gorm.DB
+	db                *gorm.DB
 	erpDefaultCron    string
 	memberDefaultCron string
 }

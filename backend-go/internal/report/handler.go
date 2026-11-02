@@ -8,7 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/krnskrll/event-mpos/internal/audit"
-	"github.com/krnskrll/event-mpos/internal/common"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
 // Handler exposes the admin reporting + audit surface under /api/admin.

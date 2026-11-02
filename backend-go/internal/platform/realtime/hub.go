@@ -1,8 +1,8 @@
-// Package ws is the real-time order push for the warehouse dashboard. It replaces the Kotlin
+// Package realtime is the real-time order push for the warehouse dashboard. It replaces the Kotlin
 // STOMP-over-SockJS broker with a native gorilla/websocket hub: clients connect per event room and
 // receive WarehouseOrderView JSON messages as orders are created/advanced. Only the web dashboard
 // uses this; the Android app does not.
-package ws
+package realtime
 
 import (
 	"encoding/json"

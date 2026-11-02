@@ -20,21 +20,21 @@ type Config struct {
 	MigrationsPath string
 
 	// HTTP
-	Port           string
-	CORSOrigins    []string
-	SeedEnabled    bool
+	Port        string
+	CORSOrigins []string
+	SeedEnabled bool
 
 	// JWT
-	JWTSecret            string
-	AccessTokenTTLMin    int
-	RefreshTokenTTLDays  int
+	JWTSecret           string
+	AccessTokenTTLMin   int
+	RefreshTokenTTLDays int
 
 	// ERP adapter: mock | file | rest
-	ERPSource          string
-	ERPFilePath        string
-	ERPRestURL         string
-	ERPScheduledSync   bool
-	ERPSyncCron        string
+	ERPSource        string
+	ERPFilePath      string
+	ERPRestURL       string
+	ERPScheduledSync bool
+	ERPSyncCron      string
 
 	// Member adapter: mock | file | rest
 	MemberSource        string

@@ -10,21 +10,22 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/common"
 	"github.com/krnskrll/event-mpos/internal/event"
 	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/security"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/promotion"
-	"github.com/krnskrll/event-mpos/internal/security"
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/user"
 )
 
 // Seeded credentials (CHANGE before any real deployment):
-//   admin@eventmpos.local / Admin123!  (ADMIN)
-//   ba@eventmpos.local    / Ba123456!  (BA)
-//   wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
+//
+//	admin@eventmpos.local / Admin123!  (ADMIN)
+//	ba@eventmpos.local    / Ba123456!  (BA)
+//	wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
 func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersync.Service, stockSvc *stock.Service, promoSvc *promotion.Service) error {
 	var count int64
 	if err := db.Model(&user.User{}).Count(&count).Error; err != nil {

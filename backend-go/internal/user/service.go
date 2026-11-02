@@ -8,8 +8,8 @@ import (
 	"github.com/google/uuid"
 	"gorm.io/gorm"
 
-	"github.com/krnskrll/event-mpos/internal/common"
-	"github.com/krnskrll/event-mpos/internal/security"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/security"
 )
 
 // Service holds user business logic over the DB, mirroring the Kotlin UserService.

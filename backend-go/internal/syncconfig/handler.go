@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/krnskrll/event-mpos/internal/common"
 	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 )
 

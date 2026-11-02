@@ -10,13 +10,14 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/audit"
 	"github.com/krnskrll/event-mpos/internal/auth"
-	"github.com/krnskrll/event-mpos/internal/common"
-	"github.com/krnskrll/event-mpos/internal/config"
 	"github.com/krnskrll/event-mpos/internal/event"
 	"github.com/krnskrll/event-mpos/internal/me"
 	"github.com/krnskrll/event-mpos/internal/member"
 	membersync "github.com/krnskrll/event-mpos/internal/member/sync"
 	"github.com/krnskrll/event-mpos/internal/order"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/realtime"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/product/erp"
 	"github.com/krnskrll/event-mpos/internal/promotion"
@@ -25,7 +26,6 @@ import (
 	"github.com/krnskrll/event-mpos/internal/stock"
 	"github.com/krnskrll/event-mpos/internal/syncconfig"
 	"github.com/krnskrll/event-mpos/internal/user"
-	"github.com/krnskrll/event-mpos/internal/ws"
 )
 
 // App holds the wired services and the HTTP router.
@@ -47,7 +47,7 @@ type App struct {
 	Reports    *report.Service
 	SyncConfig *syncconfig.Service
 	Scheduler  *syncconfig.Scheduler
-	Hub        *ws.Hub
+	Hub        *realtime.Hub
 }
 
 // New builds services, handlers and routes on an already-migrated database. It starts the WebSocket
@@ -76,7 +76,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Orders = order.NewService(db, a.Stock, a.Promotions, a.Audit, a.Users)
 
 	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.
-	a.Hub = ws.NewHub()
+	a.Hub = realtime.NewHub()
 	go a.Hub.Run()
 	a.Orders.SetBroadcaster(func(eventID uuid.UUID, view order.WarehouseOrderView) {
 		a.Hub.Broadcast(eventID.String(), view)
@@ -130,7 +130,7 @@ func (a *App) routes(cfg *config.Config, jwtService *auth.JwtService) *gin.Engin
 	common.RegisterHealth(r)
 
 	// Real-time warehouse board WebSocket (JWT validated inside the handler via ?token=).
-	wsHandler := ws.NewHandler(a.Hub, jwtService)
+	wsHandler := realtime.NewHandler(a.Hub, jwtService)
 	r.GET("/ws/events/:eventId/orders", wsHandler.ServeWS)
 
 	api := r.Group("/api")

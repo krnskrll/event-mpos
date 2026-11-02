@@ -25,10 +25,10 @@ import (
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/app"
-	"github.com/krnskrll/event-mpos/internal/common"
-	"github.com/krnskrll/event-mpos/internal/config"
-	"github.com/krnskrll/event-mpos/internal/database"
 	"github.com/krnskrll/event-mpos/internal/event"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 	"github.com/krnskrll/event-mpos/internal/product"
 	"github.com/krnskrll/event-mpos/internal/user"
 )

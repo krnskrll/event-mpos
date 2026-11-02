@@ -8,9 +8,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-func d(s string) decimal.Decimal  { return decimal.RequireFromString(s) }
+func d(s string) decimal.Decimal   { return decimal.RequireFromString(s) }
 func dp(s string) *decimal.Decimal { v := d(s); return &v }
-func ip(i int) *int               { return &i }
+func ip(i int) *int                { return &i }
 
 func TestPercentage(t *testing.T) {
 	p := Promotion{Type: TypePercentage, Scope: ScopeAll, PercentOff: dp("10"), Active: true}

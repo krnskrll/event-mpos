@@ -7,7 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/krnskrll/event-mpos/internal/auth"
-	"github.com/krnskrll/event-mpos/internal/common"
+	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
 // WarehouseHandler exposes the warehouse order board under /api/warehouse.
