@@ -1,12 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Modify this file to customize your launch splash screen -->
+<!-- Launch screen before Android 12, and while Flutter starts: forest, the mark in a circle, the app name. -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:drawable="@android:color/white" />
-
-    <!-- You can insert your own image assets here -->
-    <!-- <item>
-        <bitmap
-            android:gravity="center"
-            android:src="@mipmap/launch_image" />
-    </item> -->
+    <item android:drawable="@color/brand_forest" />
+    <item android:width="144dp" android:height="144dp" android:gravity="center">
+        <shape android:shape="oval">
+            <solid android:color="@color/brand_forest_raised" />
+        </shape>
+    </item>
+    <item android:width="112dp" android:height="112dp" android:gravity="center" android:drawable="@drawable/bhoomy_mark" />
+    <item android:width="200dp" android:height="80dp" android:gravity="bottom|center_horizontal" android:bottom="16dp"
+        android:drawable="@drawable/splash_brand" />
 </layer-list>
