@@ -88,6 +88,8 @@ func NewApp(t *testing.T) *TestApp {
 		MemberSource:        "mock",
 		ERPSyncCron:         "0 0 * * * *",
 		MemberSyncCron:      "0 0 2 * * *",
+		MediaDir:            t.TempDir(),
+		MediaBaseURL:        "http://pos.test/media",
 	}
 	a, err := app.New(cfg, db)
 	if err != nil {

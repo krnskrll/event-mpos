@@ -31,18 +31,19 @@ type VariantDto struct {
 }
 
 type ProductResponse struct {
-	ID             uuid.UUID       `json:"id"`
-	SKU            string          `json:"sku"`
-	Name           string          `json:"name"`
-	Brand          *string         `json:"brand,omitempty"`
-	Price          decimal.Decimal `json:"price"`
-	ImageURL       *string         `json:"imageUrl,omitempty"`
-	Source         ProductSource   `json:"source"`
-	Active         bool            `json:"active"`
-	WarehouseStock int             `json:"warehouseStock"`
-	Barcodes       []BarcodeDto    `json:"barcodes"`
-	Variants       []VariantDto    `json:"variants"`
-	UpdatedAt      time.Time       `json:"updatedAt"`
+	ID               uuid.UUID       `json:"id"`
+	DefaultVariantID uuid.UUID       `json:"defaultVariantId"`
+	SKU              string          `json:"sku"`
+	Name             string          `json:"name"`
+	Brand            *string         `json:"brand,omitempty"`
+	Price            decimal.Decimal `json:"price"`
+	ImageURL         *string         `json:"imageUrl,omitempty"`
+	Source           ProductSource   `json:"source"`
+	Active           bool            `json:"active"`
+	WarehouseStock   int             `json:"warehouseStock"`
+	Barcodes         []BarcodeDto    `json:"barcodes"`
+	Variants         []VariantDto    `json:"variants"`
+	UpdatedAt        time.Time       `json:"updatedAt"`
 }
 
 type BarcodeInput struct {
@@ -69,12 +70,28 @@ type UpdateProductRequest struct {
 }
 
 type EventProductResponse struct {
-	Product   ProductResponse `json:"product"`
-	Available bool            `json:"available"`
+	Product   ProductResponse      `json:"product"`
+	Available bool                 `json:"available"`
+	Variants  []LocationVariantDto `json:"variants"`
+}
+
+// LocationVariantDto is one variant at a location, the default one included.
+type LocationVariantDto struct {
+	ID            uuid.UUID        `json:"id"`
+	Name          string           `json:"name"`
+	IsDefault     bool             `json:"isDefault"`
+	Available     bool             `json:"available"`
+	LocationPrice *decimal.Decimal `json:"locationPrice"`
 }
 
 type SetAvailabilityRequest struct {
 	Available *bool `json:"available" binding:"required"`
+}
+
+// SetLocationVariantRequest sets a variant's state at a location; an empty price clears it.
+type SetLocationVariantRequest struct {
+	Available *bool            `json:"available" binding:"required"`
+	Price     *decimal.Decimal `json:"price"`
 }
 
 type VariantSnapshotDto struct {
@@ -129,6 +146,8 @@ type SourceProduct struct {
 type Products interface {
 	// Find returns nil when the product does not exist.
 	Find(id uuid.UUID) (*SaleProduct, error)
+	// FindAt is Find with the location's prices.
+	FindAt(locationID, id uuid.UUID) (*SaleProduct, error)
 	// All returns the store's products ordered by SKU, without variants.
 	All(storeID uuid.UUID) ([]SaleProduct, error)
 	FindAvailableByBarcode(storeID, eventID uuid.UUID, barcode string) (*ProductResponse, error)

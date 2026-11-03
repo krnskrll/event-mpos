@@ -160,7 +160,7 @@ func (s *Service) Quote(eventID uuid.UUID, lines []iface.QuoteLine) (*iface.Quot
 		if line.Qty <= 0 {
 			continue
 		}
-		p, err := s.products.Find(line.ProductID)
+		p, err := s.products.FindAt(eventID, line.ProductID)
 		if err != nil {
 			return nil, err
 		}

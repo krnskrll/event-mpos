@@ -97,7 +97,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req iface.SubmitOrderReque
 	cartLines := make([]promotioniface.CartLine, 0, len(lines))
 	drafts := make([]draftItem, 0, len(lines))
 	for _, line := range lines {
-		p, err := s.products.Find(line.ProductID)
+		p, err := s.products.FindAt(eventID, line.ProductID)
 		if err != nil {
 			return nil, err
 		}

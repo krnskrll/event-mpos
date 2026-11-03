@@ -147,9 +147,10 @@ components:
         version: { type: string }
     ProductResponse:
       type: object
-      required: [id, sku, name, price, source, active, warehouseStock, barcodes, variants, updatedAt]
+      required: [id, defaultVariantId, sku, name, price, source, active, warehouseStock, barcodes, variants, updatedAt]
       properties:
         id: { type: string, format: uuid }
+        defaultVariantId: { type: string, format: uuid }
         sku: { type: string }
         name: { type: string }
         brand: { type: string }
@@ -202,10 +203,26 @@ components:
         barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeInput' } }
     EventProductResponse:
       type: object
-      required: [product, available]
+      required: [product, available, variants]
       properties:
         product: { $ref: '#/components/schemas/ProductResponse' }
         available: { type: boolean }
+        variants: { type: array, items: { $ref: '#/components/schemas/LocationVariant' } }
+    LocationVariant:
+      type: object
+      required: [id, name, isDefault, available]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        isDefault: { type: boolean }
+        available: { type: boolean }
+        locationPrice: { type: integer, format: int64, nullable: true }
+    SetLocationVariantRequest:
+      type: object
+      required: [available]
+      properties:
+        available: { type: boolean }
+        price: { type: integer, format: int64, nullable: true }
     SetAvailabilityRequest:
       type: object
       required: [available]

@@ -92,23 +92,6 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 
 	// Pull the initial catalogue from the (mock) ERP and make every product available for EV01.
 	erpSync.Sync()
-	var products []productrepo.Product
-	if err := db.Find(&products).Error; err != nil {
-		return err
-	}
-	for i := range products {
-		if err := db.Create(&productrepo.EventProduct{EventID: ev.ID, ProductID: products[i].ID, Available: true}).Error; err != nil {
-			return err
-		}
-		// Allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning.
-		qty := min(products[i].WarehouseStock, 60)
-		if products[i].SKU == "SKU-1004" {
-			qty = 8
-		}
-		if err := stockSvc.ForceAllocate(ev.ID, products[i].ID, qty); err != nil {
-			return err
-		}
-	}
 
 	// Give the lipstick a few shade variants (one with a price override) to exercise variants.
 	var lipstick productrepo.Product
@@ -123,6 +106,25 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 			if err := db.Create(&variants[i]).Error; err != nil {
 				return err
 			}
+		}
+	}
+	var products []productrepo.Product
+	if err := db.Preload("Variants").Find(&products).Error; err != nil {
+		return err
+	}
+	for i := range products {
+		for _, v := range products[i].Variants {
+			if err := db.Create(&productrepo.LocationItem{LocationID: ev.ID, ItemVariantID: v.ID, Active: true}).Error; err != nil {
+				return err
+			}
+		}
+		// Allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning.
+		qty := min(products[i].WarehouseStock, 60)
+		if products[i].SKU == "SKU-1004" {
+			qty = 8
+		}
+		if err := stockSvc.ForceAllocate(ev.ID, products[i].ID, qty); err != nil {
+			return err
 		}
 	}
 

@@ -28,6 +28,7 @@ GET /api/me/orders/:orderId
 GET /api/warehouse/events
 GET /api/warehouse/events/:eventId/orders
 GET /api/warehouse/events/:eventId/stock
+GET /media/:file
 GET /ws/events/:eventId/orders
 PATCH /api/admin/events/:id/status
 PATCH /api/admin/users/:id
@@ -38,6 +39,7 @@ POST /api/admin/events
 POST /api/admin/events/:id/promotions
 POST /api/admin/members/sync
 POST /api/admin/products
+POST /api/admin/products/:id/photo
 POST /api/admin/users
 POST /api/auth/login
 POST /api/auth/logout
@@ -51,6 +53,7 @@ POST /api/warehouse/orders/:orderId/cancel
 PUT /api/admin/events/:id
 PUT /api/admin/events/:id/products/:productId
 PUT /api/admin/events/:id/stock/:productId
+PUT /api/admin/events/:id/variants/:variantId
 PUT /api/admin/products/:id
 PUT /api/admin/promotions/:id
 PUT /api/admin/sync/:type
