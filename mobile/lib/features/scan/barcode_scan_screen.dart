@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/theme.dart';
 import '../../data/cart/cart_notifier.dart';
 import '../../data/product/product_repository.dart';
 import '../../data/session/session.dart';
@@ -27,19 +28,18 @@ class BarcodeScanScreen extends ConsumerWidget {
     }
 
     return ScannerView(
-      title: 'Scan Product',
-      hint: 'Point the camera at a product barcode or QR code',
-      manualLabel: 'Enter barcode / SKU',
+      title: 'Scan product',
+      hint: 'Point at the barcode. It scans by itself.',
+      manualLabel: 'Type barcode or SKU',
       onCode: resolve,
       actions: [
         if (cartCount > 0)
-          IconButton(
+          ActionChip(
             onPressed: () => context.push('/cart'),
-            tooltip: 'Current order',
-            icon: Badge(
-              label: Text('$cartCount'),
-              child: const Icon(Icons.shopping_cart_outlined, color: Colors.white),
-            ),
+            label: Text('$cartCount in order'),
+            backgroundColor: Brand.gold,
+            side: BorderSide.none,
+            labelStyle: AppText.label.copyWith(color: Brand.onGold, fontWeight: FontWeight.w900),
           ),
       ],
     );

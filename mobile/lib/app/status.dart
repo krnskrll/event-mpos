@@ -65,8 +65,11 @@ class UserAvatar extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final name = ref.watch(tokenStorageProvider).userName ?? 'Cashier';
-    return Tooltip(
-      message: 'Account and session',
+    return Semantics(
+      container: true,
+      button: true,
+      label: 'Account and session',
+      excludeSemantics: true,
       child: InkWell(
         customBorder: const CircleBorder(),
         onTap: () => showSessionMenu(context),

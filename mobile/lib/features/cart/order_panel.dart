@@ -83,7 +83,7 @@ class _OrderPanelState extends ConsumerState<OrderPanel> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Current order', style: AppText.heading.copyWith(fontWeight: FontWeight.w900)),
-                  Text('${cart.count} items', style: AppText.caption),
+                  Text(itemCount(cart.count), style: AppText.caption),
                 ],
               ),
             ),
@@ -168,7 +168,7 @@ class _CustomerCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = customer;
-    final detail = [if (c?.tier != null) '${c!.tier} member', ?c?.qrCode].join(' · ');
+    final detail = [if (c?.tier != null) memberLabel(c!.tier!), ?c?.qrCode].join(' · ');
     return Material(
       color: c != null ? Brand.greenSoft : Brand.surface,
       shape: RoundedRectangleBorder(

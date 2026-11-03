@@ -278,5 +278,11 @@ class StockBadge extends StatelessWidget {
 String initials(String name) =>
     name.split(' ').where((w) => w.isNotEmpty).take(2).map((w) => w[0].toUpperCase()).join();
 
+String itemCount(int n) => n == 1 ? '1 item' : '$n items';
+
+/// "GOLD" from the server reads as "Gold member".
+String memberLabel(String tier) =>
+    tier.isEmpty ? 'Member' : '${tier[0].toUpperCase()}${tier.substring(1).toLowerCase()} member';
+
 /// Tablet and wide screens get the side-by-side layouts.
 bool isWide(BuildContext context) => MediaQuery.sizeOf(context).width >= 840;

@@ -174,7 +174,7 @@ class _OrderRow extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final badge = orderBadge(order.state);
     final time = TimeOfDay.fromDateTime(order.createdAt).format(context);
-    final items = order.itemCount == 1 ? '1 item' : '${order.itemCount} items';
+    final items = itemCount(order.itemCount);
     final (meta, metaColor) = switch (order.state) {
       OrderState.pending => ('$time · ${ref.isOnline ? 'sending now' : 'waiting for internet'}', Brand.muted),
       OrderState.failed => ('Not accepted: ${order.error ?? 'rejected'}', Brand.errorInk),

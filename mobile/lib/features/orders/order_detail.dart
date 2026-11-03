@@ -99,7 +99,7 @@ class _OrderDetailState extends ConsumerState<OrderDetail> {
                 children: [
                   Text(order.orderNumberDisplay ?? '—', style: AppText.title.copyWith(fontSize: 28)),
                   Text(
-                    '${TimeOfDay.fromDateTime(order.createdAt).format(context)} · ${_items(order.itemCount)}',
+                    '${TimeOfDay.fromDateTime(order.createdAt).format(context)} · ${itemCount(order.itemCount)}',
                     style: AppText.caption.copyWith(color: Brand.slate),
                   ),
                 ],
@@ -141,8 +141,6 @@ class _OrderDetailState extends ConsumerState<OrderDetail> {
     );
   }
 }
-
-String _items(int n) => n == 1 ? '1 item' : '$n items';
 
 class _ViewSwitch extends StatelessWidget {
   const _ViewSwitch({required this.receipt, required this.onChanged});
@@ -223,7 +221,7 @@ class _Details extends ConsumerWidget {
     final double total = order.total ?? subtotal;
     final double discount = order.discount ?? (total < subtotal ? subtotal - total : 0);
     final customerDetail = [
-      if (order.customerTier != null) '${order.customerTier} member',
+      if (order.customerTier != null) memberLabel(order.customerTier!),
       ?order.customerQr,
     ].join(' · ');
 
