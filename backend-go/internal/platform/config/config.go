@@ -48,6 +48,8 @@ type Config struct {
 	BhoomyMode         string
 	BhoomyURL          string
 	BhoomyServiceToken string
+	// How often linked stores pull Produk Toko changes (BHOOMY_MODE=http only).
+	BhoomySyncMinutes int
 
 	// POS photos: local folder and the public URL it is served under.
 	MediaDir     string
@@ -88,6 +90,7 @@ func Load() *Config {
 		BhoomyMode:         getenv("BHOOMY_MODE", "mock"),
 		BhoomyURL:          getenv("BHOOMY_URL", ""),
 		BhoomyServiceToken: getenv("BHOOMY_SERVICE_TOKEN", ""),
+		BhoomySyncMinutes:  getint("BHOOMY_SYNC_MINUTES", 5),
 		MediaDir:           getenv("MEDIA_DIR", "./media"),
 		MediaBaseURL:       getenv("MEDIA_BASE_URL", "http://localhost:8080/media"),
 	}

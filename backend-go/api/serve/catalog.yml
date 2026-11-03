@@ -1,0 +1,32 @@
+openapi: 3.0.3
+info:
+  title: POS catalog API
+  version: "1.0.0"
+  description: POS's read-only copy of Produk Toko (Bhoomy), pulled through the internal POS feed.
+tags:
+  - name: catalog
+paths:
+  /api/admin/catalog/sync:
+    get:
+      tags: [catalog]
+      operationId: getCatalogSync
+      summary: "Produk Toko pull state for the caller's store"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CatalogSyncStatus' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    post:
+      tags: [catalog]
+      operationId: runCatalogSync
+      summary: "Pull Produk Toko changes for the caller's store now"
+      security: [{ bearerAuth: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CatalogSyncStatus' } } } }
+        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Store not linked to Bhoomy, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '502': { description: Bhoomy did not answer, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }

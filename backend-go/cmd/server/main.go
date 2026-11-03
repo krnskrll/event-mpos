@@ -45,6 +45,10 @@ func main() {
 	// 4. Start the dynamic sync scheduler + serve
 	a.Scheduler.Start()
 	go pingBhoomy(a)
+	syncCtx, stopSync := context.WithCancel(context.Background())
+	if cfg.BhoomyMode == "http" {
+		go syncCatalog(syncCtx, a, time.Duration(cfg.BhoomySyncMinutes)*time.Minute)
+	}
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: a.Router}
 	go func() {
@@ -60,6 +64,7 @@ func main() {
 	<-stop
 	log.Println("shutting down")
 	a.Scheduler.Stop()
+	stopSync()
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	if err := srv.Shutdown(ctx); err != nil {
@@ -76,4 +81,18 @@ func pingBhoomy(a *app.App) {
 		return
 	}
 	log.Println("bhoomy: reachable")
+}
+
+// syncCatalog pulls Produk Toko changes for every linked store now and then every interval.
+func syncCatalog(ctx context.Context, a *app.App, every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		a.CatalogSync.RunAll(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
 }
