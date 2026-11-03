@@ -8,23 +8,26 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
+	"github.com/krnskrll/event-mpos/internal/platform/media"
 	"github.com/krnskrll/event-mpos/internal/product/iface"
 	"github.com/krnskrll/event-mpos/internal/product/repository"
 )
 
 type Service struct {
-	db *gorm.DB
+	db    *gorm.DB
+	media *media.Store
 	// stockRemaining enriches snapshot products; nil leaves remainingStock at 0.
 	stockRemaining func(eventID, productID uuid.UUID) (int, error)
 }
 
 var _ iface.Products = (*Service)(nil)
 
-func NewService(db *gorm.DB) *Service { return &Service{db: db} }
+func NewService(db *gorm.DB, m *media.Store) *Service { return &Service{db: db, media: m} }
 
 func (s *Service) SetStockRemaining(fn func(eventID, productID uuid.UUID) (int, error)) {
 	s.stockRemaining = fn
@@ -135,14 +138,28 @@ func (s *Service) Update(storeID, id uuid.UUID, req iface.UpdateProductRequest) 
 	return &resp, nil
 }
 
-func (s *Service) EventProducts(storeID, eventID uuid.UUID) ([]iface.EventProductResponse, error) {
-	var eps []repository.EventProduct
-	if err := s.db.Where("event_id = ? AND available = ?", eventID, true).Find(&eps).Error; err != nil {
+// SetPhoto stores a POS photo for the product and points its image URL at it.
+func (s *Service) SetPhoto(storeID, id uuid.UUID, data []byte) (*iface.ProductResponse, error) {
+	p, err := s.findIn(storeID, id)
+	if err != nil {
 		return nil, err
 	}
-	availableIDs := make(map[uuid.UUID]bool, len(eps))
-	for _, ep := range eps {
-		availableIDs[ep.ProductID] = true
+	url, err := s.media.Save(data)
+	if err != nil {
+		return nil, err
+	}
+	p.PhotoURL, p.UpdatedAt = &url, nowUTC()
+	if err := s.db.Model(p).Select("photo_url", "updated_at").Updates(p).Error; err != nil {
+		return nil, err
+	}
+	resp := p.ToResponse()
+	return &resp, nil
+}
+
+func (s *Service) EventProducts(storeID, eventID uuid.UUID) ([]iface.EventProductResponse, error) {
+	rows, err := s.locationItems(eventID)
+	if err != nil {
+		return nil, err
 	}
 	var products []repository.Product
 	if err := s.preloaded().Where("store_id = ?", storeID).Order("sku").Find(&products).Error; err != nil {
@@ -150,47 +167,114 @@ func (s *Service) EventProducts(storeID, eventID uuid.UUID) ([]iface.EventProduc
 	}
 	out := make([]iface.EventProductResponse, 0, len(products))
 	for i := range products {
-		out = append(out, iface.EventProductResponse{Product: products[i].ToResponse(), Available: availableIDs[products[i].ID]})
+		out = append(out, eventProduct(&products[i], rows))
 	}
 	return out, nil
 }
 
+// SetAvailability switches every variant of a product at a location, keeping location prices.
 func (s *Service) SetAvailability(storeID, eventID, productID uuid.UUID, available bool) (*iface.EventProductResponse, error) {
 	p, err := s.findIn(storeID, productID)
 	if err != nil {
 		return nil, err
 	}
-	var link repository.EventProduct
-	err = s.db.Where("event_id = ? AND product_id = ?", eventID, productID).First(&link).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		link = repository.EventProduct{EventID: eventID, ProductID: productID}
-	} else if err != nil {
+	rows, err := s.locationItems(eventID)
+	if err != nil {
 		return nil, err
 	}
-	link.Available = available
-	if err := s.db.Save(&link).Error; err != nil {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		for _, v := range p.Variants {
+			li := rows[v.ID]
+			if err := saveLocationItem(tx, eventID, v.ID, available, li.PriceOverride, &li); err != nil {
+				return err
+			}
+			rows[v.ID] = li
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
-	resp := iface.EventProductResponse{Product: p.ToResponse(), Available: available}
+	resp := eventProduct(p, rows)
 	return &resp, nil
 }
 
-// availableSnapshotEntities returns active products available for the event, ordered by sku.
+// SetLocationVariant sets one variant's availability and price at a location.
+func (s *Service) SetLocationVariant(storeID, eventID, variantID uuid.UUID, req iface.SetLocationVariantRequest) (*iface.EventProductResponse, error) {
+	if err := common.CheckRupiah("price", req.Price); err != nil {
+		return nil, err
+	}
+	if req.Price != nil && req.Price.IsNegative() {
+		return nil, common.NewAppError(http.StatusBadRequest, "price: must not be negative")
+	}
+	var v repository.ProductVariant
+	err := s.db.Where("id = ? AND store_id = ?", variantID, storeID).First(&v).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, common.NewAppError(http.StatusNotFound, "Variant not found")
+	}
+	if err != nil {
+		return nil, err
+	}
+	p, err := s.findIn(storeID, v.ItemID)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.locationItems(eventID)
+	if err != nil {
+		return nil, err
+	}
+	li := rows[variantID]
+	if err := saveLocationItem(s.db, eventID, variantID, *req.Available, req.Price, &li); err != nil {
+		return nil, err
+	}
+	rows[variantID] = li
+	resp := eventProduct(p, rows)
+	return &resp, nil
+}
+
+func saveLocationItem(tx *gorm.DB, locationID, variantID uuid.UUID, active bool, price *decimal.Decimal, li *repository.LocationItem) error {
+	li.LocationID, li.ItemVariantID, li.Active, li.PriceOverride = locationID, variantID, active, price
+	return tx.Save(li).Error
+}
+
+func eventProduct(p *repository.Product, rows repository.LocationItems) iface.EventProductResponse {
+	variants := make([]iface.LocationVariantDto, 0, len(p.Variants))
+	available := false
+	for _, v := range p.Variants {
+		li, ok := rows[v.ID]
+		active := ok && li.Active
+		available = available || active
+		variants = append(variants, iface.LocationVariantDto{ID: v.ID, Name: v.Name, IsDefault: v.IsDefault, Available: active, LocationPrice: li.PriceOverride})
+	}
+	return iface.EventProductResponse{Product: p.ToResponse(), Available: available, Variants: variants}
+}
+
+func (s *Service) locationItems(locationID uuid.UUID) (repository.LocationItems, error) {
+	var list []repository.LocationItem
+	if err := s.db.Where("location_id = ?", locationID).Find(&list).Error; err != nil {
+		return nil, err
+	}
+	rows := make(repository.LocationItems, len(list))
+	for _, li := range list {
+		rows[li.ItemVariantID] = li
+	}
+	return rows, nil
+}
+
+// availableSnapshotEntities returns active products the event sells, at its prices, ordered by sku.
 func (s *Service) availableSnapshotEntities(eventID uuid.UUID) ([]repository.Product, error) {
-	var eps []repository.EventProduct
-	if err := s.db.Where("event_id = ? AND available = ?", eventID, true).Find(&eps).Error; err != nil {
+	rows, err := s.locationItems(eventID)
+	if err != nil {
 		return nil, err
 	}
-	if len(eps) == 0 {
-		return nil, nil
-	}
-	ids := make([]uuid.UUID, 0, len(eps))
-	for _, ep := range eps {
-		ids = append(ids, ep.ProductID)
-	}
+	sold := s.db.Model(&repository.ProductVariant{}).Select("item_id").
+		Where("id IN (?)", s.db.Model(&repository.LocationItem{}).Select("item_variant_id").Where("location_id = ? AND active", eventID))
 	var products []repository.Product
-	if err := s.preloaded().Where("id IN ? AND status = ?", ids, repository.StatusActive).Order("sku").Find(&products).Error; err != nil {
+	if err := s.preloaded().Where("id IN (?) AND status = ?", sold, repository.StatusActive).Order("sku").Find(&products).Error; err != nil {
 		return nil, err
+	}
+	for i := range products {
+		rows.Apply(&products[i])
 	}
 	return products, nil
 }
@@ -236,7 +320,11 @@ func (s *Service) AvailabilityFingerprint(eventID uuid.UUID) (string, error) {
 	}
 	parts := make([]string, 0, len(dtos))
 	for _, d := range dtos {
-		parts = append(parts, d.SKU+":"+d.Price.String()+":"+strconv.Itoa(len(d.Barcodes)))
+		part := d.SKU + ":" + d.Price.String() + ":" + strconv.Itoa(len(d.Barcodes))
+		for _, v := range d.Variants {
+			part += "|" + v.Price.String()
+		}
+		parts = append(parts, part)
 	}
 	return strings.Join(parts, ","), nil
 }
@@ -253,13 +341,11 @@ func (s *Service) FindAvailableByBarcode(storeID, eventID uuid.UUID, barcode str
 	if err != nil {
 		return nil, err
 	}
-	var link repository.EventProduct
-	err = s.db.Where("event_id = ? AND product_id = ?", eventID, *productID).First(&link).Error
-	notLinked := errors.Is(err, gorm.ErrRecordNotFound)
-	if err != nil && !notLinked {
+	rows, err := s.locationItems(eventID)
+	if err != nil {
 		return nil, err
 	}
-	if notLinked || !link.Available || !p.Active() {
+	if !rows.Apply(p) || !p.Active() {
 		return nil, common.NewAppError(http.StatusNotFound, "That product isn't available for this event")
 	}
 	resp := p.ToResponse()
@@ -275,6 +361,24 @@ func (s *Service) Find(id uuid.UUID) (*iface.SaleProduct, error) {
 	if err != nil {
 		return nil, err
 	}
+	sale := p.ToSale()
+	return &sale, nil
+}
+
+func (s *Service) FindAt(locationID, id uuid.UUID) (*iface.SaleProduct, error) {
+	var p repository.Product
+	err := s.db.Preload("Variants").First(&p, "id = ?", id).Error
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.locationItems(locationID)
+	if err != nil {
+		return nil, err
+	}
+	rows.Price(&p)
 	sale := p.ToSale()
 	return &sale, nil
 }

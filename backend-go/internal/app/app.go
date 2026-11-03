@@ -25,6 +25,7 @@ import (
 	ordersvc "github.com/krnskrll/event-mpos/internal/order/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/media"
 	"github.com/krnskrll/event-mpos/internal/platform/realtime"
 	producthandler "github.com/krnskrll/event-mpos/internal/product/handler"
 	productsvc "github.com/krnskrll/event-mpos/internal/product/service"
@@ -63,6 +64,7 @@ type App struct {
 	Scheduler  *syncsvc.Scheduler
 	Hub        *realtime.Hub
 	Bhoomy     bhoomy.Client
+	Media      *media.Store
 }
 
 // New builds services, handlers and routes on an already-migrated database. It starts the WebSocket
@@ -81,7 +83,8 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Users = usersvc.NewService(db)
 	a.Auth = authsvc.NewService(a.Users, jwtService, refreshService)
 	a.Events = eventsvc.NewService(db, a.Users)
-	a.Products = productsvc.NewService(db)
+	a.Media = media.NewStore(cfg.MediaDir, cfg.MediaBaseURL)
+	a.Products = productsvc.NewService(db, a.Media)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
 	a.ERPSync = erp.NewSyncService(erpSource, db, a.Products)
 	a.Members = membersvc.NewService(db)
@@ -153,6 +156,7 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		return err == nil && a.Events.RequireInStore(storeID, id) == nil
 	})
 	r.GET("/ws/events/:eventId/orders", wsHandler.ServeWS)
+	r.GET("/media/:file", a.Media.Serve)
 
 	api := r.Group("/api")
 	{
@@ -199,10 +203,12 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		admin.GET("/products/:id", productHandler.Get)
 		admin.POST("/products", productHandler.Create)
 		admin.PUT("/products/:id", productHandler.Update)
+		admin.POST("/products/:id/photo", productHandler.UploadPhoto)
 		admin.POST("/erp/sync", erpHandler.SyncNow)
 		admin.GET("/erp/status", erpHandler.SyncStatus)
 		admin.GET("/events/:id/products", productHandler.EventProducts)
 		admin.PUT("/events/:id/products/:productId", productHandler.SetAvailability)
+		admin.PUT("/events/:id/variants/:variantId", productHandler.SetLocationVariant)
 		admin.GET("/members", memberHandler.List)
 		admin.POST("/members/sync", memberSyncHandler.SyncNow)
 		admin.GET("/members/sync/status", memberSyncHandler.Status)

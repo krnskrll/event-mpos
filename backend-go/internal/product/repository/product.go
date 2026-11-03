@@ -146,23 +146,51 @@ func (v *ProductVariant) EffectivePrice(basePrice decimal.Decimal) decimal.Decim
 	return basePrice
 }
 
-// EventProduct marks a catalogue product available for a specific event.
-type EventProduct struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	EventID   uuid.UUID `gorm:"column:event_id;type:uuid;not null;uniqueIndex:uk_event_product;index:idx_event_product_event"`
-	ProductID uuid.UUID `gorm:"column:product_id;type:uuid;not null;uniqueIndex:uk_event_product"`
-	// No default:true — GORM omits a zero-value bool on INSERT when a default is set, which would
-	// silently persist `true` when creating a row with available=false. We always set it explicitly.
-	Available bool `gorm:"not null"`
+// LocationItem is what a location sells, per variant, with an optional location price.
+type LocationItem struct {
+	ID            uuid.UUID        `gorm:"type:uuid;primaryKey"`
+	LocationID    uuid.UUID        `gorm:"column:location_id;type:uuid;not null"`
+	ItemVariantID uuid.UUID        `gorm:"column:item_variant_id;type:uuid;not null"`
+	PriceOverride *decimal.Decimal `gorm:"column:price_override;type:bigint"`
+	Active        bool             `gorm:"not null"`
 }
 
-func (EventProduct) TableName() string { return "event_products" }
+func (LocationItem) TableName() string { return "pos_location_items" }
 
-func (ep *EventProduct) BeforeCreate(_ *gorm.DB) error {
-	if ep.ID == uuid.Nil {
-		ep.ID = uuid.New()
+func (li *LocationItem) BeforeCreate(_ *gorm.DB) error {
+	if li.ID == uuid.Nil {
+		li.ID = uuid.New()
 	}
 	return nil
+}
+
+// LocationItems are one location's rows by variant id.
+type LocationItems map[uuid.UUID]LocationItem
+
+// Price sets the location's prices on p.
+func (r LocationItems) Price(p *Product) {
+	for i := range p.Variants {
+		if li, ok := r[p.Variants[i].ID]; ok && li.PriceOverride != nil {
+			p.Variants[i].Price = li.PriceOverride
+		}
+	}
+}
+
+// Apply prices p and keeps the default variant plus the real variants the location sells; sold
+// reports whether it sells any variant of p.
+func (r LocationItems) Apply(p *Product) (sold bool) {
+	r.Price(p)
+	kept := make([]ProductVariant, 0, len(p.Variants))
+	for _, v := range p.Variants {
+		li, ok := r[v.ID]
+		active := ok && li.Active
+		sold = sold || active
+		if v.IsDefault || active {
+			kept = append(kept, v)
+		}
+	}
+	p.Variants = kept
+	return sold
 }
 
 func (p *Product) ToResponse() iface.ProductResponse {
@@ -176,18 +204,19 @@ func (p *Product) ToResponse() iface.ProductResponse {
 		variants = append(variants, iface.VariantDto{ID: v.ID, Name: v.Name, SKU: v.SKU, Price: v.EffectivePrice(p.Price()), Active: v.SellInPOS})
 	}
 	return iface.ProductResponse{
-		ID:             p.ID,
-		SKU:            p.SKU,
-		Name:           p.DisplayName,
-		Brand:          p.Brand,
-		Price:          p.Price(),
-		ImageURL:       p.PhotoURL,
-		Source:         p.Source,
-		Active:         p.Active(),
-		WarehouseStock: p.WarehouseStock,
-		Barcodes:       barcodes,
-		Variants:       variants,
-		UpdatedAt:      p.UpdatedAt,
+		ID:               p.ID,
+		DefaultVariantID: defaultID(p),
+		SKU:              p.SKU,
+		Name:             p.DisplayName,
+		Brand:            p.Brand,
+		Price:            p.Price(),
+		ImageURL:         p.PhotoURL,
+		Source:           p.Source,
+		Active:           p.Active(),
+		WarehouseStock:   p.WarehouseStock,
+		Barcodes:         barcodes,
+		Variants:         variants,
+		UpdatedAt:        p.UpdatedAt,
 	}
 }
 
@@ -221,4 +250,11 @@ func (p *Product) ToSale() iface.SaleProduct {
 		variants = append(variants, iface.SaleVariant{ID: v.ID, Name: v.Name, Price: v.EffectivePrice(p.Price()), Active: v.SellInPOS})
 	}
 	return iface.SaleProduct{ID: p.ID, SKU: p.SKU, Name: p.DisplayName, Price: p.Price(), WarehouseStock: p.WarehouseStock, Variants: variants}
+}
+
+func defaultID(p *Product) uuid.UUID {
+	if d := p.Default(); d != nil {
+		return d.ID
+	}
+	return uuid.Nil
 }

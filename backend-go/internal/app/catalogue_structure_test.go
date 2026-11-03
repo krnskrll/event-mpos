@@ -166,12 +166,16 @@ func TestDefaultVariantCarriesThePrice(t *testing.T) {
 func sellOne(t *testing.T, a *testutil.TestApp, eventID, productID uuid.UUID, variantID *uuid.UUID) *orderiface.OrderConfirmation {
 	t.Helper()
 	ba := a.CreateUser(useriface.RoleBA, "Passw0rd!")
-	o, err := a.Orders.Submit(eventID, ba.ID, orderiface.SubmitOrderRequest{
-		IdempotencyKey: testutil.Unique("cs-"), Customer: orderiface.CustomerInfo{Name: "C"},
-		Lines: []orderiface.OrderLineRequest{{ProductID: productID, VariantID: variantID, Qty: 1}},
-	})
+	o, err := a.Orders.Submit(eventID, ba.ID, sellRequest(productID, variantID))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return o
+}
+
+func sellRequest(productID uuid.UUID, variantID *uuid.UUID) orderiface.SubmitOrderRequest {
+	return orderiface.SubmitOrderRequest{
+		IdempotencyKey: testutil.Unique("cs-"), Customer: orderiface.CustomerInfo{Name: "C"},
+		Lines: []orderiface.OrderLineRequest{{ProductID: productID, VariantID: variantID, Qty: 1}},
+	}
 }

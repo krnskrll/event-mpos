@@ -48,6 +48,10 @@ type Config struct {
 	BhoomyMode         string
 	BhoomyURL          string
 	BhoomyServiceToken string
+
+	// POS photos: local folder and the public URL it is served under.
+	MediaDir     string
+	MediaBaseURL string
 }
 
 // Load reads configuration from the environment, applying the same defaults as the Kotlin backend.
@@ -84,6 +88,8 @@ func Load() *Config {
 		BhoomyMode:         getenv("BHOOMY_MODE", "mock"),
 		BhoomyURL:          getenv("BHOOMY_URL", ""),
 		BhoomyServiceToken: getenv("BHOOMY_SERVICE_TOKEN", ""),
+		MediaDir:           getenv("MEDIA_DIR", "./media"),
+		MediaBaseURL:       getenv("MEDIA_BASE_URL", "http://localhost:8080/media"),
 	}
 }
 

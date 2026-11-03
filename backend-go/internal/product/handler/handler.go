@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -9,6 +10,7 @@ import (
 	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/media"
 	"github.com/krnskrll/event-mpos/internal/product/iface"
 	"github.com/krnskrll/event-mpos/internal/product/service"
 )
@@ -135,6 +137,65 @@ func (h *Handler) SetAvailability(c *gin.Context) {
 		return
 	}
 	resp, err := h.svc.SetAvailability(authiface.StoreOf(c), eventID, productID, *req.Available)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) SetLocationVariant(c *gin.Context) {
+	eventID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return
+	}
+	variantID, err := uuid.Parse(c.Param("variantId"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid variant id")
+		return
+	}
+	var req iface.SetLocationVariantRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
+		return
+	}
+	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	resp, err := h.svc.SetLocationVariant(authiface.StoreOf(c), eventID, variantID, req)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
+func (h *Handler) UploadPhoto(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid product id")
+		return
+	}
+	c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, media.MaxBytes+64<<10)
+	fh, err := c.FormFile("file")
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "file: required, 2 MB or less")
+		return
+	}
+	f, err := fh.Open()
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	defer f.Close()
+	data, err := io.ReadAll(io.LimitReader(f, media.MaxBytes+1))
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	resp, err := h.svc.SetPhoto(authiface.StoreOf(c), id, data)
 	if err != nil {
 		common.Fail(c, err)
 		return

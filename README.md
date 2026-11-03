@@ -69,6 +69,12 @@ unique per store. A location (`pos_locations`) is either `type: event` (temporar
 nearest rupiah (.5 up) in the server, the Flutter app and the Android app alike
 (`testdata/promotion-cases.json`).
 
+**Location prices and photos:** `pos_location_items` says which variants a location sells and at
+what price (`PUT /api/admin/events/:id/variants/:variantId`). Price rule: the variant's location
+price, else its own price, else the default variant's price at that location. POS photos are
+uploaded to `POST /api/admin/products/:id/photo` (JPEG/PNG/WebP, max 2 MB), stored in `MEDIA_DIR`
+and served publicly from `/media/:file`.
+
 Modules call each other only through `iface`; `internal/archtest` fails the build otherwise, and
 `internal/app/testdata/routes.golden` pins every route.
 
