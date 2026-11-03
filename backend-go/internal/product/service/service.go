@@ -48,32 +48,35 @@ func (s *Service) Get(storeID, id uuid.UUID) (*iface.ProductResponse, error) {
 }
 
 func (s *Service) Create(storeID uuid.UUID, req iface.CreateProductRequest) (*iface.ProductResponse, error) {
+	if err := common.CheckRupiah("price", &req.Price); err != nil {
+		return nil, err
+	}
 	sku := strings.TrimSpace(req.SKU)
 	var count int64
-	if err := s.db.Model(&repository.Product{}).Where("sku = ?", sku).Count(&count).Error; err != nil {
+	if err := s.db.Model(&repository.Product{}).Where("store_id = ? AND sku = ?", storeID, sku).Count(&count).Error; err != nil {
 		return nil, err
 	}
 	if count > 0 {
 		return nil, common.NewAppError(http.StatusConflict, "A product with SKU '"+req.SKU+"' already exists")
 	}
 	for _, bc := range req.Barcodes {
-		if free, err := s.barcodeFree(strings.TrimSpace(bc.Barcode)); err != nil {
+		if free, err := s.barcodeFree(storeID, strings.TrimSpace(bc.Barcode)); err != nil {
 			return nil, err
 		} else if !free {
 			return nil, common.NewAppError(http.StatusConflict, "Barcode '"+bc.Barcode+"' is already in use")
 		}
 	}
 	p := repository.Product{
-		StoreID:  storeID,
-		SKU:      sku,
-		Name:     strings.TrimSpace(req.Name),
-		Brand:    trimPtr(req.Brand),
-		Price:    req.Price,
-		ImageURL: trimPtr(req.ImageURL),
-		Source:   iface.SourceManual,
-		Active:   true,
-		Barcodes: buildBarcodes(req.Barcodes),
+		StoreID:     storeID,
+		SKU:         sku,
+		DisplayName: strings.TrimSpace(req.Name),
+		Brand:       trimPtr(req.Brand),
+		PhotoURL:    trimPtr(req.ImageURL),
+		Source:      iface.SourceManual,
+		Status:      repository.StatusActive,
+		Barcodes:    buildBarcodes(req.Barcodes),
 	}
+	p.SetPrice(req.Price)
 	if err := s.db.Create(&p).Error; err != nil {
 		return nil, err
 	}
@@ -84,29 +87,32 @@ func (s *Service) Create(storeID uuid.UUID, req iface.CreateProductRequest) (*if
 }
 
 func (s *Service) Update(storeID, id uuid.UUID, req iface.UpdateProductRequest) (*iface.ProductResponse, error) {
+	if err := common.CheckRupiah("price", req.Price); err != nil {
+		return nil, err
+	}
 	p, err := s.findIn(storeID, id)
 	if err != nil {
 		return nil, err
 	}
 	if req.Name != nil {
-		p.Name = strings.TrimSpace(*req.Name)
+		p.DisplayName = strings.TrimSpace(*req.Name)
 	}
 	if req.Brand != nil {
 		p.Brand = trimPtr(req.Brand)
 	}
 	if req.Price != nil {
-		p.Price = *req.Price
+		p.SetPrice(*req.Price)
 	}
 	if req.ImageURL != nil {
-		p.ImageURL = trimPtr(req.ImageURL)
+		p.PhotoURL = trimPtr(req.ImageURL)
 	}
 	if req.Active != nil {
-		p.Active = *req.Active
+		p.SetActive(*req.Active)
 	}
 	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if req.Barcodes != nil {
 			for _, bc := range *req.Barcodes {
-				owner, err := s.ownerOfBarcode(tx, strings.TrimSpace(bc.Barcode))
+				owner, err := s.ownerOfBarcode(tx, storeID, strings.TrimSpace(bc.Barcode))
 				if err != nil {
 					return err
 				}
@@ -114,7 +120,7 @@ func (s *Service) Update(storeID, id uuid.UUID, req iface.UpdateProductRequest) 
 					return common.NewAppError(http.StatusConflict, "Barcode '"+bc.Barcode+"' belongs to another product")
 				}
 			}
-			if err := tx.Where("product_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {
+			if err := tx.Where("item_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {
 				return err
 			}
 			p.Barcodes = buildBarcodes(*req.Barcodes)
@@ -183,7 +189,7 @@ func (s *Service) availableSnapshotEntities(eventID uuid.UUID) ([]repository.Pro
 		ids = append(ids, ep.ProductID)
 	}
 	var products []repository.Product
-	if err := s.preloaded().Where("id IN ? AND active = ?", ids, true).Order("sku").Find(&products).Error; err != nil {
+	if err := s.preloaded().Where("id IN ? AND status = ?", ids, repository.StatusActive).Order("sku").Find(&products).Error; err != nil {
 		return nil, err
 	}
 	return products, nil
@@ -235,8 +241,8 @@ func (s *Service) AvailabilityFingerprint(eventID uuid.UUID) (string, error) {
 	return strings.Join(parts, ","), nil
 }
 
-func (s *Service) FindAvailableByBarcode(eventID uuid.UUID, barcode string) (*iface.ProductResponse, error) {
-	productID, err := s.ownerOfBarcode(s.db, strings.TrimSpace(barcode))
+func (s *Service) FindAvailableByBarcode(storeID, eventID uuid.UUID, barcode string) (*iface.ProductResponse, error) {
+	productID, err := s.ownerOfBarcode(s.db, storeID, strings.TrimSpace(barcode))
 	if err != nil {
 		return nil, err
 	}
@@ -253,7 +259,7 @@ func (s *Service) FindAvailableByBarcode(eventID uuid.UUID, barcode string) (*if
 	if err != nil && !notLinked {
 		return nil, err
 	}
-	if notLinked || !link.Available || !p.Active {
+	if notLinked || !link.Available || !p.Active() {
 		return nil, common.NewAppError(http.StatusNotFound, "That product isn't available for this event")
 	}
 	resp := p.ToResponse()
@@ -275,7 +281,7 @@ func (s *Service) Find(id uuid.UUID) (*iface.SaleProduct, error) {
 
 func (s *Service) All(storeID uuid.UUID) ([]iface.SaleProduct, error) {
 	var products []repository.Product
-	if err := s.db.Where("store_id = ?", storeID).Order("sku").Find(&products).Error; err != nil {
+	if err := s.db.Preload("Variants").Where("store_id = ?", storeID).Order("sku").Find(&products).Error; err != nil {
 		return nil, err
 	}
 	out := make([]iface.SaleProduct, 0, len(products))
@@ -288,29 +294,34 @@ func (s *Service) All(storeID uuid.UUID) ([]iface.SaleProduct, error) {
 // Upsert rewrites barcodes only when they changed, to avoid unique-constraint churn.
 func (s *Service) Upsert(tx database.Tx, storeID uuid.UUID, in iface.SourceProduct) (bool, error) {
 	var p repository.Product
-	err := tx.Preload("Barcodes").Where("sku = ?", in.SKU).First(&p).Error
+	err := tx.Preload("Barcodes").Preload("Variants").Where("store_id = ? AND sku = ?", storeID, in.SKU).First(&p).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		p = repository.Product{
-			StoreID: storeID, SKU: in.SKU, Name: in.Name, Brand: in.Brand, Price: in.Price, ImageURL: in.ImageURL,
-			WarehouseStock: in.StockQuantity, Source: iface.SourceERP, Active: true, Barcodes: sourceBarcodes(in.Barcodes),
+			StoreID: storeID, SKU: in.SKU, DisplayName: in.Name, Brand: in.Brand, PhotoURL: in.ImageURL,
+			WarehouseStock: in.StockQuantity, Source: iface.SourceERP, Status: repository.StatusActive, Barcodes: sourceBarcodes(in.Barcodes),
 		}
+		p.SetPrice(common.Rupiah(in.Price))
 		return true, tx.Create(&p).Error
 	}
 	if err != nil {
 		return false, err
 	}
-	p.Name, p.Brand, p.Price, p.ImageURL = in.Name, in.Brand, in.Price, in.ImageURL
+	p.DisplayName, p.Brand, p.PhotoURL = in.Name, in.Brand, in.ImageURL
 	p.WarehouseStock, p.Source, p.UpdatedAt = in.StockQuantity, iface.SourceERP, nowUTC()
+	p.SetPrice(common.Rupiah(in.Price))
 	if barcodesChanged(p.Barcodes, in.Barcodes) {
-		if err := tx.Where("product_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {
+		if err := tx.Where("item_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {
 			return false, err
 		}
 		for _, b := range sourceBarcodes(in.Barcodes) {
-			b.ProductID = p.ID
+			b.ItemID = p.ID
 			if err := tx.Create(&b).Error; err != nil {
 				return false, err
 			}
 		}
+	}
+	if err := tx.Save(p.Default()).Error; err != nil {
+		return false, err
 	}
 	return false, tx.Model(&p).Omit("Barcodes", "Variants").Save(&p).Error
 }
@@ -373,25 +384,25 @@ func (s *Service) findIn(storeID, id uuid.UUID) (*repository.Product, error) {
 	return p, nil
 }
 
-func (s *Service) barcodeFree(barcode string) (bool, error) {
+func (s *Service) barcodeFree(storeID uuid.UUID, barcode string) (bool, error) {
 	var count int64
-	if err := s.db.Model(&repository.ProductBarcode{}).Where("barcode = ?", barcode).Count(&count).Error; err != nil {
+	if err := s.db.Model(&repository.ProductBarcode{}).Where("store_id = ? AND barcode = ?", storeID, barcode).Count(&count).Error; err != nil {
 		return false, err
 	}
 	return count == 0, nil
 }
 
-// ownerOfBarcode returns the product id owning a barcode, or nil if the barcode is unused.
-func (s *Service) ownerOfBarcode(tx *gorm.DB, barcode string) (*uuid.UUID, error) {
+// ownerOfBarcode returns the store's product id owning a barcode, or nil if the barcode is unused.
+func (s *Service) ownerOfBarcode(tx *gorm.DB, storeID uuid.UUID, barcode string) (*uuid.UUID, error) {
 	var bc repository.ProductBarcode
-	err := tx.Where("barcode = ?", barcode).First(&bc).Error
+	err := tx.Where("store_id = ? AND barcode = ?", storeID, barcode).First(&bc).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	return &bc.ProductID, nil
+	return &bc.ItemID, nil
 }
 
 func mapResponses(products []repository.Product) []iface.ProductResponse {

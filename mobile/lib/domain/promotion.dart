@@ -79,6 +79,6 @@ abstract final class PromotionEngine {
       PromotionType.fixed => p.amountOff,
       PromotionType.bundle => p.minQty == null || qty < p.minQty! ? null : p.amountOff,
     };
-    return raw?.clamp(Decimal.zero, subtotal).round(scale: 2);
+    return raw?.clamp(Decimal.zero, subtotal).round();
   }
 }

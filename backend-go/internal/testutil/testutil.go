@@ -152,9 +152,10 @@ func (a *TestApp) Product(price string) *productrepo.Product {
 func (a *TestApp) ProductIn(storeID uuid.UUID, price string) *productrepo.Product {
 	a.t.Helper()
 	p := &productrepo.Product{
-		StoreID: storeID, SKU: Unique("SKU-"), Name: "Widget", Price: decimal.RequireFromString(price),
-		WarehouseStock: 100000, Source: productiface.SourceManual, Active: true,
+		StoreID: storeID, SKU: Unique("SKU-"), DisplayName: "Widget",
+		WarehouseStock: 100000, Source: productiface.SourceManual, Status: productrepo.StatusActive,
 	}
+	p.SetPrice(decimal.RequireFromString(price))
 	if err := a.DB.Create(p).Error; err != nil {
 		a.t.Fatalf("create product: %v", err)
 	}

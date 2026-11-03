@@ -57,10 +57,17 @@ Code layout (same rules as the Bhoomy backend):
 | `internal/integration` | ERP and member-system sync jobs; `bhoomy` connector |
 | `internal/app` | Composition root: the only place concrete services meet; routes |
 
-**Stores:** every user, event, product and member belongs to a store (`pos_stores`; existing data is in
+**Stores:** every user, location, product and member belongs to a store (`pos_stores`; existing data is in
 the default store from migration `000004`). The login token carries the store, and a request never
-sees another store's data — lookups answer 404. An event is either `type: event` (temporary) or
-`type: store` (a permanent shop: needs an address, no end date, stock editable while active).
+sees another store's data — lookups answer 404. Codes (SKU, barcode, location code, member code) are
+unique per store. A location (`pos_locations`) is either `type: event` (temporary) or `type: outlet`
+(a permanent shop: needs an address, no end date, stock editable while active).
+
+**Catalogue and money:** products are `pos_items`; each has one default variant (`pos_item_variants`,
+`is_default`) carrying its price, which the API hides — `price` is the default variant's and
+`variants` lists only the real ones. Money is whole rupiah (`BIGINT`); a discount rounds to the
+nearest rupiah (.5 up) in the server, the Flutter app and the Android app alike
+(`testdata/promotion-cases.json`).
 
 Modules call each other only through `iface`; `internal/archtest` fails the build otherwise, and
 `internal/app/testdata/routes.golden` pins every route.

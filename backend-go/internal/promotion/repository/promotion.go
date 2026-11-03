@@ -18,11 +18,11 @@ type Promotion struct {
 	Name          string               `gorm:"not null"`
 	Type          iface.PromotionType  `gorm:"type:varchar(20);not null"`
 	PercentOff    *decimal.Decimal     `gorm:"column:percent_off;type:numeric(5,2)"`
-	AmountOff     *decimal.Decimal     `gorm:"column:amount_off;type:numeric(12,2)"`
+	AmountOff     *decimal.Decimal     `gorm:"column:amount_off;type:bigint"`
 	Scope         iface.PromotionScope `gorm:"type:varchar(20);not null"`
 	ProductIdsCsv *string              `gorm:"column:product_ids;type:varchar(4000)"`
 	MinQty        *int                 `gorm:"column:min_qty"`
-	MinSubtotal   *decimal.Decimal     `gorm:"column:min_subtotal;type:numeric(12,2)"`
+	MinSubtotal   *decimal.Decimal     `gorm:"column:min_subtotal;type:bigint"`
 	StartsAt      *time.Time           `gorm:"column:starts_at"`
 	EndsAt        *time.Time           `gorm:"column:ends_at"`
 	Active        bool                 `gorm:"not null"`

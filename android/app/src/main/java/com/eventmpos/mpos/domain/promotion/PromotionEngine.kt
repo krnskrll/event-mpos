@@ -56,6 +56,6 @@ object PromotionEngine {
             }
         }
         val capped = raw.min(subtotal).max(BigDecimal.ZERO)
-        return capped.setScale(2, RoundingMode.HALF_UP).toDouble()
+        return capped.setScale(0, RoundingMode.HALF_UP).toDouble()
     }
 }

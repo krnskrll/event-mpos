@@ -10,13 +10,13 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
-// Event is the central domain boundary of the system.
+// Event is a POS location (pos_locations): an outlet or an event.
 type Event struct {
-	ID        uuid.UUID        `gorm:"type:uuid;primaryKey"`
-	StoreID   uuid.UUID        `gorm:"column:store_id;type:uuid;not null"`
-	Type      iface.OutletType `gorm:"type:varchar(8);not null"`
+	ID        uuid.UUID          `gorm:"type:uuid;primaryKey"`
+	StoreID   uuid.UUID          `gorm:"column:store_id;type:uuid;not null"`
+	Type      iface.LocationType `gorm:"type:varchar(8);not null"`
 	Address   *string
-	Code      string            `gorm:"uniqueIndex;not null"`
+	Code      string            `gorm:"not null"`
 	Name      string            `gorm:"not null"`
 	StartDate *common.Date      `gorm:"column:start_date;type:date"`
 	EndDate   *common.Date      `gorm:"column:end_date;type:date"`
@@ -28,7 +28,7 @@ type Event struct {
 	ClosedAt *time.Time `gorm:"column:closed_at"`
 }
 
-func (Event) TableName() string { return "events" }
+func (Event) TableName() string { return "pos_locations" }
 
 func (e *Event) BeforeCreate(_ *gorm.DB) error {
 	if e.ID == uuid.Nil {

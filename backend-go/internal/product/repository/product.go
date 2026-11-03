@@ -10,25 +10,29 @@ import (
 	"github.com/krnskrll/event-mpos/internal/product/iface"
 )
 
-// Product is a catalogue product. Per-event availability lives in EventProduct.
+// Product is a Katalog POS item (pos_items). Its base price lives on the default variant.
 type Product struct {
 	ID             uuid.UUID           `gorm:"type:uuid;primaryKey"`
 	StoreID        uuid.UUID           `gorm:"column:store_id;type:uuid;not null"`
-	SKU            string              `gorm:"column:sku;uniqueIndex;not null"`
-	Name           string              `gorm:"not null"`
+	SKU            string              `gorm:"column:sku;not null"`
+	DisplayName    string              `gorm:"column:display_name;not null"`
 	Brand          *string             ``
-	Price          decimal.Decimal     `gorm:"type:numeric(12,2);not null"`
-	ImageURL       *string             `gorm:"column:image_url"`
+	PhotoURL       *string             `gorm:"column:photo_url"`
 	WarehouseStock int                 `gorm:"column:warehouse_stock;not null"`
 	Source         iface.ProductSource `gorm:"type:varchar(20);not null"`
-	Active         bool                `gorm:"not null;default:true"`
-	Barcodes       []ProductBarcode    `gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
-	Variants       []ProductVariant    `gorm:"foreignKey:ProductID;constraint:OnDelete:CASCADE"`
+	Status         string              `gorm:"type:varchar(16);not null"`
+	Barcodes       []ProductBarcode    `gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
+	Variants       []ProductVariant    `gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
 	CreatedAt      time.Time           `gorm:"column:created_at;not null"`
 	UpdatedAt      time.Time           `gorm:"column:updated_at;not null"`
 }
 
-func (Product) TableName() string { return "products" }
+const (
+	StatusActive   = "active"
+	StatusArchived = "archived"
+)
+
+func (Product) TableName() string { return "pos_items" }
 
 func (p *Product) BeforeCreate(_ *gorm.DB) error {
 	if p.ID == uuid.Nil {
@@ -44,48 +48,102 @@ func (p *Product) BeforeCreate(_ *gorm.DB) error {
 	return nil
 }
 
-// ProductBarcode — one scannable, globally-unique barcode for a product.
-type ProductBarcode struct {
-	ID        uuid.UUID `gorm:"type:uuid;primaryKey"`
-	ProductID uuid.UUID `gorm:"column:product_id;type:uuid;not null"`
-	Barcode   string    `gorm:"uniqueIndex;not null"`
-	Label     *string   ``
+func (p *Product) Active() bool { return p.Status == StatusActive }
+
+func (p *Product) SetActive(active bool) {
+	p.Status = StatusArchived
+	if active {
+		p.Status = StatusActive
+	}
 }
 
-func (ProductBarcode) TableName() string { return "product_barcodes" }
+// Default is the variant that carries the base price; every item has exactly one.
+func (p *Product) Default() *ProductVariant {
+	for i := range p.Variants {
+		if p.Variants[i].IsDefault {
+			return &p.Variants[i]
+		}
+	}
+	return nil
+}
 
-func (b *ProductBarcode) BeforeCreate(_ *gorm.DB) error {
+func (p *Product) Price() decimal.Decimal {
+	if d := p.Default(); d != nil && d.Price != nil {
+		return *d.Price
+	}
+	return decimal.Zero
+}
+
+func (p *Product) SetPrice(price decimal.Decimal) {
+	if d := p.Default(); d != nil {
+		d.Price = &price
+		return
+	}
+	p.Variants = append(p.Variants, ProductVariant{ItemID: p.ID, Name: "", SKU: p.SKU, Price: &price, SellInPOS: true, IsDefault: true})
+}
+
+// Options are the real variants (shade, size), without the default one.
+func (p *Product) Options() []ProductVariant {
+	out := make([]ProductVariant, 0, len(p.Variants))
+	for _, v := range p.Variants {
+		if !v.IsDefault {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// ProductBarcode — one scannable barcode for an item, unique within its store.
+type ProductBarcode struct {
+	ID      uuid.UUID `gorm:"type:uuid;primaryKey"`
+	ItemID  uuid.UUID `gorm:"column:item_id;type:uuid;not null"`
+	StoreID uuid.UUID `gorm:"column:store_id;type:uuid;not null"`
+	Barcode string    `gorm:"not null"`
+	Label   *string   ``
+}
+
+func (ProductBarcode) TableName() string { return "pos_item_barcodes" }
+
+func (b *ProductBarcode) BeforeCreate(tx *gorm.DB) error {
 	if b.ID == uuid.Nil {
 		b.ID = uuid.New()
 	}
-	return nil
+	return storeOfItem(tx, b.ItemID, &b.StoreID)
 }
 
-// ProductVariant — a sellable variation (shade/size). Shares the product's stock; may override price.
+// ProductVariant — a sellable variation (shade/size). Shares the item's stock; a nil price follows
+// the default variant.
 type ProductVariant struct {
-	ID            uuid.UUID        `gorm:"type:uuid;primaryKey"`
-	ProductID     uuid.UUID        `gorm:"column:product_id;type:uuid;not null"`
-	Name          string           `gorm:"not null"`
-	SKU           string           `gorm:"column:sku;uniqueIndex;not null"`
-	PriceOverride *decimal.Decimal `gorm:"column:price_override;type:numeric(12,2)"`
-	Active        bool             `gorm:"not null;default:true"`
+	ID        uuid.UUID        `gorm:"type:uuid;primaryKey"`
+	ItemID    uuid.UUID        `gorm:"column:item_id;type:uuid;not null"`
+	StoreID   uuid.UUID        `gorm:"column:store_id;type:uuid;not null"`
+	Name      string           `gorm:"not null"`
+	SKU       string           `gorm:"column:sku;not null"`
+	Price     *decimal.Decimal `gorm:"column:price;type:bigint"`
+	SellInPOS bool             `gorm:"column:sell_in_pos;not null"`
+	IsDefault bool             `gorm:"column:is_default;not null"`
 }
 
-func (ProductVariant) TableName() string { return "product_variants" }
+func (ProductVariant) TableName() string { return "pos_item_variants" }
 
-func (v *ProductVariant) BeforeCreate(_ *gorm.DB) error {
+func (v *ProductVariant) BeforeCreate(tx *gorm.DB) error {
 	if v.ID == uuid.Nil {
 		v.ID = uuid.New()
 	}
-	return nil
+	return storeOfItem(tx, v.ItemID, &v.StoreID)
+}
+
+// storeOfItem copies the parent item's store onto a child row; it never comes from a request.
+func storeOfItem(tx *gorm.DB, itemID uuid.UUID, dst *uuid.UUID) error {
+	return tx.Session(&gorm.Session{NewDB: true}).Model(&Product{}).Select("store_id").Where("id = ?", itemID).Row().Scan(dst)
 }
 
 // EffectivePrice is the price actually charged for this variant.
-func (v *ProductVariant) EffectivePrice(productPrice decimal.Decimal) decimal.Decimal {
-	if v.PriceOverride != nil {
-		return *v.PriceOverride
+func (v *ProductVariant) EffectivePrice(basePrice decimal.Decimal) decimal.Decimal {
+	if v.Price != nil {
+		return *v.Price
 	}
-	return productPrice
+	return basePrice
 }
 
 // EventProduct marks a catalogue product available for a specific event.
@@ -112,20 +170,20 @@ func (p *Product) ToResponse() iface.ProductResponse {
 	for i := range p.Barcodes {
 		barcodes = append(barcodes, iface.BarcodeDto{Barcode: p.Barcodes[i].Barcode, Label: p.Barcodes[i].Label})
 	}
-	variants := make([]iface.VariantDto, 0, len(p.Variants))
-	for i := range p.Variants {
-		v := &p.Variants[i]
-		variants = append(variants, iface.VariantDto{ID: v.ID, Name: v.Name, SKU: v.SKU, Price: v.EffectivePrice(p.Price), Active: v.Active})
+	options := p.Options()
+	variants := make([]iface.VariantDto, 0, len(options))
+	for _, v := range options {
+		variants = append(variants, iface.VariantDto{ID: v.ID, Name: v.Name, SKU: v.SKU, Price: v.EffectivePrice(p.Price()), Active: v.SellInPOS})
 	}
 	return iface.ProductResponse{
 		ID:             p.ID,
 		SKU:            p.SKU,
-		Name:           p.Name,
+		Name:           p.DisplayName,
 		Brand:          p.Brand,
-		Price:          p.Price,
-		ImageURL:       p.ImageURL,
+		Price:          p.Price(),
+		ImageURL:       p.PhotoURL,
 		Source:         p.Source,
-		Active:         p.Active,
+		Active:         p.Active(),
 		WarehouseStock: p.WarehouseStock,
 		Barcodes:       barcodes,
 		Variants:       variants,
@@ -139,29 +197,28 @@ func (p *Product) ToSnapshotDto() iface.ProductSnapshotDto {
 		barcodes = append(barcodes, p.Barcodes[i].Barcode)
 	}
 	variants := make([]iface.VariantSnapshotDto, 0, len(p.Variants))
-	for i := range p.Variants {
-		v := &p.Variants[i]
-		if v.Active {
-			variants = append(variants, iface.VariantSnapshotDto{ID: v.ID, Name: v.Name, Price: v.EffectivePrice(p.Price)})
+	for _, v := range p.Options() {
+		if v.SellInPOS {
+			variants = append(variants, iface.VariantSnapshotDto{ID: v.ID, Name: v.Name, Price: v.EffectivePrice(p.Price())})
 		}
 	}
 	return iface.ProductSnapshotDto{
 		ID:       p.ID,
 		SKU:      p.SKU,
-		Name:     p.Name,
+		Name:     p.DisplayName,
 		Brand:    p.Brand,
-		Price:    p.Price,
-		ImageURL: p.ImageURL,
+		Price:    p.Price(),
+		ImageURL: p.PhotoURL,
 		Barcodes: barcodes,
 		Variants: variants,
 	}
 }
 
 func (p *Product) ToSale() iface.SaleProduct {
-	variants := make([]iface.SaleVariant, 0, len(p.Variants))
-	for i := range p.Variants {
-		v := &p.Variants[i]
-		variants = append(variants, iface.SaleVariant{ID: v.ID, Name: v.Name, Price: v.EffectivePrice(p.Price), Active: v.Active})
+	options := p.Options()
+	variants := make([]iface.SaleVariant, 0, len(options))
+	for _, v := range options {
+		variants = append(variants, iface.SaleVariant{ID: v.ID, Name: v.Name, Price: v.EffectivePrice(p.Price()), Active: v.SellInPOS})
 	}
-	return iface.SaleProduct{ID: p.ID, SKU: p.SKU, Name: p.Name, Price: p.Price, WarehouseStock: p.WarehouseStock, Variants: variants}
+	return iface.SaleProduct{ID: p.ID, SKU: p.SKU, Name: p.DisplayName, Price: p.Price(), WarehouseStock: p.WarehouseStock, Variants: variants}
 }

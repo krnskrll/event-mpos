@@ -23,9 +23,9 @@ func TestOutletRules(t *testing.T) {
 	}
 
 	for name, body := range map[string]map[string]any{
-		"store without address": {"type": "store"},
-		"store with end date":   {"type": "store", "address": "Jl. Kemang 1", "endDate": "2026-12-31"},
-		"unknown type":          {"type": "kiosk"},
+		"outlet without address": {"type": "outlet"},
+		"outlet with end date":   {"type": "outlet", "address": "Jl. Kemang 1", "endDate": "2026-12-31"},
+		"unknown type":           {"type": "kiosk"},
 	} {
 		if code, _ := create(body); code != http.StatusBadRequest {
 			t.Errorf("%s: got %d, want 400", name, code)
@@ -36,12 +36,12 @@ func TestOutletRules(t *testing.T) {
 	if code != http.StatusCreated || ev["type"] != "event" || ev["storeId"] != tenant.DefaultStoreID.String() {
 		t.Fatalf("default outlet: %d %v", code, ev)
 	}
-	code, shop := create(map[string]any{"type": "store", "address": " Jl. Kemang 1 "})
-	if code != http.StatusCreated || shop["type"] != "store" || shop["address"] != "Jl. Kemang 1" {
+	code, shop := create(map[string]any{"type": "outlet", "address": " Jl. Kemang 1 "})
+	if code != http.StatusCreated || shop["type"] != "outlet" || shop["address"] != "Jl. Kemang 1" {
 		t.Fatalf("shop: %d %v", code, shop)
 	}
 
-	// Stock: an active event is locked; an active shop keeps restocking until it closes.
+	// Stock: an active event is locked; an active outlet keeps restocking until it closes.
 	p := a.Product("5000")
 	for _, o := range []map[string]any{ev, shop} {
 		if rec := a.Do(http.MethodPatch, "/api/admin/events/"+o["id"].(string)+"/status", map[string]string{"status": "ACTIVE"}, tok); rec.Code != http.StatusOK {

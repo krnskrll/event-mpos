@@ -131,7 +131,7 @@ type Products interface {
 	Find(id uuid.UUID) (*SaleProduct, error)
 	// All returns the store's products ordered by SKU, without variants.
 	All(storeID uuid.UUID) ([]SaleProduct, error)
-	FindAvailableByBarcode(eventID uuid.UUID, barcode string) (*ProductResponse, error)
+	FindAvailableByBarcode(storeID, eventID uuid.UUID, barcode string) (*ProductResponse, error)
 	// Upsert creates or updates by SKU inside tx; created reports a new row.
 	Upsert(tx database.Tx, storeID uuid.UUID, p SourceProduct) (created bool, err error)
 }

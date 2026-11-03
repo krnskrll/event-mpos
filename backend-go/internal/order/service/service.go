@@ -137,12 +137,12 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req iface.SubmitOrderReque
 	for _, d := range drafts {
 		subtotal = subtotal.Add(d.lineTotal)
 	}
-	subtotal = subtotal.Round(2)
+	subtotal = common.Rupiah(subtotal)
 	applied, err := s.promotions.BestFor(eventID, cartLines, time.Now())
 	if err != nil {
 		return nil, err
 	}
-	discount := decimal.Zero.Round(2)
+	discount := decimal.Zero
 	var promoID *uuid.UUID
 	var promoName *string
 	if applied != nil {
@@ -154,7 +154,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req iface.SubmitOrderReque
 	if total.IsNegative() {
 		total = decimal.Zero
 	}
-	total = total.Round(2)
+	total = common.Rupiah(total)
 
 	dateKey := time.Now().In(s.jakarta).Format("20060102")
 

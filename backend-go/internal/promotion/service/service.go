@@ -173,14 +173,14 @@ func (s *Service) Quote(eventID uuid.UUID, lines []iface.QuoteLine) (*iface.Quot
 	for _, l := range cart {
 		subtotal = subtotal.Add(l.UnitPrice.Mul(decimal.NewFromInt(int64(l.Qty))))
 	}
-	subtotal = subtotal.Round(2)
+	subtotal = common.Rupiah(subtotal)
 
 	promos, err := s.activeForEvent(eventID)
 	if err != nil {
 		return nil, err
 	}
 	applied := BestPromotion(cart, promos, time.Now())
-	discount := decimal.Zero.Round(2)
+	discount := decimal.Zero
 	resp := iface.QuoteResponse{Subtotal: subtotal}
 	if applied != nil {
 		discount = applied.Discount
@@ -194,7 +194,7 @@ func (s *Service) Quote(eventID uuid.UUID, lines []iface.QuoteLine) (*iface.Quot
 	if total.IsNegative() {
 		total = decimal.Zero
 	}
-	resp.Total = total.Round(2)
+	resp.Total = common.Rupiah(total)
 	return &resp, nil
 }
 
@@ -202,6 +202,12 @@ func (s *Service) Quote(eventID uuid.UUID, lines []iface.QuoteLine) (*iface.Quot
 
 func validate(req iface.PromotionRequest) error {
 	pos := func(d *decimal.Decimal) bool { return d != nil && d.GreaterThan(decimal.Zero) }
+	if err := common.CheckRupiah("amountOff", req.AmountOff); err != nil {
+		return err
+	}
+	if err := common.CheckRupiah("minSubtotal", req.MinSubtotal); err != nil {
+		return err
+	}
 	switch req.Type {
 	case iface.TypePercentage:
 		if !pos(req.PercentOff) {

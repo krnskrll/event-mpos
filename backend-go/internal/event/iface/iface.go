@@ -48,20 +48,20 @@ func (s EventStatus) AssertCanTransitionTo(target EventStatus) error {
 	return nil
 }
 
-// OutletType: an event is temporary; a store is a permanent shop.
-type OutletType string
+// LocationType: an outlet is a permanent shop; an event is temporary.
+type LocationType string
 
 const (
-	TypeEvent OutletType = "event"
-	TypeStore OutletType = "store"
+	TypeEvent  LocationType = "event"
+	TypeOutlet LocationType = "outlet"
 )
 
-func ParseOutletType(s string) (OutletType, bool) {
-	switch OutletType(s) {
+func ParseLocationType(s string) (LocationType, bool) {
+	switch LocationType(s) {
 	case "", TypeEvent:
 		return TypeEvent, true
-	case TypeStore:
-		return TypeStore, true
+	case TypeOutlet:
+		return TypeOutlet, true
 	}
 	return "", false
 }
@@ -69,7 +69,7 @@ func ParseOutletType(s string) (OutletType, bool) {
 type EventResponse struct {
 	ID        uuid.UUID    `json:"id"`
 	StoreID   uuid.UUID    `json:"storeId"`
-	Type      OutletType   `json:"type"`
+	Type      LocationType `json:"type"`
 	Address   *string      `json:"address,omitempty"`
 	Code      string       `json:"code"`
 	Name      string       `json:"name"`
@@ -84,7 +84,7 @@ type CreateEventRequest struct {
 	Name      string       `json:"name" binding:"required"`
 	StartDate *common.Date `json:"startDate"`
 	EndDate   *common.Date `json:"endDate"`
-	Type      OutletType   `json:"type"`
+	Type      LocationType `json:"type"`
 	Address   *string      `json:"address"`
 }
 

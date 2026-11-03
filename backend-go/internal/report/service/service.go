@@ -110,9 +110,9 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*iface.EndOfEventReport, error)
 	for _, pid := range ids {
 		a := sales[pid]
 		al := allocByProduct[pid]
-		row := iface.ProductReportRow{ProductID: pid, Revenue: decimal.Zero.Round(2)}
+		row := iface.ProductReportRow{ProductID: pid, Revenue: decimal.Zero}
 		if a != nil {
-			row.SKU, row.Name, row.UnitsSold, row.Revenue = a.sku, a.name, a.qty, a.revenue.Round(2)
+			row.SKU, row.Name, row.UnitsSold, row.Revenue = a.sku, a.name, a.qty, a.revenue
 		} else {
 			if p, err := s.products.Find(pid); err == nil && p != nil {
 				row.SKU, row.Name = p.SKU, p.Name
@@ -130,7 +130,7 @@ func (s *Service) EndOfEvent(eventID uuid.UUID) (*iface.EndOfEventReport, error)
 	return &iface.EndOfEventReport{
 		EventID: ev.ID, EventCode: ev.Code, EventName: ev.Name, Status: ev.Status,
 		GeneratedAt: time.Now().UTC(), TotalOrders: len(orders), CancelledOrders: cancelled, LateSyncedOrders: lateSynced, StockConflictOrders: conflicts, TotalItems: totalItems,
-		TotalRevenue: totalRevenue.Round(2), TotalDiscount: totalDiscount.Round(2), Products: rows,
+		TotalRevenue: totalRevenue, TotalDiscount: totalDiscount, Products: rows,
 	}, nil
 }
 

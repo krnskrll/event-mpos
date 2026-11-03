@@ -92,7 +92,7 @@ components:
       required: [id, code, name, status, storeId, type]
       properties:
         storeId: { type: string, format: uuid }
-        type: { type: string, enum: [event, store] }
+        type: { type: string, enum: [event, outlet] }
         address: { type: string }
         id: { type: string, format: uuid }
         code: { type: string }
@@ -105,7 +105,7 @@ components:
       type: object
       required: [code, name]
       properties:
-        type: { type: string, enum: [event, store] }
+        type: { type: string, enum: [event, outlet] }
         address: { type: string, nullable: true }
         code: { type: string }
         name: { type: string }
@@ -153,7 +153,7 @@ components:
         sku: { type: string }
         name: { type: string }
         brand: { type: string }
-        price: { type: number }
+        price: { type: integer, format: int64 }
         imageUrl: { type: string }
         source: { type: string, enum: [ERP, MANUAL] }
         active: { type: boolean }
@@ -174,7 +174,7 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         sku: { type: string }
-        price: { type: number }
+        price: { type: integer, format: int64 }
         active: { type: boolean }
     BarcodeInput:
       type: object
@@ -188,7 +188,7 @@ components:
         sku: { type: string }
         name: { type: string }
         brand: { type: string, nullable: true }
-        price: { type: number }
+        price: { type: integer, format: int64 }
         imageUrl: { type: string, nullable: true }
         barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeInput' } }
     UpdateProductRequest:
@@ -196,7 +196,7 @@ components:
       properties:
         name: { type: string, nullable: true }
         brand: { type: string, nullable: true }
-        price: { type: number, nullable: true }
+        price: { type: integer, format: int64, nullable: true }
         imageUrl: { type: string, nullable: true }
         active: { type: boolean, nullable: true }
         barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeInput' } }
@@ -219,7 +219,7 @@ components:
         sku: { type: string }
         name: { type: string }
         brand: { type: string }
-        price: { type: number }
+        price: { type: integer, format: int64 }
         imageUrl: { type: string }
         barcodes: { type: array, items: { type: string } }
         variants: { type: array, items: { $ref: '#/components/schemas/VariantSnapshotDto' } }
@@ -230,7 +230,7 @@ components:
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
-        price: { type: number }
+        price: { type: integer, format: int64 }
     MemberResponse:
       type: object
       required: [id, memberCode, qrCode, name, tier, active, updatedAt]
@@ -292,11 +292,11 @@ components:
         name: { type: string }
         type: { type: string, enum: [PERCENTAGE, FIXED, BUNDLE] }
         percentOff: { type: number }
-        amountOff: { type: number }
+        amountOff: { type: integer, format: int64 }
         scope: { type: string, enum: [ALL, SPECIFIC] }
         productIds: { type: array, items: { type: string, format: uuid } }
         minQty: { type: integer }
-        minSubtotal: { type: number }
+        minSubtotal: { type: integer, format: int64 }
         startsAt: { type: string, format: date-time }
         endsAt: { type: string, format: date-time }
         active: { type: boolean }
@@ -308,11 +308,11 @@ components:
         name: { type: string }
         type: { type: string, enum: [PERCENTAGE, FIXED, BUNDLE] }
         percentOff: { type: number, nullable: true }
-        amountOff: { type: number, nullable: true }
+        amountOff: { type: integer, format: int64, nullable: true }
         scope: { type: string, enum: [ALL, SPECIFIC], nullable: true }
         productIds: { type: array, items: { type: string, format: uuid } }
         minQty: { type: integer, nullable: true }
-        minSubtotal: { type: number, nullable: true }
+        minSubtotal: { type: integer, format: int64, nullable: true }
         startsAt: { type: string, format: date-time, nullable: true }
         endsAt: { type: string, format: date-time, nullable: true }
         active: { type: boolean, nullable: true }
@@ -325,11 +325,11 @@ components:
         name: { type: string }
         type: { type: string, enum: [PERCENTAGE, FIXED, BUNDLE] }
         percentOff: { type: number }
-        amountOff: { type: number }
+        amountOff: { type: integer, format: int64 }
         scope: { type: string, enum: [ALL, SPECIFIC] }
         productIds: { type: array, items: { type: string, format: uuid } }
         minQty: { type: integer }
-        minSubtotal: { type: number }
+        minSubtotal: { type: integer, format: int64 }
         startsAt: { type: string, format: date-time }
         endsAt: { type: string, format: date-time }
         priority: { type: integer }
@@ -347,9 +347,9 @@ components:
       type: object
       required: [subtotal, discount, total]
       properties:
-        subtotal: { type: number }
-        discount: { type: number }
-        total: { type: number }
+        subtotal: { type: integer, format: int64 }
+        discount: { type: integer, format: int64 }
+        total: { type: integer, format: int64 }
         appliedPromotionId: { type: string, format: uuid }
         appliedPromotionName: { type: string }
     NumberBlockRequest:
@@ -395,9 +395,9 @@ components:
         productId: { type: string, format: uuid }
         sku: { type: string }
         name: { type: string }
-        unitPrice: { type: number }
+        unitPrice: { type: integer, format: int64 }
         qty: { type: integer }
-        lineTotal: { type: number }
+        lineTotal: { type: integer, format: int64 }
         variantName: { type: string }
     OrderConfirmation:
       type: object
@@ -413,9 +413,9 @@ components:
         customerName: { type: string }
         customerTier: { type: string }
         items: { type: array, items: { $ref: '#/components/schemas/OrderItemView' } }
-        subtotal: { type: number }
-        discount: { type: number }
-        total: { type: number }
+        subtotal: { type: integer, format: int64 }
+        discount: { type: integer, format: int64 }
+        total: { type: integer, format: int64 }
         promotionName: { type: string }
         createdAt: { type: string, format: date-time }
         cashierNote: { type: string }
@@ -431,7 +431,7 @@ components:
         referenceId: { type: string }
         status: { type: string, enum: [NEW, PACKING, READY, COLLECTED, CANCELLED] }
         customerName: { type: string }
-        total: { type: number }
+        total: { type: integer, format: int64 }
         itemCount: { type: integer }
         createdAt: { type: string, format: date-time }
     WarehouseItem:
@@ -453,7 +453,7 @@ components:
         baName: { type: string }
         items: { type: array, items: { $ref: '#/components/schemas/WarehouseItem' } }
         status: { type: string, enum: [NEW, PACKING, READY, COLLECTED, CANCELLED] }
-        total: { type: number }
+        total: { type: integer, format: int64 }
         createdAt: { type: string, format: date-time }
         stockConflict: { type: boolean }
         lateSynced: { type: boolean }
@@ -495,7 +495,7 @@ components:
         sku: { type: string }
         name: { type: string }
         unitsSold: { type: integer }
-        revenue: { type: number }
+        revenue: { type: integer, format: int64 }
         allocated: { type: integer }
         sold: { type: integer }
         remaining: { type: integer }
@@ -513,8 +513,8 @@ components:
         lateSyncedOrders: { type: integer }
         stockConflictOrders: { type: integer }
         totalItems: { type: integer }
-        totalRevenue: { type: number }
-        totalDiscount: { type: number }
+        totalRevenue: { type: integer, format: int64 }
+        totalDiscount: { type: integer, format: int64 }
         products: { type: array, items: { $ref: '#/components/schemas/ProductReportRow' } }
     UpdateSyncConfigRequest:
       type: object
