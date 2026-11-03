@@ -29,7 +29,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | 3 Shell + Home | Floating forest rail, phone bottom bar, Home dashboard, status in top bar | ✅ | ✅ PR #18 |
 | 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | ✅ | ✅ PR #20 |
 | 5 Entry flow | Login, events, sync | ✅ | ✅ PR #21 |
-| 6 Utilities | Printer, customer scan, scanner, drafts | ✅ | ✅ PR #— |
+| 6 Utilities | Printer, customer scan, scanner, drafts | ✅ | ✅ PR #23 |
 
 ## Tokens (`mobile/lib/app/theme.dart` → `Brand`)
 
