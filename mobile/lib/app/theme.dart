@@ -8,6 +8,7 @@ abstract final class Brand {
   static const greenTint = Color(0xFFA9D6BC);
   static const greenPale = Color(0xFFD3EBDE); // body text on forest
   static const forest = Color(0xFF143A24);
+  static const night = Color(0xFF0F1829); // camera screens
   static const forestRaised = Color(0xFF1A4E30); // buttons on the forest rail
   static const greenLight = Color(0xFF54A87A); // status dot on forest
   static const gold = Color(0xFFD99A2B);

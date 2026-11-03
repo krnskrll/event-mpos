@@ -11,6 +11,11 @@ void main() {
     );
   });
 
+  test('counts and member tiers read as plain words', () {
+    expect([itemCount(1), itemCount(3)], ['1 item', '3 items']);
+    expect([memberLabel('GOLD'), memberLabel('standard')], ['Gold member', 'Standard member']);
+  });
+
   testWidgets('stepper changes quantity and disables a side with no callback', (tester) async {
     var qty = 1;
     await tester.pumpWidget(

@@ -18,6 +18,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | U10 | Every order has a detail view (items, totals, progress) with a Details / Receipt switch; tablet shows it beside the list. An order the server has accepted reads **"Processing"** (not yet sent: "Sending to server"); never the platform name | 2026-11-02 |
 | U11 | Orders keep subtotal, discount and promotion name (database v3) so the detail shows what was charged | 2026-11-02 |
 | U12 | Sign-in: forest brand panel (tablet) / forest header + sheet (phone), show-password eye. Events: "Open now" / "Upcoming" cards with day or opening countdown. Setup: plain step names with counts | 2026-11-02 |
+| U13 | Utilities: one dark scanner (corner frame, typed code + light in a bottom panel) for products and members; member result in a sheet (found / not found → continue with a name); Drafts is one sheet (dialog on tablet) that holds and resumes; Printer shows the printer in use and nearby Bluetooth printers with signal | 2026-11-03 |
 
 ## Phases
 
@@ -28,7 +29,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | 3 Shell + Home | Floating forest rail, phone bottom bar, Home dashboard, status in top bar | ✅ | ✅ PR #18 |
 | 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | ✅ | ✅ PR #20 |
 | 5 Entry flow | Login, events, sync | ✅ | ✅ PR #21 |
-| 6 Utilities | Printer, customer scan, scanner, drafts | — | — |
+| 6 Utilities | Printer, customer scan, scanner, drafts | ✅ | ✅ PR #23 |
 
 ## Tokens (`mobile/lib/app/theme.dart` → `Brand`)
 
@@ -85,6 +86,9 @@ Touch targets ≥ 44 px. Main action 56 px.
 | `BhoomyLogo` | `logo.dart` | Drawn in code from the brand SVG |
 | `OrderDetail` / `OrderDetailScreen` | `features/orders/order_detail.dart` | Details / Receipt switch, items, totals, progress, Reprint, Cancel |
 | `ReceiptPaper`, `reprintReceipt` | `features/receipt/receipt_paper.dart` | Centred 58 mm slip, aligned as printed |
+| `ScannerView` | `features/scan/scanner_view.dart` | Dark camera screen, corner frame, typed code, light; products and members |
+| `showDraftsDialog` | `features/cart/draft_dialogs.dart` | Hold the current order + saved drafts; sheet on phone, dialog on tablet |
+| `itemCount()`, `memberLabel()` | `widgets.dart` | "1 item" / "n items"; "GOLD" → "Gold member" |
 | `SyncChip`, `UserAvatar`, `showSessionMenu` | `status.dart` | Synced / Sending n / Offline · n to send; avatar opens printer + End session |
 
 ## Open items
@@ -135,3 +139,14 @@ Touch targets ≥ 44 px. Main action 56 px.
 | 2 | Tablet sign-in: brand panel + card; sign in works | ✅ |
 | 3 | Events: "Open now" card with dates and status; two columns on tablet | ✅ |
 | 4 | Setup: steps tick through with "n of 5", then Home | ✅ |
+
+## Phase 6 checks (emulator, phone + tablet width — 2026-11-03)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Product scanner: typed 8990001003 → product sheet → Add; chip "2 in order" opens the order | ✅ |
+| 2 | Member scan: MBR-00002 → "Bryan Tan · Gold member" sheet → linked to the order | ✅ |
+| 3 | Unknown MBR-0099 → "No member for MBR-0099" → continue with a typed name | ✅ |
+| 4 | Drafts: hold with a name, cart empties, Resume restores; dialog on tablet | ✅ |
+| 5 | Printer: in-use card, test page prints, nearby list (Bluetooth search not testable on emulator) | ✅ |
+| 6 | "1 item" wording; avatar is its own "Account and session" button | ✅ |
