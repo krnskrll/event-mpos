@@ -4,6 +4,9 @@
 package app
 
 import (
+	"context"
+	"time"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -11,6 +14,8 @@ import (
 	auditsvc "github.com/krnskrll/event-mpos/internal/audit/service"
 	authhandler "github.com/krnskrll/event-mpos/internal/auth/handler"
 	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
+	cataloghandler "github.com/krnskrll/event-mpos/internal/catalog/handler"
+	catalogsvc "github.com/krnskrll/event-mpos/internal/catalog/service"
 	eventhandler "github.com/krnskrll/event-mpos/internal/event/handler"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventsvc "github.com/krnskrll/event-mpos/internal/event/service"
@@ -47,24 +52,26 @@ import (
 type App struct {
 	Router *gin.Engine
 
-	Users      *usersvc.Service
-	Auth       *authsvc.Service
-	Events     *eventsvc.Service
-	Products   *productsvc.Service
-	ERPSync    *erp.SyncService
-	Members    *membersvc.Service
-	MemberSync *membersrc.Service
-	Stock      *stocksvc.Service
-	Promotions *promotionsvc.Service
-	Audit      *auditsvc.Service
-	Receipts   *receiptsvc.Service
-	Orders     *ordersvc.Service
-	Reports    *reportsvc.Service
-	SyncConfig *syncsvc.Service
-	Scheduler  *syncsvc.Scheduler
-	Hub        *realtime.Hub
-	Bhoomy     bhoomy.Client
-	Media      *media.Store
+	Users       *usersvc.Service
+	Auth        *authsvc.Service
+	Events      *eventsvc.Service
+	Products    *productsvc.Service
+	ERPSync     *erp.SyncService
+	Members     *membersvc.Service
+	MemberSync  *membersrc.Service
+	Stock       *stocksvc.Service
+	Promotions  *promotionsvc.Service
+	Audit       *auditsvc.Service
+	Receipts    *receiptsvc.Service
+	Orders      *ordersvc.Service
+	Reports     *reportsvc.Service
+	SyncConfig  *syncsvc.Service
+	Scheduler   *syncsvc.Scheduler
+	Hub         *realtime.Hub
+	Bhoomy      bhoomy.Client
+	Media       *media.Store
+	Catalog     *catalogsvc.Service
+	CatalogSync *bhoomy.CatalogSync
 }
 
 // New builds services, handlers and routes on an already-migrated database. It starts the WebSocket
@@ -87,6 +94,8 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Products = productsvc.NewService(db, a.Media)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
 	a.ERPSync = erp.NewSyncService(erpSource, db, a.Products)
+	a.Catalog = catalogsvc.NewService(db)
+	a.CatalogSync = bhoomy.NewCatalogSync(a.Bhoomy, a.Catalog)
 	a.Members = membersvc.NewService(db)
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
@@ -132,6 +141,11 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	userHandler := userhandler.NewHandler(a.Users)
 	eventHandler := eventhandler.NewHandler(a.Events)
 	productHandler := producthandler.NewHandler(a.Products, a.Events)
+	catalogHandler := cataloghandler.NewHandler(a.Catalog, func(storeID uuid.UUID) error {
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		return a.CatalogSync.RunStore(ctx, storeID)
+	})
 	erpHandler := erp.NewHandler(a.ERPSync)
 	memberHandler := memberhandler.NewHandler(a.Members)
 	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
@@ -199,6 +213,8 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		admin.PUT("/events/:id", eventHandler.Update)
 		admin.PATCH("/events/:id/status", eventHandler.ChangeStatus)
 		admin.POST("/assignments", eventHandler.AssignBa)
+		admin.GET("/catalog/sync", catalogHandler.SyncStatus)
+		admin.POST("/catalog/sync", catalogHandler.Sync)
 		admin.GET("/products", productHandler.List)
 		admin.GET("/products/:id", productHandler.Get)
 		admin.POST("/products", productHandler.Create)

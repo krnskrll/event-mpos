@@ -1,4 +1,5 @@
 DELETE /api/admin/promotions/:id
+GET /api/admin/catalog/sync
 GET /api/admin/erp/status
 GET /api/admin/events
 GET /api/admin/events/:id/audit
@@ -34,6 +35,7 @@ PATCH /api/admin/events/:id/status
 PATCH /api/admin/users/:id
 PATCH /api/warehouse/orders/:orderId/status
 POST /api/admin/assignments
+POST /api/admin/catalog/sync
 POST /api/admin/erp/sync
 POST /api/admin/events
 POST /api/admin/events/:id/promotions

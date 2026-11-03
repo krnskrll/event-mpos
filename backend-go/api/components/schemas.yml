@@ -598,3 +598,12 @@ components:
         memberCount: { type: integer }
         source: { type: string }
         message: { type: string }
+    CatalogSyncStatus:
+      type: object
+      required: [linked, cached]
+      properties:
+        linked: { type: boolean }
+        cached: { type: integer, format: int64 }
+        cursorAt: { type: string, format: date-time, nullable: true }
+        lastError: { type: string, nullable: true }
+        updatedAt: { type: string, format: date-time, nullable: true }
