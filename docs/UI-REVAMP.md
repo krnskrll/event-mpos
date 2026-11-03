@@ -19,6 +19,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | U11 | Orders keep subtotal, discount and promotion name (database v3) so the detail shows what was charged | 2026-11-02 |
 | U12 | Sign-in: forest brand panel (tablet) / forest header + sheet (phone), show-password eye. Events: "Open now" / "Upcoming" cards with day or opening countdown. Setup: plain step names with counts | 2026-11-02 |
 | U13 | Utilities: one dark scanner (corner frame, typed code + light in a bottom panel) for products and members; member result in a sheet (found / not found → continue with a name); Drafts is one sheet (dialog on tablet) that holds and resumes; Printer shows the printer in use and nearby Bluetooth printers with signal | 2026-11-03 |
+| U14 | Launch screen: forest, the mark in a raised circle, "Bhoomy POS" below; same on Android 12+ (system splash), older Android and iOS. App icon: the mark on forest (option A, no "POS" tag), adaptive + themed on Android | 2026-11-03 |
 
 ## Phases
 
@@ -30,6 +31,7 @@ Flutter app in `mobile/`. Mockups: [canvas](https://claude.ai/artifact/J8M57FS2H
 | 4 Orders + Receipt | Order list + detail side by side on tablet, receipt card | ✅ | ✅ PR #20 |
 | 5 Entry flow | Login, events, sync | ✅ | ✅ PR #21 |
 | 6 Utilities | Printer, customer scan, scanner, drafts | ✅ | ✅ PR #23 |
+| 7 Launch + icon | Launch screen, app icon (Android adaptive/themed, iOS) | ✅ | ✅ PR #— |
 
 ## Tokens (`mobile/lib/app/theme.dart` → `Brand`)
 
@@ -96,7 +98,7 @@ Touch targets ≥ 44 px. Main action 56 px.
 - [x] Warm `StockBadge`, `QtyStepper`, `CountChip` (Phase 2)
 - [ ] **Parked:** customer is required to confirm (EPIC-04/07 rule; backend `customer.name` required). Options: walk-in default (app only), fully optional (DB + API), or per-outlet setting — decide with Bhoomy outlets
 - [ ] **Parked:** discounts beyond automatic promotions. Not built in any version (only the design prototype had a mock promo-code box). Options: promotion tags / crossed-out price on products (app only), promo codes or a cashier discount (backend + app)
-- [ ] Launch screen and launcher icon still Flutter default
+- [x] Launch screen and app icon (Phase 7). Regenerate the PNGs after a logo change: `cd mobile && flutter test tool/brand_assets_test.dart`
 - [x] Status-bar icons over the forest rail on tablet (rail now floats inside the safe area)
 
 ## Phase 2 checks (emulator, phone + tablet width, Go backend — 2026-11-02)
@@ -150,3 +152,13 @@ Touch targets ≥ 44 px. Main action 56 px.
 | 4 | Drafts: hold with a name, cart empties, Resume restores; dialog on tablet | ✅ |
 | 5 | Printer: in-use card, test page prints, nearby list (Bluetooth search not testable on emulator) | ✅ |
 | 6 | "1 item" wording; avatar is its own "Account and session" button | ✅ |
+
+## Phase 7 checks (emulator API 34, Xcode tools — 2026-11-03)
+
+| # | Check | Result |
+|---|---|---|
+| 1 | Cold start from the launcher: forest, mark in the circle, "Bhoomy POS" at the bottom | ✅ |
+| 2 | Splash fades into the app with the mark and name in the same place (no jump) | ✅ |
+| 3 | Adaptive icon in Recents: round, mark centred | ✅ |
+| 4 | iOS: launch storyboard compiles with no warnings; icons compile in the asset catalog, 1024 icon has no alpha | ✅ |
+| 5 | Android 7–11 launch screen and the iOS launch on a device | Not checked (no emulator image / simulator) |
