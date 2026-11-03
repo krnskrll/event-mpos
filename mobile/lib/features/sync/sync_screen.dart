@@ -9,13 +9,8 @@ import '../../core/network/api_failure.dart';
 import '../../data/event/event_repository.dart';
 import '../../data/session/session.dart';
 
-const _steps = [
-  'Downloading products…',
-  'Syncing member data…',
-  'Loading promotions…',
-  'Fetching inventory…',
-  'Finalising setup…',
-];
+/// Setup steps: what the cashier sees, and what is being loaded.
+const _steps = ['Products and prices', 'Members', 'Promotions', 'Stock levels', 'Order numbers for this device'];
 
 /// Downloads the event snapshot while walking through the setup steps, then opens the session.
 class SyncScreen extends ConsumerStatefulWidget {
@@ -29,6 +24,7 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
   int _step = 0;
   bool _done = false;
   String? _error;
+  ({int products, int members, int promotions})? _counts;
 
   @override
   void initState() {
@@ -47,10 +43,15 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
   Future<void> _run() async {
     final event = ref.read(sessionEventProvider)!;
     try {
-      await Future.wait([ref.read(eventRepositoryProvider).syncSnapshot(event.id), _walkSteps()]);
+      final events = ref.read(eventRepositoryProvider);
+      await Future.wait([events.syncSnapshot(event.id), _walkSteps()]);
+      final counts = await events.localCounts(event.id);
       if (!mounted) return;
-      setState(() => _done = true);
-      await Future.delayed(const Duration(milliseconds: 700));
+      setState(() {
+        _done = true;
+        _counts = counts;
+      });
+      await Future.delayed(const Duration(milliseconds: 900));
       if (mounted) context.go('/home');
     } on ApiFailure catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -67,34 +68,101 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final progress = _done ? 1.0 : (_step + 1) / _steps.length;
-    final message = _error ?? (_done ? 'All done! Starting session…' : _steps[_step]);
+    final step = _done ? _steps.length : _step;
+    final c = _counts;
+    final details = [
+      if (c != null) '${c.products} products',
+      if (c != null) '${c.members} members',
+      if (c != null) '${c.promotions} running',
+    ];
     return Scaffold(
-      body: Center(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 32),
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const BhoomyLogo(size: 48),
-                const SizedBox(height: 32),
-                Text('Setting up', style: AppText.caption.copyWith(color: Brand.slate)),
-                Text(ref.watch(sessionEventProvider)?.name ?? '', style: AppText.title),
-                const SizedBox(height: 24),
-                LinearProgressIndicator(value: progress, minHeight: 6, borderRadius: BorderRadius.circular(999)),
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: Text(
-                    message,
-                    style: AppText.body.copyWith(color: _error != null ? Brand.errorInk : Brand.slate),
+      body: SafeArea(
+        child: Center(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Align(alignment: Alignment.centerLeft, child: BhoomyLogo(size: 56)),
+                  const SizedBox(height: 22),
+                  Text('Getting this device ready for', style: AppText.body.copyWith(color: Brand.slate)),
+                  Text(ref.watch(sessionEventProvider)?.name ?? '', style: AppText.title.copyWith(fontSize: 26)),
+                  const SizedBox(height: 22),
+                  Container(
+                    padding: const EdgeInsets.all(20),
+                    decoration: BoxDecoration(
+                      color: Brand.surface,
+                      borderRadius: BorderRadius.circular(24),
+                      border: Border.all(color: Brand.cardLine),
+                      boxShadow: AppShadows.card,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                _error != null
+                                    ? "Couldn't finish setup"
+                                    : (_done ? 'All set' : 'Loading ${_steps[step].toLowerCase()}'),
+                                style: AppText.bodyLarge.copyWith(
+                                  color: _error != null ? Brand.errorInk : Brand.forest,
+                                ),
+                              ),
+                            ),
+                            Text(
+                              '${(step + 1).clamp(1, _steps.length)} of ${_steps.length}',
+                              style: AppText.label.copyWith(color: Brand.green),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 14),
+                        LinearProgressIndicator(
+                          value: _done ? 1 : (step + 0.5) / _steps.length,
+                          minHeight: 8,
+                          borderRadius: BorderRadius.circular(999),
+                        ),
+                        const SizedBox(height: 8),
+                        for (final (i, label) in _steps.indexed)
+                          _StepRow(
+                            label,
+                            detail: i < details.length ? details[i] : null,
+                            state: i < step
+                                ? _Step.done
+                                : (i == step && _error == null ? _Step.current : _Step.waiting),
+                          ),
+                        if (_error != null) ...[
+                          const SizedBox(height: 8),
+                          Text(_error!, style: AppText.body.copyWith(color: Brand.errorInk)),
+                          const SizedBox(height: 14),
+                          BrandButton(text: 'Try again', onPressed: _retry),
+                        ],
+                      ],
+                    ),
                   ),
-                ),
-                for (final (i, step) in _steps.indexed)
-                  _StepRow(step, done: _done || i < _step, current: !_done && i == _step),
-                if (_error != null) ...[const SizedBox(height: 24), BrandButton(text: 'Retry', onPressed: _retry)],
-              ],
+                  const SizedBox(height: 18),
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(color: Brand.greenSoft, borderRadius: BorderRadius.circular(14)),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Icon(Icons.info_outline, size: 18, color: Brand.forest),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            'Keep the app open. After this, the device can keep selling even without internet.',
+                            style: AppText.caption.copyWith(color: Brand.forest, fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -103,32 +171,46 @@ class _SyncScreenState extends ConsumerState<SyncScreen> {
   }
 }
 
+enum _Step { done, current, waiting }
+
 class _StepRow extends StatelessWidget {
-  const _StepRow(this.label, {required this.done, required this.current});
+  const _StepRow(this.label, {required this.state, this.detail});
 
   final String label;
-  final bool done;
-  final bool current;
+  final _Step state;
+  final String? detail;
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 8),
       child: Row(
         children: [
-          CircleAvatar(
-            radius: 10,
-            backgroundColor: done ? Brand.green : (current ? Brand.greenSoft : Brand.sunken),
-            child: done ? const Icon(Icons.check, color: Colors.white, size: 12) : null,
+          Container(
+            width: 24,
+            height: 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: switch (state) {
+                _Step.done => Brand.green,
+                _Step.current => Brand.surface,
+                _Step.waiting => Brand.sunken,
+              },
+              border: state == _Step.current ? Border.all(color: Brand.green, width: 3) : null,
+            ),
+            child: state == _Step.done ? const Icon(Icons.check, size: 14, color: Colors.white) : null,
           ),
           const SizedBox(width: 12),
-          Text(
-            label,
-            style: AppText.body.copyWith(
-              color: done || current ? Brand.ink : Brand.faint,
-              fontWeight: current ? FontWeight.w700 : FontWeight.w400,
+          Expanded(
+            child: Text(
+              label,
+              style: AppText.body.copyWith(
+                color: state == _Step.waiting ? Brand.faint : Brand.ink,
+                fontWeight: state == _Step.current ? FontWeight.w700 : FontWeight.w400,
+              ),
             ),
           ),
+          if (detail != null) Text(detail!, style: AppText.caption),
         ],
       ),
     );

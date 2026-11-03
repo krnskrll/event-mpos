@@ -99,16 +99,6 @@ String _greeting() => switch (DateTime.now().hour) {
   _ => 'Good evening',
 };
 
-/// "Day 3 of 14" while the event is running.
-String? _eventDay(AssignedEvent event) {
-  final start = DateTime.tryParse(event.startDate ?? '');
-  final end = DateTime.tryParse(event.endDate ?? '');
-  if (start == null || end == null) return null;
-  final today = DateUtils.dateOnly(DateTime.now());
-  if (today.isBefore(start) || today.isAfter(end)) return null;
-  return 'Day ${today.difference(start).inDays + 1} of ${end.difference(start).inDays + 1}';
-}
-
 class _Header extends ConsumerWidget {
   const _Header({required this.wide});
 
@@ -118,7 +108,7 @@ class _Header extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final name = (ref.watch(tokenStorageProvider).userName ?? 'there').split(' ').first;
     final event = ref.watch(sessionEventProvider);
-    final day = event == null ? null : _eventDay(event);
+    final day = event?.dayOf(DateTime.now());
     final where = [?day, ?event?.name].join(' · ');
     return Row(
       children: [
@@ -492,12 +482,9 @@ class _EventCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final event = ref.watch(sessionEventProvider);
     if (event == null) return const SizedBox.shrink();
-    final start = DateTime.tryParse(event.startDate ?? '');
-    final end = DateTime.tryParse(event.endDate ?? '');
-    final day = _eventDay(event);
-    final progress = start == null || end == null || day == null
-        ? null
-        : (DateTime.now().difference(start).inDays + 1) / (end.difference(start).inDays + 1);
+    final now = DateTime.now();
+    final day = event.dayOf(now);
+    final progress = event.progress(now);
     final active = event.status == EventStatus.active;
     return Container(
       padding: const EdgeInsets.all(18),
@@ -523,10 +510,7 @@ class _EventCard extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           Text(event.name, style: AppText.subhead.copyWith(fontWeight: FontWeight.w900)),
-          Text(
-            '${event.startDate ?? '—'} → ${event.endDate ?? '—'}',
-            style: AppText.caption.copyWith(color: Brand.slate),
-          ),
+          Text(event.dateRange, style: AppText.caption.copyWith(color: Brand.slate)),
           if (progress != null) ...[
             const SizedBox(height: 12),
             LinearProgressIndicator(

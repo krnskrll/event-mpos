@@ -42,6 +42,21 @@ class EventRepository {
     await syncSnapshot(eventId);
   }
 
+  /// What this device holds for [eventId] after a sync, for the setup screen.
+  Future<({int products, int members, int promotions})> localCounts(String eventId) async {
+    Future<int> count(TableInfo table, [Expression<bool>? where]) async {
+      final q = _db.selectOnly(table)..addColumns([countAll()]);
+      if (where != null) q.where(where);
+      return (await q.getSingle()).read(countAll()) ?? 0;
+    }
+
+    return (
+      products: await count(_db.products, _db.products.eventId.equals(eventId)),
+      members: await count(_db.members),
+      promotions: await count(_db.promotions, _db.promotions.eventId.equals(eventId)),
+    );
+  }
+
   /// Downloads the event snapshot into the local DB. Sends the cached version so the server can
   /// answer "unchanged". A 409 (event no longer active) still completes: the cached data stays usable.
   Future<void> syncSnapshot(String eventId) async {
