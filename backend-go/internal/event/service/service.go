@@ -59,16 +59,16 @@ func (s *Service) ListEvents(storeID uuid.UUID) ([]iface.EventResponse, error) {
 }
 
 func (s *Service) CreateEvent(storeID uuid.UUID, req iface.CreateEventRequest) (*iface.EventResponse, error) {
-	outletType, ok := iface.ParseOutletType(string(req.Type))
+	outletType, ok := iface.ParseLocationType(string(req.Type))
 	if !ok {
-		return nil, common.NewAppError(http.StatusBadRequest, "type: must be one of event, store")
+		return nil, common.NewAppError(http.StatusBadRequest, "type: must be one of event, outlet")
 	}
 	if err := validateOutlet(outletType, req.Address, req.EndDate); err != nil {
 		return nil, err
 	}
 	code := strings.TrimSpace(req.Code)
 	var count int64
-	if err := s.db.Model(&repository.Event{}).Where("code = ?", code).Count(&count).Error; err != nil {
+	if err := s.db.Model(&repository.Event{}).Where("store_id = ? AND code = ?", storeID, code).Count(&count).Error; err != nil {
 		return nil, err
 	}
 	if count > 0 {
@@ -372,16 +372,16 @@ func (s *Service) findIn(storeID, id uuid.UUID) (*repository.Event, error) {
 	return e, nil
 }
 
-// validateOutlet: a store is a permanent shop, so it needs an address and has no end date.
-func validateOutlet(t iface.OutletType, address *string, endDate *common.Date) error {
-	if t != iface.TypeStore {
+// validateOutlet: an outlet is a permanent shop, so it needs an address and has no end date.
+func validateOutlet(t iface.LocationType, address *string, endDate *common.Date) error {
+	if t != iface.TypeOutlet {
 		return nil
 	}
 	if address == nil || strings.TrimSpace(*address) == "" {
-		return common.NewAppError(http.StatusBadRequest, "address: required for a store")
+		return common.NewAppError(http.StatusBadRequest, "address: required for an outlet")
 	}
 	if endDate != nil {
-		return common.NewAppError(http.StatusBadRequest, "endDate: a store has no end date")
+		return common.NewAppError(http.StatusBadRequest, "endDate: an outlet has no end date")
 	}
 	return nil
 }

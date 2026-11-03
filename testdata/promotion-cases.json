@@ -1,5 +1,5 @@
 {
-  "_about": "Shared promotion-engine fixture. Run by backend-go/internal/promotion/parity_test.go AND android app/src/test/.../PromotionParityTest.kt. Both engines must produce exactly these results; change both engines (and this file) together. Money is a decimal string. 'expected.promotion' is the chosen promotion's name, or null when none applies. Only active promotions appear here: the server filters inactive ones out before the snapshot reaches the device.",
+  "_about": "Shared promotion-engine fixture. Run by backend-go/internal/promotion/parity_test.go, android app/src/test/.../PromotionParityTest.kt AND mobile/test/domain/promotion_parity_test.dart. All engines must produce exactly these results; change them (and this file) together. Money is a decimal string; discounts are whole rupiah (nearest, .5 up). 'expected.promotion' is the chosen promotion's name, or null when none applies. Only active promotions appear here: the server filters inactive ones out before the snapshot reaches the device.",
   "now": "2026-07-05T10:00:00Z",
   "carts": {
     "standard": [
@@ -10,11 +10,11 @@
       { "productId": "00000000-0000-0000-0000-00000000000c", "unitPrice": "99000.00", "qty": 1 },
       { "productId": "00000000-0000-0000-0000-00000000000d", "unitPrice": "55000.00", "qty": 1 }
     ],
-    "oddCents": [
-      { "productId": "00000000-0000-0000-0000-00000000000e", "unitPrice": "1.15", "qty": 1 }
+    "halfRupiah": [
+      { "productId": "00000000-0000-0000-0000-00000000000e", "unitPrice": "15550", "qty": 1 }
     ],
     "thirds": [
-      { "productId": "00000000-0000-0000-0000-00000000000f", "unitPrice": "33.33", "qty": 1 }
+      { "productId": "00000000-0000-0000-0000-00000000000f", "unitPrice": "33333", "qty": 1 }
     ]
   },
   "cases": [
@@ -142,16 +142,22 @@
       "expected": { "promotion": "10% off everything", "discount": "15400.00" }
     },
     {
-      "name": "half-cent rounds up (1.15 x 10% = 0.115)",
-      "cart": "oddCents",
-      "promotions": [{ "name": "10pct", "type": "PERCENTAGE", "percentOff": "10" }],
-      "expected": { "promotion": "10pct", "discount": "0.12" }
+      "name": "half rupiah rounds up (15550 x 7% = 1088.5)",
+      "cart": "halfRupiah",
+      "promotions": [{ "name": "7pct", "type": "PERCENTAGE", "percentOff": "7" }],
+      "expected": { "promotion": "7pct", "discount": "1089" }
     },
     {
-      "name": "fractional percent rounds to cents (33.33 x 12.5%)",
+      "name": "fractional percent rounds to whole rupiah (33333 x 12.5% = 4166.625)",
       "cart": "thirds",
       "promotions": [{ "name": "12.5pct", "type": "PERCENTAGE", "percentOff": "12.5" }],
-      "expected": { "promotion": "12.5pct", "discount": "4.17" }
+      "expected": { "promotion": "12.5pct", "discount": "4167" }
+    },
+    {
+      "name": "below half a rupiah rounds down (33333 x 10% = 3333.3)",
+      "cart": "thirds",
+      "promotions": [{ "name": "10pct", "type": "PERCENTAGE", "percentOff": "10" }],
+      "expected": { "promotion": "10pct", "discount": "3333" }
     }
   ]
 }

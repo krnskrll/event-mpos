@@ -89,7 +89,7 @@ func (s *Service) Fingerprint(storeID uuid.UUID) (string, error) {
 
 func (s *Service) Upsert(tx database.Tx, storeID uuid.UUID, rec iface.MemberRecord) (bool, error) {
 	var m repository.Member
-	err := tx.Where("member_code = ?", rec.MemberCode).First(&m).Error
+	err := tx.Where("store_id = ? AND member_code = ?", storeID, rec.MemberCode).First(&m).Error
 	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		return false, err
 	}

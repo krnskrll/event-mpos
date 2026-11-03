@@ -115,9 +115,9 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 	if err := db.Where("sku = ?", "SKU-1002").First(&lipstick).Error; err == nil {
 		plum := decimal.RequireFromString("89000")
 		variants := []productrepo.ProductVariant{
-			{ProductID: lipstick.ID, Name: "Rose", SKU: "SKU-1002-ROSE", Active: true},
-			{ProductID: lipstick.ID, Name: "Coral", SKU: "SKU-1002-CORAL", Active: true},
-			{ProductID: lipstick.ID, Name: "Plum (limited)", SKU: "SKU-1002-PLUM", PriceOverride: &plum, Active: true},
+			{ItemID: lipstick.ID, Name: "Rose", SKU: "SKU-1002-ROSE", SellInPOS: true},
+			{ItemID: lipstick.ID, Name: "Coral", SKU: "SKU-1002-CORAL", SellInPOS: true},
+			{ItemID: lipstick.ID, Name: "Plum (limited)", SKU: "SKU-1002-PLUM", Price: &plum, SellInPOS: true},
 		}
 		for i := range variants {
 			if err := db.Create(&variants[i]).Error; err != nil {

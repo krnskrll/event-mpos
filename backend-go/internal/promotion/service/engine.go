@@ -6,6 +6,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
 
+	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/promotion/iface"
 	"github.com/krnskrll/event-mpos/internal/promotion/repository"
 )
@@ -123,5 +124,5 @@ func DiscountFor(promo *repository.Promotion, lines []iface.CartLine, now time.T
 	if capped.IsNegative() {
 		capped = decimal.Zero
 	}
-	return capped.Round(2), true
+	return common.Rupiah(capped), true
 }

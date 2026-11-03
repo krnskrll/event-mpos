@@ -155,7 +155,7 @@ func (h *Handler) ProductByBarcode(c *gin.Context) {
 		common.Fail(c, err)
 		return
 	}
-	resp, err := h.products.FindAvailableByBarcode(eventID, c.Param("barcode"))
+	resp, err := h.products.FindAvailableByBarcode(p.StoreID, eventID, c.Param("barcode"))
 	if err != nil {
 		common.Fail(c, err)
 		return

@@ -21,9 +21,9 @@ type Order struct {
 	CustomerName   string            `gorm:"column:customer_name;not null"`
 	CustomerQr     *string           `gorm:"column:customer_qr"`
 	CustomerTier   *string           `gorm:"column:customer_tier"`
-	Subtotal       decimal.Decimal   `gorm:"type:numeric(12,2);not null"`
-	Discount       decimal.Decimal   `gorm:"type:numeric(12,2);not null"`
-	Total          decimal.Decimal   `gorm:"type:numeric(12,2);not null"`
+	Subtotal       decimal.Decimal   `gorm:"type:bigint;not null"`
+	Discount       decimal.Decimal   `gorm:"type:bigint;not null"`
+	Total          decimal.Decimal   `gorm:"type:bigint;not null"`
 	PromotionID    *uuid.UUID        `gorm:"column:promotion_id;type:uuid"`
 	PromotionName  *string           `gorm:"column:promotion_name"`
 	Status         iface.OrderStatus `gorm:"type:varchar(20);not null"`
@@ -57,9 +57,9 @@ type OrderItem struct {
 	VariantName *string         `gorm:"column:variant_name"`
 	SKU         string          `gorm:"column:sku;not null"`
 	Name        string          `gorm:"not null"`
-	UnitPrice   decimal.Decimal `gorm:"column:unit_price;type:numeric(12,2);not null"`
+	UnitPrice   decimal.Decimal `gorm:"column:unit_price;type:bigint;not null"`
 	Qty         int             `gorm:"not null"`
-	LineTotal   decimal.Decimal `gorm:"column:line_total;type:numeric(12,2);not null"`
+	LineTotal   decimal.Decimal `gorm:"column:line_total;type:bigint;not null"`
 }
 
 func (OrderItem) TableName() string { return "order_items" }

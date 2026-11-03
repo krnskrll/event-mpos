@@ -73,10 +73,10 @@ func (s *Service) SetAllocation(eventID, productID uuid.UUID, allocatedQty int) 
 	if err != nil {
 		return nil, err
 	}
-	if ev.Type == eventiface.TypeStore && ev.Status == eventiface.StatusClosed {
-		return nil, common.NewAppError(http.StatusConflict, "Allocations are locked once a store is CLOSED")
+	if ev.Type == eventiface.TypeOutlet && ev.Status == eventiface.StatusClosed {
+		return nil, common.NewAppError(http.StatusConflict, "Allocations are locked once an outlet is CLOSED")
 	}
-	if ev.Type != eventiface.TypeStore && ev.Status != eventiface.StatusDraft {
+	if ev.Type != eventiface.TypeOutlet && ev.Status != eventiface.StatusDraft {
 		return nil, common.NewAppError(http.StatusConflict,
 			"Allocations are locked once an event leaves DRAFT (status: "+string(ev.Status)+")")
 	}

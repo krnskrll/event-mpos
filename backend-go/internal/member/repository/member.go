@@ -13,8 +13,8 @@ import (
 type Member struct {
 	ID         uuid.UUID        `gorm:"type:uuid;primaryKey"`
 	StoreID    uuid.UUID        `gorm:"column:store_id;type:uuid;not null"`
-	MemberCode string           `gorm:"column:member_code;uniqueIndex;not null"`
-	QRCode     string           `gorm:"column:qr_code;uniqueIndex;not null"`
+	MemberCode string           `gorm:"column:member_code;not null"`
+	QRCode     string           `gorm:"column:qr_code;not null"`
 	Name       string           `gorm:"not null"`
 	Tier       iface.MemberTier `gorm:"type:varchar(20);not null"`
 	Region     *string          ``
