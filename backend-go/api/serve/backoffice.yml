@@ -1,0 +1,210 @@
+openapi: 3.0.3
+info:
+  title: POS back office API
+  version: "1.0.0"
+  description: Katalog POS and Outlet & Event for the Bhoomy web app. Called only by the Bhoomy backend (service token + X-Bhoomy-Store-Id); not exposed publicly.
+tags:
+  - name: backoffice
+paths:
+  /api/backoffice/catalog/status:
+    get:
+      tags: [backoffice]
+      operationId: getBackofficeCatalogStatus
+      summary: "Produk Toko copy state"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CatalogSyncStatus' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/catalog/sync:
+    post:
+      tags: [backoffice]
+      operationId: runBackofficeCatalogSync
+      summary: "Pull Produk Toko changes now"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CatalogSyncStatus' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '502': { description: Bhoomy did not answer, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/catalog/source:
+    get:
+      tags: [backoffice]
+      operationId: listCatalogueSource
+      summary: "Produk Toko products not yet in Katalog POS (query q)"
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: q, in: query, required: false, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/SourceOption' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/items:
+    get:
+      tags: [backoffice]
+      operationId: listCatalogueItems
+      summary: "Katalog POS"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/CatalogueItem' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    post:
+      tags: [backoffice]
+      operationId: addCatalogueItems
+      summary: "Add Produk Toko products as Tidak dijual, without a price"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/AddItemsRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/AddItemsResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/items/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [backoffice]
+      operationId: getCatalogueItem
+      summary: "Katalog POS edit form"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CatalogueItemDetail' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    put:
+      tags: [backoffice]
+      operationId: updateCatalogueItem
+      summary: "Save the edit form; selling needs a base price"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/UpdateItemRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CatalogueItemDetail' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/items/{id}/photo:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [backoffice]
+      operationId: uploadCatalogueItemPhoto
+      summary: "Upload the POS photo (JPEG, PNG or WebP, max 2 MB)"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { type: object, required: [file], properties: { file: { type: string, format: binary } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ProductResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/locations:
+    get:
+      tags: [backoffice]
+      operationId: listLocations
+      summary: "Outlets and events with the number of Katalog POS items they sell"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/LocationResponse' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    post:
+      tags: [backoffice]
+      operationId: createLocation
+      summary: "Create a draft outlet or event; POS makes the code"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CreateLocationRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/locations/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [backoffice]
+      operationId: getLocation
+      summary: "One outlet or event"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    put:
+      tags: [backoffice]
+      operationId: updateLocation
+      summary: "Edit name, address or dates"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/UpdateEventRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/locations/{id}/status:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    patch:
+      tags: [backoffice]
+      operationId: changeLocationStatus
+      summary: "Move DRAFT → ACTIVE → CLOSED"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ChangeStatusRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/locations/{id}/items:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [backoffice]
+      operationId: listLocationItems
+      summary: "Katalog POS variants at this location"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/LocationRow' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    put:
+      tags: [backoffice]
+      operationId: saveLocationItems
+      summary: "Save what this location sells and its prices"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/SaveLocationRowsRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/LocationRow' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    post:
+      tags: [backoffice]
+      operationId: addLocationItems
+      summary: "Start selling Katalog POS items here"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/AddLocationItemsRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/LocationRow' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+components:
+  securitySchemes:
+    serviceToken: { type: http, scheme: bearer }

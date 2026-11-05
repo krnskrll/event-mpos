@@ -97,3 +97,35 @@ func (h *Handler) AssignBa(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, resp)
 }
+
+func (h *Handler) CreateLocation(c *gin.Context) {
+	var req iface.CreateLocationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
+		return
+	}
+	resp, err := h.svc.CreateLocation(authiface.StoreOf(c), req)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusCreated, resp)
+}
+
+func (h *Handler) GetLocation(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid location id")
+		return
+	}
+	if err := h.svc.RequireInStore(authiface.StoreOf(c), id); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	resp, err := h.svc.Get(id)
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}

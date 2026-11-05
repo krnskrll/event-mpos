@@ -9,6 +9,7 @@ import (
 
 	catalogiface "github.com/krnskrll/event-mpos/internal/catalog/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 )
 
 const pageSize = 500
@@ -16,12 +17,14 @@ const pageSize = 500
 // CatalogSync pulls each linked store's Produk Toko changes into POS's copy, page by page; a page
 // and its cursor are saved together, so a failed pull resumes where it stopped.
 type CatalogSync struct {
-	client  Client
-	catalog catalogiface.Catalog
+	client    Client
+	catalog   catalogiface.Catalog
+	catalogue productiface.Catalogue
 }
 
-func NewCatalogSync(client Client, catalog catalogiface.Catalog) *CatalogSync {
-	return &CatalogSync{client: client, catalog: catalog}
+// NewCatalogSync pulls into catalog; Katalog POS items linked to changed products follow them.
+func NewCatalogSync(client Client, catalog catalogiface.Catalog, catalogue productiface.Catalogue) *CatalogSync {
+	return &CatalogSync{client: client, catalog: catalog, catalogue: catalogue}
 }
 
 func (s *CatalogSync) RunAll(ctx context.Context) {
@@ -71,10 +74,25 @@ func (s *CatalogSync) run(ctx context.Context, l catalogiface.Link) error {
 			if err := s.catalog.SavePage(l.StoreID, *page, *at); err != nil {
 				return err
 			}
+			if err := s.catalogue.Reconcile(l.StoreID, productIDs(page.Items)); err != nil {
+				return err
+			}
 		}
 		if page.Next == nil {
 			return nil
 		}
 		cur = page.Next
 	}
+}
+
+func productIDs(items []catalogiface.Variant) []uuid.UUID {
+	seen := map[uuid.UUID]bool{}
+	var out []uuid.UUID
+	for _, v := range items {
+		if !seen[v.BhoomyProductID] {
+			seen[v.BhoomyProductID] = true
+			out = append(out, v.BhoomyProductID)
+		}
+	}
+	return out
 }

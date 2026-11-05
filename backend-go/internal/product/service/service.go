@@ -11,6 +11,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
+	catalogiface "github.com/krnskrll/event-mpos/internal/catalog/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
 	"github.com/krnskrll/event-mpos/internal/platform/media"
@@ -19,8 +20,9 @@ import (
 )
 
 type Service struct {
-	db    *gorm.DB
-	media *media.Store
+	db     *gorm.DB
+	media  *media.Store
+	source catalogiface.Source
 	// stockRemaining enriches snapshot products; nil leaves remainingStock at 0.
 	stockRemaining func(eventID, productID uuid.UUID) (int, error)
 }
@@ -110,6 +112,9 @@ func (s *Service) Update(storeID, id uuid.UUID, req iface.UpdateProductRequest) 
 		p.PhotoURL = trimPtr(req.ImageURL)
 	}
 	if req.Active != nil {
+		if *req.Active && p.Default().Price == nil {
+			return nil, common.NewAppError(http.StatusConflict, "Set a price before selling this product")
+		}
 		p.SetActive(*req.Active)
 	}
 	err = s.db.Transaction(func(tx *gorm.DB) error {

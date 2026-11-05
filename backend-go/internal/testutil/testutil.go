@@ -90,6 +90,7 @@ func NewApp(t *testing.T) *TestApp {
 		MemberSyncCron:      "0 0 2 * * *",
 		MediaDir:            t.TempDir(),
 		MediaBaseURL:        "http://pos.test/media",
+		BhoomyServiceToken:  ServiceToken,
 	}
 	a, err := app.New(cfg, db)
 	if err != nil {
@@ -196,6 +197,27 @@ func (a *TestApp) Do(method, path string, body any, token string) *httptest.Resp
 	if token != "" {
 		req.Header.Set("Authorization", "Bearer "+token)
 	}
+	rec := httptest.NewRecorder()
+	a.Router.ServeHTTP(rec, req)
+	return rec
+}
+
+// ServiceToken is the token the Bhoomy backend sends in tests.
+const ServiceToken = "test-service-token"
+
+// Back calls the back office as the Bhoomy backend acting for a Bhoomy store.
+func (a *TestApp) Back(method, path string, body any, bhoomyStore uuid.UUID) *httptest.ResponseRecorder {
+	a.t.Helper()
+	var buf bytes.Buffer
+	if body != nil {
+		if err := json.NewEncoder(&buf).Encode(body); err != nil {
+			a.t.Fatalf("encode: %v", err)
+		}
+	}
+	req := httptest.NewRequest(method, "/api/backoffice"+path, &buf)
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+ServiceToken)
+	req.Header.Set("X-Bhoomy-Store-Id", bhoomyStore.String())
 	rec := httptest.NewRecorder()
 	a.Router.ServeHTTP(rec, req)
 	return rec

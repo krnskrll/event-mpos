@@ -95,7 +95,8 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
 	a.ERPSync = erp.NewSyncService(erpSource, db, a.Products)
 	a.Catalog = catalogsvc.NewService(db)
-	a.CatalogSync = bhoomy.NewCatalogSync(a.Bhoomy, a.Catalog)
+	a.Products.SetSource(a.Catalog)
+	a.CatalogSync = bhoomy.NewCatalogSync(a.Bhoomy, a.Catalog, a.Products)
 	a.Members = membersvc.NewService(db)
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
@@ -240,6 +241,26 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		admin.PUT("/promotions/:id", promotionHandler.Update)
 		admin.DELETE("/promotions/:id", promotionHandler.Delete)
 
+		// Bhoomy back office (Katalog POS, Outlet & Event), called only by the Bhoomy backend.
+		back := api.Group("/backoffice")
+		back.Use(authhandler.ServiceMiddleware(cfg.BhoomyServiceToken, a.storeFor(cfg.BhoomyMode == "http")))
+		back.GET("/catalog/status", catalogHandler.SyncStatus)
+		back.POST("/catalog/sync", catalogHandler.Sync)
+		back.GET("/catalog/source", productHandler.CatalogueSource)
+		back.GET("/items", productHandler.CatalogueList)
+		back.POST("/items", productHandler.CatalogueAdd)
+		back.GET("/items/:id", productHandler.CatalogueGet)
+		back.PUT("/items/:id", productHandler.CatalogueUpdate)
+		back.POST("/items/:id/photo", productHandler.UploadPhoto)
+		back.GET("/locations", productHandler.Locations)
+		back.POST("/locations", eventHandler.CreateLocation)
+		back.GET("/locations/:id", eventHandler.GetLocation)
+		back.PUT("/locations/:id", eventHandler.Update)
+		back.PATCH("/locations/:id/status", eventHandler.ChangeStatus)
+		back.GET("/locations/:id/items", productHandler.LocationRows)
+		back.PUT("/locations/:id/items", productHandler.SaveLocationRows)
+		back.POST("/locations/:id/items", productHandler.AddLocationItems)
+
 		// Warehouse-only
 		warehouse := authed.Group("/warehouse")
 		warehouse.Use(authhandler.RequireRole(useriface.RoleWarehouse, useriface.RoleAdmin))
@@ -250,4 +271,19 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		warehouse.POST("/orders/:orderId/cancel", warehouseOrderHandler.Cancel)
 	}
 	return r
+}
+
+// storeFor finds the POS store of a Bhoomy store; a new one pulls its Produk Toko copy right away.
+func (a *App) storeFor(pull bool) func(uuid.UUID, string) (uuid.UUID, error) {
+	return func(bhoomyStore uuid.UUID, name string) (uuid.UUID, error) {
+		id, created, err := a.Catalog.StoreFor(bhoomyStore, name)
+		if created && pull {
+			go func() {
+				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+				defer cancel()
+				_ = a.CatalogSync.RunStore(ctx, id)
+			}()
+		}
+		return id, err
+	}
 }
