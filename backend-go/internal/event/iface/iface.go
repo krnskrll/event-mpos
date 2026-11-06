@@ -164,3 +164,18 @@ type Events interface {
 	SnapshotForEvent(eventID uuid.UUID) (*EventSnapshot, error)
 	SnapshotVersion(eventID uuid.UUID) (string, error)
 }
+
+// CreateLocationRequest creates an outlet (address) or an event (dates); POS makes the code.
+type CreateLocationRequest struct {
+	Type      LocationType `json:"type" binding:"required,oneof=outlet event"`
+	Name      string       `json:"name" binding:"required"`
+	Address   *string      `json:"address"`
+	StartDate *common.Date `json:"startDate"`
+	EndDate   *common.Date `json:"endDate"`
+}
+
+// LocationResponse is a location in the back office, with how many Katalog POS items it sells.
+type LocationResponse struct {
+	EventResponse
+	Items int `json:"items"`
+}

@@ -57,3 +57,21 @@ type Catalog interface {
 	SavePage(storeID uuid.UUID, page Page, at Cursor) error
 	SaveError(storeID uuid.UUID, err error) error
 }
+
+// Product is one Produk Toko product from POS's copy, with all its variants.
+type Product struct {
+	ID       uuid.UUID
+	Name     string
+	Code     string
+	Brand    *string
+	Category *string
+	ImageURL *string
+	Archived bool
+	Variants []Variant
+}
+
+// Source is what other modules read from POS's copy of Produk Toko.
+type Source interface {
+	// Products returns the store's cached products; nil ids means all of them.
+	Products(storeID uuid.UUID, ids []uuid.UUID) ([]Product, error)
+}

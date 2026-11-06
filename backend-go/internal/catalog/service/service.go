@@ -14,7 +14,10 @@ import (
 
 type Service struct{ db *gorm.DB }
 
-var _ iface.Catalog = (*Service)(nil)
+var (
+	_ iface.Catalog = (*Service)(nil)
+	_ iface.Source  = (*Service)(nil)
+)
 
 func NewService(db *gorm.DB) *Service { return &Service{db: db} }
 
@@ -93,4 +96,50 @@ func (s *Service) cursor(tx *gorm.DB, storeID uuid.UUID) (*repository.SyncCursor
 		return nil, nil
 	}
 	return &c, err
+}
+
+// StoreFor returns the POS store linked to a Bhoomy store, creating it on the first visit.
+func (s *Service) StoreFor(bhoomyStoreID uuid.UUID, name string) (id uuid.UUID, created bool, err error) {
+	if name == "" {
+		name = "Bhoomy " + bhoomyStoreID.String()[:8]
+	}
+	row := struct {
+		ID       uuid.UUID
+		Inserted bool
+	}{}
+	err = s.db.Raw(`INSERT INTO pos_stores (id, name, bhoomy_store_id) VALUES (?, ?, ?)
+		ON CONFLICT (bhoomy_store_id) DO UPDATE SET name = pos_stores.name
+		RETURNING id, (xmax = 0) AS inserted`, uuid.New(), name, bhoomyStoreID).Scan(&row).Error
+	return row.ID, row.Inserted, err
+}
+
+func (s *Service) Products(storeID uuid.UUID, ids []uuid.UUID) ([]iface.Product, error) {
+	q := s.db.Where("store_id = ?", storeID)
+	if ids != nil {
+		q = q.Where("bhoomy_product_id IN ?", ids)
+	}
+	var rows []repository.CachedVariant
+	if err := q.Order("product_name, bhoomy_product_id, NOT is_default, variant_name").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	byID := map[uuid.UUID]*iface.Product{}
+	var out []*iface.Product
+	for _, r := range rows {
+		p := byID[r.BhoomyProductID]
+		if p == nil {
+			p = &iface.Product{ID: r.BhoomyProductID, Name: r.ProductName, Code: r.SKU, Brand: r.BrandName,
+				Category: r.CategoryName, ImageURL: r.ImageURL, Archived: true}
+			byID[r.BhoomyProductID], out = p, append(out, p)
+		}
+		p.Archived = p.Archived && r.Status != "active"
+		p.Variants = append(p.Variants, iface.Variant{BhoomyVariantID: r.BhoomyVariantID, BhoomyProductID: r.BhoomyProductID,
+			ProductName: r.ProductName, VariantName: r.VariantName, SKU: r.SKU, Barcode: r.Barcode, IsDefault: r.IsDefault,
+			BrandName: r.BrandName, CategoryID: r.CategoryID, CategoryName: r.CategoryName, ImageURL: r.ImageURL,
+			Status: r.Status, ChangedAt: r.ChangedAt})
+	}
+	res := make([]iface.Product, len(out))
+	for i, p := range out {
+		res[i] = *p
+	}
+	return res, nil
 }

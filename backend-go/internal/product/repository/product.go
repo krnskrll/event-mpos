@@ -21,10 +21,12 @@ type Product struct {
 	WarehouseStock int                 `gorm:"column:warehouse_stock;not null"`
 	Source         iface.ProductSource `gorm:"type:varchar(20);not null"`
 	Status         string              `gorm:"type:varchar(16);not null"`
-	Barcodes       []ProductBarcode    `gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
-	Variants       []ProductVariant    `gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
-	CreatedAt      time.Time           `gorm:"column:created_at;not null"`
-	UpdatedAt      time.Time           `gorm:"column:updated_at;not null"`
+	// BhoomyProductID links an item added from Produk Toko.
+	BhoomyProductID *uuid.UUID       `gorm:"column:bhoomy_product_id;type:uuid"`
+	Barcodes        []ProductBarcode `gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
+	Variants        []ProductVariant `gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
+	CreatedAt       time.Time        `gorm:"column:created_at;not null"`
+	UpdatedAt       time.Time        `gorm:"column:updated_at;not null"`
 }
 
 const (
@@ -122,6 +124,8 @@ type ProductVariant struct {
 	Price     *decimal.Decimal `gorm:"column:price;type:bigint"`
 	SellInPOS bool             `gorm:"column:sell_in_pos;not null"`
 	IsDefault bool             `gorm:"column:is_default;not null"`
+	// BhoomyVariantID links the variant to its Produk Toko variant.
+	BhoomyVariantID *uuid.UUID `gorm:"column:bhoomy_variant_id;type:uuid"`
 }
 
 func (ProductVariant) TableName() string { return "pos_item_variants" }

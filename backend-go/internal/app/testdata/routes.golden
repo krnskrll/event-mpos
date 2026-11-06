@@ -14,6 +14,13 @@ GET /api/admin/products
 GET /api/admin/products/:id
 GET /api/admin/sync
 GET /api/admin/users
+GET /api/backoffice/catalog/source
+GET /api/backoffice/catalog/status
+GET /api/backoffice/items
+GET /api/backoffice/items/:id
+GET /api/backoffice/locations
+GET /api/backoffice/locations/:id
+GET /api/backoffice/locations/:id/items
 GET /api/health
 GET /api/me
 GET /api/me/event
@@ -33,6 +40,7 @@ GET /media/:file
 GET /ws/events/:eventId/orders
 PATCH /api/admin/events/:id/status
 PATCH /api/admin/users/:id
+PATCH /api/backoffice/locations/:id/status
 PATCH /api/warehouse/orders/:orderId/status
 POST /api/admin/assignments
 POST /api/admin/catalog/sync
@@ -46,6 +54,11 @@ POST /api/admin/users
 POST /api/auth/login
 POST /api/auth/logout
 POST /api/auth/refresh
+POST /api/backoffice/catalog/sync
+POST /api/backoffice/items
+POST /api/backoffice/items/:id/photo
+POST /api/backoffice/locations
+POST /api/backoffice/locations/:id/items
 POST /api/me/events/:eventId/number-blocks
 POST /api/me/events/:eventId/orders
 POST /api/me/events/:eventId/promotions/quote
@@ -59,3 +72,6 @@ PUT /api/admin/events/:id/variants/:variantId
 PUT /api/admin/products/:id
 PUT /api/admin/promotions/:id
 PUT /api/admin/sync/:type
+PUT /api/backoffice/items/:id
+PUT /api/backoffice/locations/:id
+PUT /api/backoffice/locations/:id/items

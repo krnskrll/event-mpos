@@ -607,3 +607,150 @@ components:
         cursorAt: { type: string, format: date-time, nullable: true }
         lastError: { type: string, nullable: true }
         updatedAt: { type: string, format: date-time, nullable: true }
+    SourceOption:
+      type: object
+      required: [productId, name, code, variantCount]
+      properties:
+        productId: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        variantCount: { type: integer }
+    CatalogueItem:
+      type: object
+      required: [id, displayName, productName, code, variants, variantsSold, status, locationIds]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        photoUrl: { type: string, nullable: true }
+        productName: { type: string }
+        code: { type: string }
+        categoryName: { type: string, nullable: true }
+        imageUrl: { type: string, nullable: true }
+        variants: { type: integer }
+        variantsSold: { type: integer }
+        priceMin: { type: integer, format: int64, nullable: true }
+        priceMax: { type: integer, format: int64, nullable: true }
+        status: { type: string, enum: [active, archived] }
+        locationIds: { type: array, items: { type: string, format: uuid } }
+    CatalogueItemDetail:
+      type: object
+      required: [id, displayName, status, source, variants, locations]
+      properties:
+        id: { type: string, format: uuid }
+        displayName: { type: string }
+        photoUrl: { type: string, nullable: true }
+        status: { type: string, enum: [active, archived] }
+        basePrice: { type: integer, format: int64, nullable: true }
+        source:
+          type: object
+          required: [productName, code, archived]
+          properties:
+            productName: { type: string }
+            code: { type: string }
+            brand: { type: string, nullable: true }
+            categoryName: { type: string, nullable: true }
+            barcode: { type: string, nullable: true }
+            imageUrl: { type: string, nullable: true }
+            archived: { type: boolean }
+        variants:
+          type: array
+          items:
+            type: object
+            required: [id, name, sku, sellInPos]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              sku: { type: string }
+              sellInPos: { type: boolean }
+              price: { type: integer, format: int64, nullable: true }
+        locations:
+          type: array
+          items:
+            type: object
+            required: [id, name, type, status, sold, ownPrice]
+            properties:
+              id: { type: string, format: uuid }
+              name: { type: string }
+              type: { type: string, enum: [event, outlet] }
+              status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+              sold: { type: boolean }
+              ownPrice: { type: boolean }
+    AddItemsRequest:
+      type: object
+      required: [productIds]
+      properties:
+        productIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
+    AddItemsResponse:
+      type: object
+      required: [ids]
+      properties:
+        ids: { type: array, items: { type: string, format: uuid } }
+    UpdateItemRequest:
+      type: object
+      required: [displayName, status]
+      properties:
+        displayName: { type: string, maxLength: 40 }
+        status: { type: string, enum: [active, archived] }
+        basePrice: { type: integer, format: int64, nullable: true }
+        variants:
+          type: array
+          items:
+            type: object
+            required: [id, sellInPos]
+            properties:
+              id: { type: string, format: uuid }
+              sellInPos: { type: boolean }
+              price: { type: integer, format: int64, nullable: true }
+        locations:
+          type: array
+          items:
+            type: object
+            required: [id, sold]
+            properties:
+              id: { type: string, format: uuid }
+              sold: { type: boolean }
+    LocationResponse:
+      allOf:
+        - { $ref: '#/components/schemas/EventResponse' }
+        - type: object
+          required: [items]
+          properties:
+            items: { type: integer }
+    CreateLocationRequest:
+      type: object
+      required: [type, name]
+      properties:
+        type: { type: string, enum: [event, outlet] }
+        name: { type: string }
+        address: { type: string, nullable: true }
+        startDate: { type: string, format: date, nullable: true }
+        endDate: { type: string, format: date, nullable: true }
+    LocationRow:
+      type: object
+      required: [itemId, variantId, itemName, variantName, sold]
+      properties:
+        itemId: { type: string, format: uuid }
+        variantId: { type: string, format: uuid }
+        itemName: { type: string }
+        variantName: { type: string }
+        catalogPrice: { type: integer, format: int64, nullable: true }
+        sold: { type: boolean }
+        price: { type: integer, format: int64, nullable: true }
+    SaveLocationRowsRequest:
+      type: object
+      required: [rows]
+      properties:
+        rows:
+          type: array
+          items:
+            type: object
+            required: [variantId, sold]
+            properties:
+              variantId: { type: string, format: uuid }
+              sold: { type: boolean }
+              price: { type: integer, format: int64, nullable: true }
+    AddLocationItemsRequest:
+      type: object
+      required: [itemIds]
+      properties:
+        itemIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
