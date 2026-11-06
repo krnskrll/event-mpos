@@ -3,7 +3,6 @@ package service
 import (
 	"encoding/json"
 	"os"
-	"strings"
 	"testing"
 	"time"
 
@@ -76,17 +75,18 @@ func (f fixturePromotion) toPromotion(t *testing.T) repository.Promotion {
 	if f.Scope != "" {
 		scope = iface.PromotionScope(f.Scope)
 	}
-	var ids *string
-	if len(f.ProductIDs) > 0 {
-		csv := strings.Join(f.ProductIDs, ",")
-		ids = &csv
-	}
-	return repository.Promotion{
+	p := repository.Promotion{
 		ID: uuid.New(), Name: f.Name, Type: iface.PromotionType(f.Type),
 		PercentOff: optDecimal(f.PercentOff), AmountOff: optDecimal(f.AmountOff),
-		Scope: scope, ProductIdsCsv: ids, MinQty: f.MinQty, MinSubtotal: optDecimal(f.MinSubtotal),
+		Scope: scope, MinQty: f.MinQty, MinSubtotal: optDecimal(f.MinSubtotal),
 		StartsAt: optTime(t, f.StartsAt), EndsAt: optTime(t, f.EndsAt), Active: true, Priority: f.Priority,
 	}
+	var ids []uuid.UUID
+	for _, s := range f.ProductIDs {
+		ids = append(ids, uuid.MustParse(s))
+	}
+	p.SetProductIDs(ids)
+	return p
 }
 
 func TestPromotionParityFixture(t *testing.T) {

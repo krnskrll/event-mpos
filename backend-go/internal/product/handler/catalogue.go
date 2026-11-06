@@ -18,6 +18,11 @@ func (h *Handler) CatalogueSource(c *gin.Context) {
 	reply(c, http.StatusOK)(h.svc.CatalogueSource(authiface.StoreOf(c), c.Query("q")))
 }
 
+// Categories are the Produk Toko categories with their Katalog POS items, for promotions.
+func (h *Handler) Categories(c *gin.Context) {
+	reply(c, http.StatusOK)(h.svc.Categories(authiface.StoreOf(c)))
+}
+
 func (h *Handler) CatalogueList(c *gin.Context) {
 	reply(c, http.StatusOK)(h.svc.CatalogueItems(authiface.StoreOf(c)))
 }

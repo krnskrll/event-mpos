@@ -31,8 +31,10 @@ const (
 )
 
 type PromotionResponse struct {
-	ID          uuid.UUID        `json:"id"`
-	EventID     uuid.UUID        `json:"eventId"`
+	ID uuid.UUID `json:"id"`
+	// LocationID is nil when the promotion runs at every location.
+	LocationID  *uuid.UUID       `json:"locationId"`
+	CategoryID  *uuid.UUID       `json:"categoryId,omitempty"`
 	Name        string           `json:"name"`
 	Type        PromotionType    `json:"type"`
 	PercentOff  *decimal.Decimal `json:"percentOff,omitempty"`
@@ -48,6 +50,8 @@ type PromotionResponse struct {
 }
 
 type PromotionRequest struct {
+	LocationID  *uuid.UUID       `json:"locationId"`
+	CategoryID  *uuid.UUID       `json:"categoryId"`
 	Name        string           `json:"name" binding:"required"`
 	Type        PromotionType    `json:"type" binding:"required"`
 	PercentOff  *decimal.Decimal `json:"percentOff"`

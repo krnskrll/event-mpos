@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: POS back office API
   version: "1.0.0"
-  description: Katalog POS and Outlet & Event for the Bhoomy web app. Called only by the Bhoomy backend (service token + X-Bhoomy-Store-Id); not exposed publicly.
+  description: Katalog POS, Outlet & Event, Promosi, Member POS and Laporan POS for the Bhoomy web app. Called only by the Bhoomy backend (service token + X-Bhoomy-Store-Id); not exposed publicly.
 tags:
   - name: backoffice
 paths:
@@ -205,6 +205,119 @@ paths:
         '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/locations/{id}/report:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [backoffice]
+      operationId: getLocationSales
+      summary: "Laporan POS: sales between two WIB dates (default today)"
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: from, in: query, required: false, schema: { type: string, format: date } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/SalesReport' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/locations/{id}/audit:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [backoffice]
+      operationId: searchLocationAudit
+      summary: "Laporan POS history, newest first"
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: page, in: query, required: false, schema: { type: integer } }
+        - { name: size, in: query, required: false, schema: { type: integer } }
+        - { name: action, in: query, required: false, schema: { type: string } }
+        - { name: orderId, in: query, required: false, schema: { type: string } }
+        - { name: from, in: query, required: false, schema: { type: string, format: date } }
+        - { name: to, in: query, required: false, schema: { type: string, format: date } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/AuditPage' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/categories:
+    get:
+      tags: [backoffice]
+      operationId: listCategories
+      summary: "Produk Toko categories with their Katalog POS items"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/Category' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/promotions:
+    get:
+      tags: [backoffice]
+      operationId: listStorePromotions
+      summary: "Promosi (locationId narrows to what runs there)"
+      security: [{ serviceToken: [] }]
+      parameters:
+        - { name: locationId, in: query, required: false, schema: { type: string } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/PromotionResponse' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    post:
+      tags: [backoffice]
+      operationId: createStorePromotion
+      summary: "Add a promotion"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/PromotionRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/PromotionResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/promotions/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [backoffice]
+      operationId: getStorePromotion
+      summary: "One promotion"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/PromotionResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    put:
+      tags: [backoffice]
+      operationId: updateStorePromotion
+      summary: "Change a promotion"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/PromotionRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/PromotionResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    delete:
+      tags: [backoffice]
+      operationId: deleteStorePromotion
+      summary: "Remove a promotion"
+      security: [{ serviceToken: [] }]
+      responses:
+        '204': { description: Deleted }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/members:
+    get:
+      tags: [backoffice]
+      operationId: listStoreMembers
+      summary: "Member POS, read-only (QR code masked)"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/MemberResponse' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
 components:
   securitySchemes:
     serviceToken: { type: http, scheme: bearer }

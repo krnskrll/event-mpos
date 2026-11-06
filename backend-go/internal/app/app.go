@@ -101,7 +101,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
 	a.Stock = stocksvc.NewService(db, a.Events, a.Products)
-	a.Promotions = promotionsvc.NewService(db, a.Products)
+	a.Promotions = promotionsvc.NewService(db, a.Products, a.Events)
 	a.Audit = auditsvc.NewService(db, a.Users)
 	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
 	a.Receipts = receiptsvc.NewService(db, a.Orders, a.Audit)
@@ -241,7 +241,7 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		admin.PUT("/promotions/:id", promotionHandler.Update)
 		admin.DELETE("/promotions/:id", promotionHandler.Delete)
 
-		// Bhoomy back office (Katalog POS, Outlet & Event), called only by the Bhoomy backend.
+		// Bhoomy back office (Katalog POS, Outlet & Event, Promosi, Member POS, Laporan POS), called only by the Bhoomy backend.
 		back := api.Group("/backoffice")
 		back.Use(authhandler.ServiceMiddleware(cfg.BhoomyServiceToken, a.storeFor(cfg.BhoomyMode == "http")))
 		back.GET("/catalog/status", catalogHandler.SyncStatus)
@@ -260,6 +260,15 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		back.GET("/locations/:id/items", productHandler.LocationRows)
 		back.PUT("/locations/:id/items", productHandler.SaveLocationRows)
 		back.POST("/locations/:id/items", productHandler.AddLocationItems)
+		back.GET("/locations/:id/report", reportHandler.Sales)
+		back.GET("/locations/:id/audit", reportHandler.Audit)
+		back.GET("/categories", productHandler.Categories)
+		back.GET("/promotions", promotionHandler.StoreList)
+		back.POST("/promotions", promotionHandler.StoreCreate)
+		back.GET("/promotions/:id", promotionHandler.StoreGet)
+		back.PUT("/promotions/:id", promotionHandler.StoreUpdate)
+		back.DELETE("/promotions/:id", promotionHandler.Delete)
+		back.GET("/members", memberHandler.StoreList)
 
 		// Warehouse-only
 		warehouse := authed.Group("/warehouse")

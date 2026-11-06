@@ -128,6 +128,13 @@ type AddLocationItemsRequest struct {
 	ItemIDs []uuid.UUID `json:"itemIds" binding:"required,min=1"`
 }
 
+// Category is a Produk Toko category with the store's Katalog POS items in it.
+type Category struct {
+	ID      uuid.UUID   `json:"id"`
+	Name    string      `json:"name"`
+	ItemIDs []uuid.UUID `json:"itemIds"`
+}
+
 // Catalogue is what the Bhoomy sync needs: linked items follow Produk Toko changes.
 type Catalogue interface {
 	Reconcile(storeID uuid.UUID, productIDs []uuid.UUID) error

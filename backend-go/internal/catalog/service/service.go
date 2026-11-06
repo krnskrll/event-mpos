@@ -143,3 +143,23 @@ func (s *Service) Products(storeID uuid.UUID, ids []uuid.UUID) ([]iface.Product,
 	}
 	return res, nil
 }
+
+func (s *Service) Categories(storeID uuid.UUID) ([]iface.Category, error) {
+	var rows []repository.CachedVariant
+	if err := s.db.Where("store_id = ? AND is_default AND category_id IS NOT NULL", storeID).
+		Order("category_name, category_id").Find(&rows).Error; err != nil {
+		return nil, err
+	}
+	var out []iface.Category
+	for _, r := range rows {
+		if n := len(out); n == 0 || out[n-1].ID != *r.CategoryID {
+			out = append(out, iface.Category{ID: *r.CategoryID})
+			if r.CategoryName != nil {
+				out[n].Name = *r.CategoryName
+			}
+		}
+		c := &out[len(out)-1]
+		c.ProductIDs = append(c.ProductIDs, r.BhoomyProductID)
+	}
+	return out, nil
+}

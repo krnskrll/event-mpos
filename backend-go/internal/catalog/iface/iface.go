@@ -74,4 +74,12 @@ type Product struct {
 type Source interface {
 	// Products returns the store's cached products; nil ids means all of them.
 	Products(storeID uuid.UUID, ids []uuid.UUID) ([]Product, error)
+	// Categories groups the store's products by their default variant's category.
+	Categories(storeID uuid.UUID) ([]Category, error)
+}
+
+type Category struct {
+	ID         uuid.UUID
+	Name       string
+	ProductIDs []uuid.UUID
 }

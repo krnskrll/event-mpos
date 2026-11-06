@@ -150,6 +150,9 @@ type Products interface {
 	FindAt(locationID, id uuid.UUID) (*SaleProduct, error)
 	// All returns the store's products ordered by SKU, without variants.
 	All(storeID uuid.UUID) ([]SaleProduct, error)
+	Categories(storeID uuid.UUID) ([]Category, error)
+	// RequireItems answers 400 unless every id is an item of the store.
+	RequireItems(storeID uuid.UUID, ids []uuid.UUID) error
 	FindAvailableByBarcode(storeID, eventID uuid.UUID, barcode string) (*ProductResponse, error)
 	// Upsert creates or updates by SKU inside tx; created reports a new row.
 	Upsert(tx database.Tx, storeID uuid.UUID, p SourceProduct) (created bool, err error)

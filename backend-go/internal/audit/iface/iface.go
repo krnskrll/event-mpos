@@ -44,8 +44,10 @@ type Query struct {
 	OrderID *uuid.UUID
 	ActorID *uuid.UUID
 	Action  *AuditAction
-	Page    int // 0-based
-	Size    int
+	// From and To bound the entry time, [From, To); zero is open.
+	From, To time.Time
+	Page     int // 0-based
+	Size     int
 }
 
 // Page is one page of audit entries, newest first, plus the total matching count.
