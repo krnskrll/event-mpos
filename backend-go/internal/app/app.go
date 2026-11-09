@@ -5,6 +5,8 @@ package app
 
 import (
 	"context"
+	"errors"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -295,4 +297,17 @@ func (a *App) storeFor(pull bool) func(uuid.UUID, string) (uuid.UUID, error) {
 		}
 		return id, err
 	}
+}
+
+// CreateStoreAdmin adds a POS admin to a Bhoomy store, so the old dashboard can set up its cashiers
+// until Phase 5 moves accounts to Bhoomy.
+func (a *App) CreateStoreAdmin(bhoomyStore uuid.UUID, email, name, password string) (*useriface.UserResponse, error) {
+	if len(password) < 8 || strings.TrimSpace(name) == "" {
+		return nil, errors.New("name required, password at least 8 characters")
+	}
+	id, err := a.storeFor(false)(bhoomyStore, "")
+	if err != nil {
+		return nil, err
+	}
+	return a.Users.Create(id, useriface.CreateUserRequest{Email: email, Password: password, FullName: name, Role: useriface.RoleAdmin})
 }
