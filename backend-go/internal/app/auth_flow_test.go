@@ -25,15 +25,14 @@ func TestLoginReturnsTokensAndProtectsRoutes(t *testing.T) {
 	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
 	tokens := login(t, a, admin.Email, "Admin123!")
 
-	rec := a.Do(http.MethodGet, "/api/me", nil, tokens.AccessToken)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("/api/me with token: %d", rec.Code)
+	if tokens.User.Role != useriface.RoleAdmin {
+		t.Errorf("role = %v, want ADMIN", tokens.User.Role)
 	}
-	if me := testutil.Decode[map[string]any](t, rec); me["role"] != "ADMIN" {
-		t.Errorf("role = %v, want ADMIN", me["role"])
+	if rec := a.Do(http.MethodGet, "/api/admin/events", nil, tokens.AccessToken); rec.Code != http.StatusOK {
+		t.Fatalf("admin route with token: %d", rec.Code)
 	}
-	if rec := a.Do(http.MethodGet, "/api/me", nil, ""); rec.Code != http.StatusUnauthorized {
-		t.Errorf("/api/me without token: %d, want 401", rec.Code)
+	if rec := a.Do(http.MethodGet, "/api/admin/events", nil, ""); rec.Code != http.StatusUnauthorized {
+		t.Errorf("admin route without token: %d, want 401", rec.Code)
 	}
 }
 

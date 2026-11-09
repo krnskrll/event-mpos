@@ -14,7 +14,8 @@ import (
 type Order struct {
 	ID             uuid.UUID         `gorm:"type:uuid;primaryKey"`
 	EventID        uuid.UUID         `gorm:"column:event_id;type:uuid;not null;index:idx_order_event"`
-	BaUserID       uuid.UUID         `gorm:"column:ba_user_id;type:uuid;not null"`
+	BaUserID       *uuid.UUID        `gorm:"column:ba_user_id;type:uuid"` // orders before Phase 5
+	StaffID        *uuid.UUID        `gorm:"column:staff_id;type:uuid"`
 	IdempotencyKey string            `gorm:"column:idempotency_key;not null;uniqueIndex:idx_order_idem"`
 	OrderNumber    int               `gorm:"column:order_number;not null"`
 	ReferenceID    string            `gorm:"column:reference_id;not null"`
@@ -28,7 +29,7 @@ type Order struct {
 	PromotionName  *string           `gorm:"column:promotion_name"`
 	Status         iface.OrderStatus `gorm:"type:varchar(20);not null"`
 	Items          []OrderItem       `gorm:"foreignKey:OrderID;constraint:OnDelete:CASCADE"`
-	// Set for orders confirmed on a device with a number from its block (EPIC-12 C1/C2).
+	// The paired device (pos_devices.id) that sold it.
 	DeviceID        *string    `gorm:"column:device_id"`
 	ClientCreatedAt *time.Time `gorm:"column:client_created_at"`
 	StockConflict   bool       `gorm:"column:stock_conflict;not null;default:false"` // sold past the allocation

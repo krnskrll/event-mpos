@@ -73,7 +73,7 @@ func (h *AdminHandler) SetAllocation(c *gin.Context) {
 	c.JSON(http.StatusOK, row)
 }
 
-// WarehouseHandler: pick an event + near-real-time remaining stock (under /api/warehouse).
+// WarehouseHandler: the pickup board's location + near-real-time remaining stock (under /api/warehouse).
 type WarehouseHandler struct {
 	svc    *service.Service
 	events eventiface.Events
@@ -83,13 +83,15 @@ func NewWarehouseHandler(svc *service.Service, events eventiface.Events) *Wareho
 	return &WarehouseHandler{svc: svc, events: events}
 }
 
+// Events is the pickup board's location list: just the device's own.
 func (h *WarehouseHandler) Events(c *gin.Context) {
-	events, err := h.events.ListEvents(authiface.StoreOf(c))
+	p, _ := authiface.PrincipalFrom(c)
+	ev, err := h.events.Get(p.LocationID)
 	if err != nil {
 		common.Fail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, events)
+	c.JSON(http.StatusOK, []eventiface.EventResponse{*ev})
 }
 
 func (h *WarehouseHandler) Levels(c *gin.Context) {

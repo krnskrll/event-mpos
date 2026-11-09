@@ -2,6 +2,7 @@ package app_test
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -10,69 +11,78 @@ import (
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	reportiface "github.com/krnskrll/event-mpos/internal/report/iface"
+	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
-// EPIC-12 C4: cancel restores stock, writes ORDER_CANCELLED, follows per-role rules, and leaves the report.
+// Cancelling restores stock, writes ORDER_CANCELLED naming cashier and supervisor, needs a
+// supervisor of the location with the right PIN, and leaves the report.
 func TestCancelOrder(t *testing.T) {
 	a := testutil.NewApp(t)
-	ev, p := a.ActiveEvent(), a.Product("10.00")
+	ev, elsewhere, p := a.ActiveEvent(), a.ActiveEvent(), a.Product("10.00")
 	a.Allocate(ev.ID, p.ID, 10)
-	owner, other := a.CreateUser(useriface.RoleBA, "Ba123456!"), a.CreateUser(useriface.RoleBA, "Ba123456!")
-	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
+	kasir, sari := a.NewStaff(ev.StoreID, staffiface.RoleKasir, ev.ID), a.NewStaff(ev.StoreID, staffiface.RoleSupervisor, ev.ID)
+	away := a.NewStaff(ev.StoreID, staffiface.RoleSupervisor, elsewhere.ID)
+	dev := a.PairDevice(ev.ID)
 	place := func(qty int, status orderiface.OrderStatus) uuid.UUID {
-		conf, err := a.Orders.Submit(ev.ID, owner.ID, orderiface.SubmitOrderRequest{IdempotencyKey: uuid.NewString(),
+		conf, err := a.Orders.Submit(ev.ID, kasir.ID, orderiface.SubmitOrderRequest{IdempotencyKey: uuid.NewString(),
 			Customer: orderiface.CustomerInfo{Name: "C"}, Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: qty}}})
 		if err != nil {
 			t.Fatal(err)
 		}
 		for st := orderiface.StatusNew; st != status; {
 			next := map[orderiface.OrderStatus]orderiface.OrderStatus{orderiface.StatusNew: orderiface.StatusPacking, orderiface.StatusPacking: orderiface.StatusReady}[st]
-			if _, err := a.Orders.AdvanceStatus(conf.ID, next, &wh.ID); err != nil {
+			if _, err := a.Orders.AdvanceStatus(conf.ID, next, &kasir.ID); err != nil {
 				t.Fatal(err)
 			}
 			st = next
 		}
 		return conf.ID
 	}
-	reason := "customer changed mind"
 	newOrder, packing, ready := place(3, orderiface.StatusNew), place(2, orderiface.StatusPacking), place(1, orderiface.StatusReady)
+	cashier := func(id uuid.UUID) string { return "/api/me/orders/" + id.String() + "/cancel" }
+	board := func(id uuid.UUID) string { return "/api/warehouse/orders/" + id.String() + "/cancel" }
+	approve := func(by uuid.UUID, pin string) J {
+		return J{"reason": "customer changed mind", "supervisorId": by, "supervisorPin": pin}
+	}
 
 	cases := []struct {
-		name  string
-		order uuid.UUID
-		actor *useriface.UserResponse
-		want  int
+		name, path string
+		body       J
+		want       int
+		message    string
 	}{
-		{"BA cannot cancel another BA's order", newOrder, other, http.StatusNotFound},
-		{"BA cannot cancel once packing", packing, owner, http.StatusConflict},
-		{"warehouse cannot cancel a READY order", ready, wh, http.StatusConflict},
-		{"warehouse cancels a PACKING order", packing, wh, 0},
-		{"BA cancels own NEW order", newOrder, owner, 0},
-		{"cancelling twice is a conflict", newOrder, wh, http.StatusConflict},
+		{"wrong PIN", cashier(newOrder), approve(sari.ID, "0000"), http.StatusForbidden, "Wrong supervisor PIN"},
+		{"a kasir cannot approve", cashier(newOrder), approve(kasir.ID, testutil.TestPin), http.StatusForbidden, "supervisor"},
+		{"another location's supervisor", cashier(newOrder), approve(away.ID, testutil.TestPin), http.StatusForbidden, "supervisor"},
+		{"no supervisor", cashier(newOrder), J{"reason": "x"}, http.StatusBadRequest, "supervisorId"},
+		{"cashier history cannot cancel once packing", cashier(packing), approve(sari.ID, testutil.TestPin), http.StatusConflict, ""},
+		{"board cannot cancel a READY order", board(ready), approve(sari.ID, testutil.TestPin), http.StatusConflict, ""},
+		{"board cancels a PACKING order", board(packing), approve(sari.ID, testutil.TestPin), http.StatusOK, ""},
+		{"cashier cancels a NEW order", cashier(newOrder), approve(sari.ID, testutil.TestPin), http.StatusOK, ""},
+		{"cancelling twice is a conflict", board(newOrder), approve(sari.ID, testutil.TestPin), http.StatusConflict, ""},
 	}
 	for _, c := range cases {
-		_, err := a.Orders.Cancel(c.order, c.actor.ID, c.actor.Role, &reason)
-		if got := testutil.StatusOf(err); got != c.want || (c.want == 0 && err != nil) {
-			t.Errorf("%s: got %v (status %d), want %d", c.name, err, got, c.want)
+		rec := a.DeviceDo(http.MethodPost, c.path, c.body, dev, kasir.ID)
+		if rec.Code != c.want || !strings.Contains(rec.Body.String(), c.message) {
+			t.Errorf("%s: %d %s, want %d %q", c.name, rec.Code, rec.Body.String(), c.want, c.message)
 		}
+	}
+	if rec := a.DeviceDo(http.MethodPost, cashier(ready), approve(sari.ID, testutil.TestPin), dev, uuid.Nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("cancel without X-Staff-Id: %d, want 400", rec.Code)
 	}
 
 	if got := a.Remaining(ev.ID, p.ID); got != 9 { // only the READY order (1 unit) is still sold
 		t.Errorf("remaining = %d, want 9", got)
 	}
-	if _, err := a.Orders.AdvanceStatus(packing, orderiface.StatusReady, &wh.ID); testutil.StatusOf(err) != http.StatusConflict {
+	if _, err := a.Orders.AdvanceStatus(packing, orderiface.StatusReady, &kasir.ID); testutil.StatusOf(err) != http.StatusConflict {
 		t.Errorf("advancing a cancelled order: %v, want 409", err)
 	}
 	trail, _ := a.Audit.ForOrder(newOrder)
-	if last := trail[len(trail)-1]; last.Action != auditiface.ActionOrderCancelled || *last.Detail != "Order cancelled: "+reason {
-		t.Errorf("last audit entry = %+v", last)
-	}
-	// The BA endpoint goes through the same rules: the order is already cancelled → 409.
-	tok := login(t, a, owner.Email, "Ba123456!").AccessToken
-	if rec := a.Do(http.MethodPost, "/api/me/orders/"+newOrder.String()+"/cancel", nil, tok); rec.Code != http.StatusConflict {
-		t.Errorf("BA cancel endpoint on a cancelled order: %d, want 409", rec.Code)
+	last := trail[len(trail)-1]
+	if last.Action != auditiface.ActionOrderCancelled || last.ActorName != kasir.Name ||
+		*last.Detail != "Order cancelled: customer changed mind · approved by "+sari.Name {
+		t.Errorf("last audit entry = %+v (%s)", last, *last.Detail)
 	}
 
 	closeEvent(t, a, ev.ID)

@@ -19,15 +19,6 @@ components:
         error: { type: string }
         message: { type: string }
         path: { type: string }
-    MeResponse:
-      type: object
-      required: [id, email, fullName, role, storeId]
-      properties:
-        storeId: { type: string, format: uuid }
-        id: { type: string, format: uuid }
-        email: { type: string }
-        fullName: { type: string }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
     SnapshotHashResponse:
       type: object
       required: [snapshotHash, checkedAt]
@@ -311,11 +302,6 @@ components:
         total: { type: integer, format: int64 }
         appliedPromotionId: { type: string, format: uuid }
         appliedPromotionName: { type: string }
-    NumberBlockRequest:
-      type: object
-      required: [deviceId]
-      properties:
-        deviceId: { type: string }
     NumberBlockResponse:
       type: object
       required: [eventId, businessDate, rangeStart, rangeEnd]
@@ -344,7 +330,7 @@ components:
         idempotencyKey: { type: string }
         customer: { $ref: '#/components/schemas/CustomerInfo' }
         lines: { type: array, items: { $ref: '#/components/schemas/OrderLineRequest' } }
-        deviceId: { type: string, nullable: true }
+        deviceId: { type: string, nullable: true, description: ignored; the server records the paired device }
         orderNumber: { type: integer, nullable: true }
         clientCreatedAt: { type: string, format: date-time, nullable: true }
     OrderItemView:
@@ -409,7 +395,7 @@ components:
         orderNumberDisplay: { type: string }
         referenceId: { type: string }
         customerName: { type: string }
-        baName: { type: string }
+        baName: { type: string, description: the cashier (staff) who sold it }
         items: { type: array, items: { $ref: '#/components/schemas/WarehouseItem' } }
         status: { type: string, enum: [NEW, PACKING, READY, COLLECTED, CANCELLED] }
         total: { type: integer, format: int64 }
@@ -418,8 +404,11 @@ components:
         lateSynced: { type: boolean }
     CancelOrderRequest:
       type: object
+      required: [supervisorId, supervisorPin]
       properties:
         reason: { type: string, nullable: true }
+        supervisorId: { type: string, format: uuid }
+        supervisorPin: { type: string }
     AdvanceStatusRequest:
       type: object
       required: [status]

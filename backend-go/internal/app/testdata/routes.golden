@@ -25,7 +25,6 @@ GET /api/backoffice/staff/:id
 GET /api/device
 GET /api/device/staff
 GET /api/health
-GET /api/me
 GET /api/me/event
 GET /api/me/events
 GET /api/me/events/:eventId/orders

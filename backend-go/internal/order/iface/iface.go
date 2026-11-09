@@ -52,11 +52,7 @@ func (s OrderStatus) CanAdvanceTo(target OrderStatus) bool {
 // NumberBlockSize is how many order numbers a device gets per block (it asks for more below 10 left).
 const NumberBlockSize = 50
 
-// NumberBlockRequest / NumberBlockResponse: POST /api/me/events/{id}/number-blocks.
-type NumberBlockRequest struct {
-	DeviceID string `json:"deviceId" binding:"required"`
-}
-
+// NumberBlockResponse: POST /api/me/events/{id}/number-blocks, issued to the calling device.
 type NumberBlockResponse struct {
 	EventID      uuid.UUID `json:"eventId"`
 	BusinessDate string    `json:"businessDate"`
@@ -81,6 +77,7 @@ type SubmitOrderRequest struct {
 	Customer       CustomerInfo       `json:"customer"`
 	Lines          []OrderLineRequest `json:"lines"`
 	// Offline-confirmed orders carry the device's final number (from its block) and creation time.
+	// The server sets DeviceID to the paired device; a value sent by the app is ignored.
 	DeviceID        *string    `json:"deviceId"`
 	OrderNumber     *int       `json:"orderNumber"`
 	ClientCreatedAt *time.Time `json:"clientCreatedAt"`
@@ -154,8 +151,11 @@ type WarehouseOrderView struct {
 	LateSynced         bool            `json:"lateSynced"`
 }
 
+// CancelOrderRequest: a supervisor of the location approves with their PIN.
 type CancelOrderRequest struct {
-	Reason *string `json:"reason"`
+	Reason        *string   `json:"reason"`
+	SupervisorID  uuid.UUID `json:"supervisorId"`
+	SupervisorPin string    `json:"supervisorPin"`
 }
 
 type AdvanceStatusRequest struct {
@@ -188,12 +188,15 @@ type SoldItem struct {
 }
 
 type Orders interface {
-	Submit(eventID, baUserID uuid.UUID, req SubmitOrderRequest) (*OrderConfirmation, error)
+	Submit(eventID, staffID uuid.UUID, req SubmitOrderRequest) (*OrderConfirmation, error)
 	IssueNumberBlock(eventID uuid.UUID, deviceID string) (*NumberBlockResponse, error)
-	History(eventID, baUserID uuid.UUID) ([]OrderSummary, error)
+	// History is the orders a device sold at the location, newest first.
+	History(eventID uuid.UUID, deviceID string) ([]OrderSummary, error)
 	Get(orderID uuid.UUID) (*OrderConfirmation, error)
-	// ForReceipt returns nil when the order does not exist or belongs to another BA.
-	ForReceipt(tx database.Tx, orderID, baUserID uuid.UUID) (*ReceiptOrder, error)
+	// LocationOf is the location an order was sold at (404 when it does not exist).
+	LocationOf(orderID uuid.UUID) (uuid.UUID, error)
+	// ForReceipt returns nil when the order does not exist or was sold at another location.
+	ForReceipt(tx database.Tx, orderID, locationID uuid.UUID) (*ReceiptOrder, error)
 	// ForReport returns non-cancelled orders sold in [from, to) newest first, plus the cancelled
 	// count. A zero bound is open; the sale time is the device's for offline orders.
 	ForReport(eventID uuid.UUID, from, to time.Time) ([]SoldOrder, int, error)

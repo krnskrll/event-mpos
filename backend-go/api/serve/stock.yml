@@ -41,12 +41,12 @@ paths:
     get:
       tags: [stock]
       operationId: listWarehouseEvents
-      summary: "Events for the warehouse board"
-      security: [{ bearerAuth: [] }]
+      summary: "The pickup board's location (the device's own), as a one-item list"
+      security: [{ deviceToken: [] }]
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Another location, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/warehouse/events/{eventId}/stock:
     parameters:
       - { name: eventId, in: path, required: true, schema: { type: string } }
@@ -54,12 +54,13 @@ paths:
       tags: [stock]
       operationId: listStockLevels
       summary: "Stock levels with low-stock flags"
-      security: [{ bearerAuth: [] }]
+      security: [{ deviceToken: [] }]
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/StockLevelRow' } } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Another location, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
 components:
   securitySchemes:
     bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    deviceToken: { type: apiKey, in: header, name: Authorization, description: "Device <token>" }

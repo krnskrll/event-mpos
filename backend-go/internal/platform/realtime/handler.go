@@ -2,13 +2,11 @@ package realtime
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
-
-	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
 )
 
 // wsConn is the subset of *websocket.Conn used, so the hub can stay transport-agnostic in tests.
@@ -30,43 +28,32 @@ const (
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
-	// Origin is not the auth boundary here — the JWT (validated below) is. The dashboard connects
-	// cross-origin via the dev proxy, so accept the handshake and rely on the token.
+	// Origin is not the auth boundary here — the device token (validated below) is.
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-// Handler upgrades the warehouse dashboard's WebSocket, authenticating the JWT first.
+// Handler upgrades the pickup board's WebSocket, authenticating the device first.
 type Handler struct {
-	hub     *Hub
-	jwt     authiface.TokenVerifier
-	inStore func(storeID uuid.UUID, eventID string) bool
+	hub       *Hub
+	authorize func(token, eventID string) int
 }
 
-// NewHandler takes inStore so the board only opens for an event in the caller's store.
-func NewHandler(hub *Hub, jwt authiface.TokenVerifier, inStore func(storeID uuid.UUID, eventID string) bool) *Handler {
-	return &Handler{hub: hub, jwt: jwt, inStore: inStore}
+// NewHandler takes authorize, which answers 0 when the token's device may watch the event's board,
+// else the HTTP status to refuse with.
+func NewHandler(hub *Hub, authorize func(token, eventID string) int) *Handler {
+	return &Handler{hub: hub, authorize: authorize}
 }
 
-// ServeWS handles GET /ws/events/:eventId/orders?token=<accessToken>. The JWT is required in the
-// `token` query param (browsers can't set Authorization on a WebSocket handshake); a Bearer header
-// is also accepted for non-browser clients.
+// ServeWS handles GET /ws/events/:eventId/orders?token=<device token>. The token goes in the query
+// (a WebSocket handshake cannot always set headers); "Authorization: Device <token>" also works.
 func (h *Handler) ServeWS(c *gin.Context) {
 	token := c.Query("token")
 	if token == "" {
-		if hdr := c.GetHeader("Authorization"); len(hdr) > 7 && hdr[:7] == "Bearer " {
-			token = hdr[7:]
-		}
-	}
-	claims, ok := h.jwt.Parse(token)
-	if !ok {
-		c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-			"status": 401, "error": "Unauthorized", "message": "Authentication required",
-		})
-		return
+		token = strings.TrimPrefix(c.GetHeader("Authorization"), "Device ")
 	}
 	eventID := c.Param("eventId")
-	if !h.inStore(authiface.StoreFromClaims(claims), eventID) {
-		c.AbortWithStatusJSON(http.StatusNotFound, gin.H{"status": 404, "error": "Not Found", "message": "Event not found"})
+	if status := h.authorize(token, eventID); status != 0 {
+		c.AbortWithStatusJSON(status, gin.H{"status": status, "error": http.StatusText(status), "message": "Not allowed to watch this board"})
 		return
 	}
 

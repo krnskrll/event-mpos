@@ -11,20 +11,19 @@ import (
 	"github.com/krnskrll/event-mpos/internal/audit/iface"
 	"github.com/krnskrll/event-mpos/internal/audit/repository"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Service records order activity into the append-only OrderAuditLog, resolving the actor's name at
 // write time. Purely additive — never updates or deletes.
 type Service struct {
 	db    *gorm.DB
-	users useriface.Users
+	names iface.Names
 }
 
 var _ iface.Audit = (*Service)(nil)
 
-func NewService(db *gorm.DB, users useriface.Users) *Service {
-	return &Service{db: db, users: users}
+func NewService(db *gorm.DB, names iface.Names) *Service {
+	return &Service{db: db, names: names}
 }
 
 // actorName resolves the actor's display name through the caller's transaction. It must not use a
@@ -34,7 +33,7 @@ func (s *Service) actorName(tx *gorm.DB, userID *uuid.UUID) string {
 	if userID == nil {
 		return "system"
 	}
-	name, err := s.users.NameOf(tx, *userID)
+	name, err := s.names.NameOf(tx, *userID)
 	if err != nil {
 		return "system"
 	}
@@ -76,12 +75,16 @@ func (s *Service) RecordReceiptPrinted(tx database.Tx, eventID, orderID uuid.UUI
 	}).Error
 }
 
-// RecordCancelled writes an ORDER_CANCELLED entry (with the optional reason) using the provided tx.
-func (s *Service) RecordCancelled(tx database.Tx, eventID, orderID uuid.UUID, orderReference, from string, actorUserID *uuid.UUID, reason *string) error {
+// RecordCancelled writes an ORDER_CANCELLED entry (with the optional reason and the approving
+// supervisor) using the provided tx.
+func (s *Service) RecordCancelled(tx database.Tx, eventID, orderID uuid.UUID, orderReference, from string, actorUserID *uuid.UUID, reason *string, approvedBy string) error {
 	to := "CANCELLED"
 	detail := "Order cancelled"
 	if reason != nil && strings.TrimSpace(*reason) != "" {
 		detail += ": " + strings.TrimSpace(*reason)
+	}
+	if approvedBy != "" {
+		detail += " · approved by " + approvedBy
 	}
 	return tx.Create(&repository.OrderAuditLog{
 		EventID: eventID, OrderID: orderID, OrderReference: orderReference,

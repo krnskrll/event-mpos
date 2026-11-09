@@ -16,6 +16,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	receiptrepo "github.com/krnskrll/event-mpos/internal/receipt/repository"
 	reportiface "github.com/krnskrll/event-mpos/internal/report/iface"
+	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
 	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -64,18 +65,17 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 	a := testutil.NewApp(t)
 	bhoomyStore := uuid.New()
 	ev := a.ActiveEventIn(posStore(t, a, bhoomyStore))
-	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
-	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
+	ba, wh := uuid.New(), uuid.New()
 
 	// 125 entries, one second apart (entry 0 is the newest). Every 5th is a receipt print;
-	// even entries are by the BA, odd ones by the warehouse user.
+	// even entries are by the cashier, odd ones by the packer.
 	const total = 125
 	targetOrder := uuid.New()
 	base := time.Now().UTC()
 	for i := 0; i < total; i++ {
-		actor, action, orderID := wh.ID, auditiface.ActionStatusChanged, uuid.New()
+		actor, action, orderID := wh, auditiface.ActionStatusChanged, uuid.New()
 		if i%2 == 0 {
-			actor = ba.ID
+			actor = ba
 		}
 		if i%5 == 0 {
 			action = auditiface.ActionReceiptPrinted
@@ -131,14 +131,14 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 	if big := get("?size=500"); big.Size != 200 || len(big.Items) != total {
 		t.Errorf("size=500: size=%d items=%d, want capped at 200 with all %d", big.Size, len(big.Items), total)
 	}
-	if byActor := get("?actor=" + ba.ID.String()); byActor.Total != 63 {
+	if byActor := get("?actor=" + ba.String()); byActor.Total != 63 {
 		t.Errorf("actor=BA total = %d, want 63", byActor.Total)
 	}
 	if byAction := get("?action=RECEIPT_PRINTED"); byAction.Total != 25 {
 		t.Errorf("action=RECEIPT_PRINTED total = %d, want 25", byAction.Total)
 	}
 	// Receipt prints (every 5th) by the BA (even) → i = 0, 10, 20, … 120 → 13 entries.
-	if both := get("?action=RECEIPT_PRINTED&actor=" + ba.ID.String()); both.Total != 13 {
+	if both := get("?action=RECEIPT_PRINTED&actor=" + ba.String()); both.Total != 13 {
 		t.Errorf("actor+action total = %d, want 13", both.Total)
 	}
 	if byOrder := get("?orderId=" + targetOrder.String()); byOrder.Total != 3 {
@@ -156,8 +156,8 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("20.00")
 	a.Allocate(ev.ID, p.ID, 10)
-	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
-	other := a.CreateUser(useriface.RoleBA, "Ba123456!")
+	ba := a.NewStaff(ev.StoreID, staffiface.RoleKasir, ev.ID)
+	dev := a.PairDevice(ev.ID)
 	conf, err := a.Orders.Submit(ev.ID, ba.ID, orderiface.SubmitOrderRequest{
 		IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "Cara"},
 		Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
@@ -166,10 +166,9 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 		t.Fatal(err)
 	}
 	path := "/api/me/orders/" + conf.ID.String() + "/receipts"
-	baTok := login(t, a, ba.Email, "Ba123456!").AccessToken
 
 	for i := 0; i < 2; i++ {
-		if rec := a.Do(http.MethodPost, path, nil, baTok); rec.Code != http.StatusNoContent {
+		if rec := a.DeviceDo(http.MethodPost, path, nil, dev, ba.ID); rec.Code != http.StatusNoContent {
 			t.Fatalf("print %d: %d %s", i+1, rec.Code, rec.Body.String())
 		}
 	}
@@ -185,16 +184,19 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	if len(trail) != 3 || trail[1].Action != auditiface.ActionReceiptPrinted || trail[2].Action != auditiface.ActionReceiptPrinted {
 		t.Fatalf("trail = %+v", trail)
 	}
-	if *trail[1].Detail != "Receipt printed" || *trail[2].Detail != "Receipt reprinted (print #2)" || trail[1].ActorName != ba.FullName {
+	if *trail[1].Detail != "Receipt printed" || *trail[2].Detail != "Receipt reprinted (print #2)" || trail[1].ActorName != ba.Name {
 		t.Errorf("receipt entries = %+v / %+v", trail[1], trail[2])
 	}
 
-	// Another BA's order and an unknown order are both 404, and change nothing.
-	otherTok := login(t, a, other.Email, "Ba123456!").AccessToken
-	if rec := a.Do(http.MethodPost, path, nil, otherTok); rec.Code != http.StatusNotFound {
-		t.Errorf("other BA's order: %d, want 404", rec.Code)
+	// Another location's device, an unknown order, or no staff: refused, nothing changes.
+	otherEv := a.ActiveEvent()
+	if rec := a.DeviceDo(http.MethodPost, path, nil, a.PairDevice(otherEv.ID), a.NewStaff(ev.StoreID, staffiface.RoleKasir, otherEv.ID).ID); rec.Code != http.StatusNotFound {
+		t.Errorf("other location's order: %d, want 404", rec.Code)
 	}
-	if rec := a.Do(http.MethodPost, "/api/me/orders/"+uuid.NewString()+"/receipts", nil, baTok); rec.Code != http.StatusNotFound {
+	if rec := a.DeviceDo(http.MethodPost, path, nil, dev, uuid.Nil); rec.Code != http.StatusBadRequest {
+		t.Errorf("print without X-Staff-Id: %d, want 400", rec.Code)
+	}
+	if rec := a.DeviceDo(http.MethodPost, "/api/me/orders/"+uuid.NewString()+"/receipts", nil, dev, ba.ID); rec.Code != http.StatusNotFound {
 		t.Errorf("unknown order: %d, want 404", rec.Code)
 	}
 
@@ -204,7 +206,7 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			if err := a.Receipts.LogPrint(conf.ID, ba.ID); err != nil {
+			if err := a.Receipts.LogPrint(conf.ID, ev.ID, ba.ID); err != nil {
 				t.Errorf("concurrent print: %v", err)
 			}
 		}()

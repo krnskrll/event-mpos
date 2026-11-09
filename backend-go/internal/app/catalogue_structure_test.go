@@ -15,7 +15,6 @@ import (
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Store B may reuse store A's codes; a store may not repeat its own.
@@ -54,7 +53,6 @@ func TestCodesAreUniquePerStore(t *testing.T) {
 // Two stores sell the same barcode; each cashier scans their own store's item.
 func TestBarcodeLookupStaysInTheStore(t *testing.T) {
 	a := testutil.NewApp(t)
-	const pw = "Passw0rd!"
 	barcode := testutil.Unique("899")
 	scan := func(store uuid.UUID) (uuid.UUID, string) {
 		p := a.ProductIn(store, "5000")
@@ -65,11 +63,7 @@ func TestBarcodeLookupStaysInTheStore(t *testing.T) {
 		if err := a.DB.Create(&productrepo.LocationItem{LocationID: ev.ID, ItemVariantID: p.Default().ID, Active: true}).Error; err != nil {
 			t.Fatal(err)
 		}
-		ba := a.CreateUserIn(store, useriface.RoleBA, pw)
-		if _, err := a.Events.AssignBaToEvent(store, ba.ID, ev.ID); err != nil {
-			t.Fatal(err)
-		}
-		rec := a.Do(http.MethodGet, "/api/me/events/"+ev.ID.String()+"/products/by-barcode/"+barcode, nil, login(t, a, ba.Email, pw).AccessToken)
+		rec := a.DeviceDo(http.MethodGet, "/api/me/events/"+ev.ID.String()+"/products/by-barcode/"+barcode, nil, a.PairDevice(ev.ID), uuid.Nil)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("scan: %d %s", rec.Code, rec.Body.String())
 		}
@@ -129,8 +123,7 @@ func TestDefaultVariantCarriesThePrice(t *testing.T) {
 
 func sellOne(t *testing.T, a *testutil.TestApp, eventID, productID uuid.UUID, variantID *uuid.UUID) *orderiface.OrderConfirmation {
 	t.Helper()
-	ba := a.CreateUser(useriface.RoleBA, "Passw0rd!")
-	o, err := a.Orders.Submit(eventID, ba.ID, sellRequest(productID, variantID))
+	o, err := a.Orders.Submit(eventID, uuid.New(), sellRequest(productID, variantID))
 	if err != nil {
 		t.Fatal(err)
 	}
