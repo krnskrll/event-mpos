@@ -115,17 +115,27 @@ class OrderRepository {
     return query.watch().map((rows) => rows.map(_toRecord).toList());
   }
 
-  /// Cancels an uploaded order and returns its stock. Returns a message for the BA when it can't.
-  Future<String?> cancel(String key) async {
+  /// Cancels an uploaded order (online only) once a supervisor approved with their PIN, and returns
+  /// its stock. Returns a message for the cashier when it can't.
+  Future<String?> cancel(
+    String key, {
+    required String reason,
+    required String supervisorId,
+    required String pin,
+  }) async {
     final order = await (_db.select(_db.pendingOrders)..where((o) => o.idempotencyKey.equals(key))).getSingleOrNull();
     if (order?.serverOrderId == null) return "This order hasn't synced yet — try again when it's confirmed.";
     try {
-      await _dio.post('api/me/orders/${order!.serverOrderId}/cancel', data: {});
+      await _dio.post(
+        'api/me/orders/${order!.serverOrderId}/cancel',
+        data: {'reason': reason, 'supervisorId': supervisorId, 'supervisorPin': pin},
+      );
     } on DioException catch (e) {
+      final data = e.response?.data;
       return switch (e.response?.statusCode) {
         null => "Can't reach the server. Cancel needs a connection.",
         409 => "The warehouse is already packing this order — it can't be cancelled here.",
-        final code => 'Cancel failed ($code)',
+        final code => (data is Map ? data['message'] as String? : null) ?? 'Cancel failed ($code)',
       };
     }
     await (_db.update(
