@@ -70,4 +70,19 @@ void main() {
     expect(app.container.read(signedInProvider), isNull);
     expect(find.text("Who's selling?"), findsOneWidget);
   });
+
+  testWidgets('removed in Bhoomy while selling: back to pairing with the reason', (tester) async {
+    await pumpApp(tester, server);
+    await tester.tap(find.text('Budi Santoso'));
+    await tester.pumpAndSettle();
+    await enterPin(tester, '1234');
+    expect(find.text('Pickup'), findsOneWidget); // the shell's tabs
+
+    server.validToken = 'removed';
+    server.routes.remove('api/device');
+    await tester.pump(const Duration(seconds: 60)); // the next heartbeat
+    await tester.pumpAndSettle();
+
+    expect(find.text('This device was removed in Bhoomy. Connect it again with a new code.'), findsOneWidget);
+  });
 }
