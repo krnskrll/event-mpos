@@ -45,6 +45,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       (Icons.home_outlined, 'Home', 0, true),
       (Icons.grid_view_rounded, 'Sell', 0, !closed),
       (Icons.receipt_long_outlined, 'Orders', pending, true),
+      (Icons.inventory_2_outlined, 'Pickup', 0, true),
     ];
     Widget icon(IconData data, int badge) => Badge(
       isLabelVisible: badge > 0,

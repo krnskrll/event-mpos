@@ -11,6 +11,7 @@ import '../features/device/pair_screen.dart';
 import '../features/home/home_screen.dart';
 import '../features/orders/order_detail.dart';
 import '../features/orders/orders_screen.dart';
+import '../features/pickup/pickup_screen.dart';
 import '../features/printer/printer_screen.dart';
 import '../features/receipt/receipt_screen.dart';
 import '../features/scan/barcode_scan_screen.dart';
@@ -48,6 +49,7 @@ final routerProvider = Provider<GoRouter>((ref) {
             ('/home', const HomeScreen()),
             ('/sell', const SellScreen()),
             ('/orders', const OrdersScreen()),
+            ('/pickup', const PickupScreen()),
           ])
             StatefulShellBranch(routes: [_route(path, (_) => screen)]),
         ],
