@@ -173,7 +173,8 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	_ = r.SetTrustedProxies(nil)
+	// Caddy reaches POS over the private network; trust its X-Forwarded-For so per-client limits work.
+	_ = r.SetTrustedProxies([]string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1/32"})
 	r.Use(common.AccessLogger(), gin.Recovery(), common.CORS(cfg.CORSOrigins))
 
 	common.RegisterHealth(r)

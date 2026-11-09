@@ -98,6 +98,10 @@ func TestPairing(t *testing.T) {
 	if got != http.StatusTooManyRequests {
 		t.Errorf("11th attempt in a minute: %d, want 429", got)
 	}
+	// Behind Caddy (a private address) each client counts on its own.
+	if c := a.Send(http.MethodPost, "/api/device/pair", J{"code": "000000"}, map[string]string{"RemoteAddr": "10.9.9.9:1", "X-Forwarded-For": "203.0.113.7"}).Code; c == http.StatusTooManyRequests {
+		t.Error("a client behind the proxy shares the proxy's limit")
+	}
 
 	// Another store sees none of it; a closed location takes no new devices.
 	other := uuid.New()
