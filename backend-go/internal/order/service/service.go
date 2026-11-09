@@ -568,7 +568,7 @@ func (s *Service) ForReport(eventID uuid.UUID, from, to time.Time) ([]iface.Sold
 		for _, it := range o.Items {
 			items = append(items, iface.SoldItem{ProductID: it.ProductID, SKU: it.SKU, Name: it.Name, VariantName: it.VariantName, Qty: it.Qty, LineTotal: it.LineTotal})
 		}
-		out = append(out, iface.SoldOrder{PromotionID: o.PromotionID, Total: o.Total, Discount: o.Discount, LateSynced: o.LateSynced, StockConflict: o.StockConflict, Items: items})
+		out = append(out, iface.SoldOrder{PromotionID: o.PromotionID, Total: o.Total, Discount: o.Discount, LateSynced: o.LateSynced, Items: items})
 	}
 	return out, int(cancelled), nil
 }

@@ -29,12 +29,10 @@ type Config struct {
 	AccessTokenTTLMin   int
 	RefreshTokenTTLDays int
 
-	// ERP adapter: mock | file | rest
-	ERPSource        string
-	ERPFilePath      string
-	ERPRestURL       string
-	ERPScheduledSync bool
-	ERPSyncCron      string
+	// ERP adapter, used only by the dev seed: mock | file | rest
+	ERPSource   string
+	ERPFilePath string
+	ERPRestURL  string
 
 	// Member adapter: mock | file | rest
 	MemberSource        string
@@ -74,11 +72,9 @@ func Load() *Config {
 		AccessTokenTTLMin:   getint("JWT_ACCESS_TTL", 15),
 		RefreshTokenTTLDays: getint("JWT_REFRESH_TTL", 7),
 
-		ERPSource:        getenv("ERP_SOURCE", "mock"),
-		ERPFilePath:      getenv("ERP_FILE_PATH", ""),
-		ERPRestURL:       getenv("ERP_REST_URL", ""),
-		ERPScheduledSync: getbool("ERP_SCHEDULED", false),
-		ERPSyncCron:      getenv("ERP_SYNC_CRON", "0 0 * * * *"),
+		ERPSource:   getenv("ERP_SOURCE", "mock"),
+		ERPFilePath: getenv("ERP_FILE_PATH", ""),
+		ERPRestURL:  getenv("ERP_REST_URL", ""),
 
 		MemberSource:        getenv("MEMBER_SOURCE", "mock"),
 		MemberFilePath:      getenv("MEMBER_FILE_PATH", ""),

@@ -3,11 +3,13 @@ package app_test
 import (
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	reportiface "github.com/krnskrll/event-mpos/internal/report/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
@@ -74,11 +76,17 @@ func TestCancelOrder(t *testing.T) {
 	}
 
 	closeEvent(t, a, ev.ID)
-	r, err := a.Reports.EndOfEvent(ev.ID)
+	if r := salesSoFar(t, a, ev.ID); r.TotalOrders != 1 || r.CancelledOrders != 2 || r.TotalItems != 1 || !r.TotalRevenue.Equal(dec("10")) {
+		t.Errorf("report orders/cancelled/items/revenue = %d/%d/%d/%s, want 1/2/1/10", r.TotalOrders, r.CancelledOrders, r.TotalItems, r.TotalRevenue)
+	}
+}
+
+// salesSoFar is the location's sales report over every day up to now.
+func salesSoFar(t *testing.T, a *testutil.TestApp, eventID uuid.UUID) *reportiface.SalesReport {
+	t.Helper()
+	r, err := a.Reports.Sales(eventID, time.Date(2000, 1, 1, 0, 0, 0, 0, time.UTC), time.Now(), time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.TotalOrders != 1 || r.CancelledOrders != 2 || r.TotalItems != 1 || !r.TotalRevenue.Equal(dec("10")) {
-		t.Errorf("report orders/cancelled/items/revenue = %d/%d/%d/%s, want 1/2/1/10", r.TotalOrders, r.CancelledOrders, r.TotalItems, r.TotalRevenue)
-	}
+	return r
 }

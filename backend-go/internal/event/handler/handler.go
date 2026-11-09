@@ -27,20 +27,6 @@ func (h *Handler) List(c *gin.Context) {
 	c.JSON(http.StatusOK, events)
 }
 
-func (h *Handler) Create(c *gin.Context) {
-	var req iface.CreateEventRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
-		return
-	}
-	resp, err := h.svc.CreateEvent(authiface.StoreOf(c), req)
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, resp)
-}
-
 func (h *Handler) Update(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

@@ -171,12 +171,11 @@ type ReceiptOrder struct {
 
 // SoldOrder is a non-cancelled order as reports see it.
 type SoldOrder struct {
-	PromotionID   *uuid.UUID
-	Total         decimal.Decimal
-	Discount      decimal.Decimal
-	LateSynced    bool
-	StockConflict bool
-	Items         []SoldItem
+	PromotionID *uuid.UUID
+	Total       decimal.Decimal
+	Discount    decimal.Decimal
+	LateSynced  bool
+	Items       []SoldItem
 }
 
 type SoldItem struct {

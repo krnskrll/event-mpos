@@ -3,7 +3,6 @@ package app_test
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -16,6 +15,7 @@ import (
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	receiptrepo "github.com/krnskrll/event-mpos/internal/receipt/repository"
+	reportiface "github.com/krnskrll/event-mpos/internal/report/iface"
 	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
@@ -36,39 +36,36 @@ func adminToken(t *testing.T, a *testutil.TestApp) string {
 	return login(t, a, admin.Email, "Admin123!").AccessToken
 }
 
-func TestFinalReportOnlyForClosedEvents(t *testing.T) {
+// The location report is final once the location is closed: no more orders can arrive.
+func TestReportIsFinalOnceClosed(t *testing.T) {
 	a := testutil.NewApp(t)
-	ev, p := a.ActiveEvent(), a.Product("50.00")
+	bhoomyStore := uuid.New()
+	store := posStore(t, a, bhoomyStore)
+	ev, p := a.ActiveEventIn(store), a.ProductIn(store, "50.00")
 	a.Allocate(ev.ID, p.ID, 10)
 	if _, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1)); err != nil {
 		t.Fatal(err)
 	}
-	tok := adminToken(t, a)
-
-	if _, err := a.Reports.EndOfEvent(ev.ID); testutil.StatusOf(err) != http.StatusConflict {
-		t.Fatalf("report on ACTIVE event: got %v, want 409", err)
+	report := func() reportiface.SalesReport {
+		return ok[reportiface.SalesReport](t, a.Back(http.MethodGet, "/locations/"+ev.ID.String()+"/report", nil, bhoomyStore), http.StatusOK)
 	}
-	for _, path := range []string{"/report", "/report.csv"} {
-		rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+path, nil, tok)
-		if rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "CLOSED") {
-			t.Errorf("%s on ACTIVE event: %d %s, want 409 mentioning CLOSED", path, rec.Code, rec.Body.String())
-		}
+	if r := report(); r.Final || r.TotalOrders != 1 {
+		t.Errorf("ACTIVE location: final=%v orders=%d, want not final with 1 order", r.Final, r.TotalOrders)
 	}
-
-	closeEvent(t, a, ev.ID)
-	for _, path := range []string{"/report", "/report.csv"} {
-		if rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+path, nil, tok); rec.Code != http.StatusOK {
-			t.Errorf("%s on CLOSED event: %d, want 200", path, rec.Code)
-		}
+	if _, err := a.Events.ChangeStatus(store, ev.ID, eventiface.StatusClosed); err != nil {
+		t.Fatal(err)
+	}
+	if r := report(); !r.Final || r.TotalOrders != 1 {
+		t.Errorf("CLOSED location: final=%v orders=%d, want final with 1 order", r.Final, r.TotalOrders)
 	}
 }
 
 func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 	a := testutil.NewApp(t)
-	ev := a.ActiveEvent()
+	bhoomyStore := uuid.New()
+	ev := a.ActiveEventIn(posStore(t, a, bhoomyStore))
 	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
 	wh := a.CreateUser(useriface.RoleWarehouse, "Wh123456!")
-	tok := adminToken(t, a)
 
 	// 125 entries, one second apart (entry 0 is the newest). Every 5th is a receipt print;
 	// even entries are by the BA, odd ones by the warehouse user.
@@ -97,7 +94,7 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 
 	get := func(query string) auditiface.Page {
 		t.Helper()
-		rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+"/audit"+query, nil, tok)
+		rec := a.Back(http.MethodGet, "/locations/"+ev.ID.String()+"/audit"+query, nil, bhoomyStore)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("audit%s: %d %s", query, rec.Code, rec.Body.String())
 		}
@@ -149,7 +146,7 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 	}
 
 	for _, bad := range []string{"?action=NOPE", "?actor=not-a-uuid", "?page=-1", "?size=0", "?page=x"} {
-		if rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+"/audit"+bad, nil, tok); rec.Code != http.StatusBadRequest {
+		if rec := a.Back(http.MethodGet, "/locations/"+ev.ID.String()+"/audit"+bad, nil, bhoomyStore); rec.Code != http.StatusBadRequest {
 			t.Errorf("audit%s: %d, want 400", bad, rec.Code)
 		}
 	}

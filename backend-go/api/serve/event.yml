@@ -15,56 +15,6 @@ paths:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } } }
         '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-    post:
-      tags: [event]
-      operationId: createEvent
-      summary: "Create a DRAFT event"
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CreateEventRequest' } } }
-      responses:
-        '201': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
-        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/admin/events/{id}:
-    parameters:
-      - { name: id, in: path, required: true, schema: { type: string } }
-    put:
-      tags: [event]
-      operationId: updateEvent
-      summary: "Edit an event that is not CLOSED"
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/UpdateEventRequest' } } }
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
-        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/admin/events/{id}/status:
-    parameters:
-      - { name: id, in: path, required: true, schema: { type: string } }
-    patch:
-      tags: [event]
-      operationId: changeEventStatus
-      summary: "Move DRAFT → ACTIVE → CLOSED"
-      security: [{ bearerAuth: [] }]
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ChangeStatusRequest' } } }
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
-        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/admin/assignments:
     post:
       tags: [event]

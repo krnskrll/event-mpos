@@ -115,16 +115,13 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 		a.Hub.Broadcast(eventID.String(), view)
 	})
 
-	// Reporting + runtime-editable sync schedules with a dynamic cron scheduler.
-	a.Reports = reportsvc.NewService(a.Events, a.Products, a.Stock, a.Orders)
-	a.SyncConfig = syncsvc.NewService(db, cfg.ERPSyncCron, cfg.MemberSyncCron)
+	// Reporting + the runtime-editable member sync schedule. The ERP product sync only runs from the dev seed.
+	a.Reports = reportsvc.NewService(a.Events, a.Orders)
+	a.SyncConfig = syncsvc.NewService(db, cfg.MemberSyncCron)
 	if err := a.SyncConfig.SeedDefaults(); err != nil {
 		return nil, err
 	}
-	a.Scheduler = syncsvc.NewScheduler(a.SyncConfig,
-		func() { a.ERPSync.Sync() },
-		func() { a.MemberSync.Sync() },
-	)
+	a.Scheduler = syncsvc.NewScheduler(a.SyncConfig, func() { a.MemberSync.Sync() })
 
 	// Snapshot contributors: all four domains live now. Products carry remaining event stock.
 	a.Products.SetStockRemaining(a.Stock.Remaining)
@@ -149,15 +146,14 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		defer cancel()
 		return a.CatalogSync.RunStore(ctx, storeID)
 	})
-	erpHandler := erp.NewHandler(a.ERPSync)
 	memberHandler := memberhandler.NewHandler(a.Members)
 	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
 	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock, a.Events)
 	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
-	promotionHandler := promotionhandler.NewHandler(a.Promotions, a.Events)
+	promotionHandler := promotionhandler.NewHandler(a.Promotions)
 	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders, a.Events)
 	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit, a.Events)
-	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.ERPSync, a.MemberSync)
+	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.MemberSync)
 	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -205,43 +201,22 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		meGroup.POST("/orders/:orderId/receipts", meHandler.LogReceipt)
 		meGroup.POST("/orders/:orderId/cancel", authhandler.RequireRole(useriface.RoleBA), warehouseOrderHandler.Cancel)
 
-		// Admin-only
+		// Admin-only: what Bhoomy does not own yet (accounts, cashier assignment, stock, member sync).
 		admin := authed.Group("/admin")
 		admin.Use(authhandler.RequireRole(useriface.RoleAdmin))
 		admin.GET("/users", userHandler.List)
 		admin.POST("/users", userHandler.Create)
 		admin.PATCH("/users/:id", userHandler.Update)
 		admin.GET("/events", eventHandler.List)
-		admin.POST("/events", eventHandler.Create)
-		admin.PUT("/events/:id", eventHandler.Update)
-		admin.PATCH("/events/:id/status", eventHandler.ChangeStatus)
 		admin.POST("/assignments", eventHandler.AssignBa)
 		admin.GET("/catalog/sync", catalogHandler.SyncStatus)
 		admin.POST("/catalog/sync", catalogHandler.Sync)
-		admin.GET("/products", productHandler.List)
-		admin.GET("/products/:id", productHandler.Get)
-		admin.POST("/products", productHandler.Create)
-		admin.PUT("/products/:id", productHandler.Update)
-		admin.POST("/products/:id/photo", productHandler.UploadPhoto)
-		admin.POST("/erp/sync", erpHandler.SyncNow)
-		admin.GET("/erp/status", erpHandler.SyncStatus)
-		admin.GET("/events/:id/products", productHandler.EventProducts)
-		admin.PUT("/events/:id/products/:productId", productHandler.SetAvailability)
-		admin.PUT("/events/:id/variants/:variantId", productHandler.SetLocationVariant)
-		admin.GET("/members", memberHandler.List)
 		admin.POST("/members/sync", memberSyncHandler.SyncNow)
 		admin.GET("/members/sync/status", memberSyncHandler.Status)
 		admin.GET("/sync", syncConfigHandler.Overview)
 		admin.PUT("/sync/:type", syncConfigHandler.Update)
-		admin.GET("/events/:id/report", reportHandler.Report)
-		admin.GET("/events/:id/report.csv", reportHandler.ReportCSV)
-		admin.GET("/events/:id/audit", reportHandler.Audit)
 		admin.GET("/events/:id/stock", stockAdminHandler.Allocations)
 		admin.PUT("/events/:id/stock/:productId", stockAdminHandler.SetAllocation)
-		admin.GET("/events/:id/promotions", promotionHandler.List)
-		admin.POST("/events/:id/promotions", promotionHandler.Create)
-		admin.PUT("/promotions/:id", promotionHandler.Update)
-		admin.DELETE("/promotions/:id", promotionHandler.Delete)
 
 		// Bhoomy back office (Katalog POS, Outlet & Event, Promosi, Member POS, Laporan POS), called only by the Bhoomy backend.
 		back := api.Group("/backoffice")

@@ -51,49 +51,6 @@ type BarcodeInput struct {
 	Label   *string `json:"label"`
 }
 
-type CreateProductRequest struct {
-	SKU      string          `json:"sku" binding:"required"`
-	Name     string          `json:"name" binding:"required"`
-	Brand    *string         `json:"brand"`
-	Price    decimal.Decimal `json:"price"`
-	ImageURL *string         `json:"imageUrl"`
-	Barcodes []BarcodeInput  `json:"barcodes"`
-}
-
-type UpdateProductRequest struct {
-	Name     *string          `json:"name"`
-	Brand    *string          `json:"brand"`
-	Price    *decimal.Decimal `json:"price"`
-	ImageURL *string          `json:"imageUrl"`
-	Active   *bool            `json:"active"`
-	Barcodes *[]BarcodeInput  `json:"barcodes"`
-}
-
-type EventProductResponse struct {
-	Product   ProductResponse      `json:"product"`
-	Available bool                 `json:"available"`
-	Variants  []LocationVariantDto `json:"variants"`
-}
-
-// LocationVariantDto is one variant at a location, the default one included.
-type LocationVariantDto struct {
-	ID            uuid.UUID        `json:"id"`
-	Name          string           `json:"name"`
-	IsDefault     bool             `json:"isDefault"`
-	Available     bool             `json:"available"`
-	LocationPrice *decimal.Decimal `json:"locationPrice"`
-}
-
-type SetAvailabilityRequest struct {
-	Available *bool `json:"available" binding:"required"`
-}
-
-// SetLocationVariantRequest sets a variant's state at a location; an empty price clears it.
-type SetLocationVariantRequest struct {
-	Available *bool            `json:"available" binding:"required"`
-	Price     *decimal.Decimal `json:"price"`
-}
-
 type VariantSnapshotDto struct {
 	ID    uuid.UUID       `json:"id"`
 	Name  string          `json:"name"`

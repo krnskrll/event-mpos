@@ -1,1 +1,1 @@
-ALTER TABLE pos_item_barcodes DROP COLUMN source;
+ALTER TABLE public.pos_item_barcodes DROP COLUMN source;

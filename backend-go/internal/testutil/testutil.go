@@ -86,7 +86,6 @@ func NewApp(t *testing.T) *TestApp {
 		RefreshTokenTTLDays: 7,
 		ERPSource:           "mock",
 		MemberSource:        "mock",
-		ERPSyncCron:         "0 0 * * * *",
 		MemberSyncCron:      "0 0 2 * * *",
 		MediaDir:            t.TempDir(),
 		MediaBaseURL:        "http://pos.test/media",
