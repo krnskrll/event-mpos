@@ -1,9 +1,10 @@
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/session/session.dart';
 import '../config.dart';
-import '../secure/token_storage.dart';
-import 'auth_interceptor.dart';
+import '../secure/device_storage.dart';
+import 'device_interceptor.dart';
 
 final dioProvider = Provider<Dio>((ref) {
   final options = BaseOptions(
@@ -12,5 +13,6 @@ final dioProvider = Provider<Dio>((ref) {
     receiveTimeout: const Duration(seconds: 10),
     sendTimeout: const Duration(seconds: 10),
   );
-  return Dio(options)..interceptors.add(AuthInterceptor(ref.watch(tokenStorageProvider), Dio(options)));
+  String? staffId() => ref.read(signedInProvider)?.id;
+  return Dio(options)..interceptors.add(DeviceInterceptor(ref.watch(deviceStorageProvider), staffId));
 });

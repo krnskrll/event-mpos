@@ -1,5 +1,6 @@
 enum EventStatus { draft, active, closed }
 
+/// The location this device sells at: an event (temporary) or an outlet (permanent).
 class AssignedEvent {
   const AssignedEvent({
     required this.id,
@@ -8,19 +9,28 @@ class AssignedEvent {
     this.startDate,
     this.endDate,
     required this.status,
+    this.isOutlet = false,
   });
 
   factory AssignedEvent.fromJson(Map<String, dynamic> json) => AssignedEvent(
     id: json['id'],
-    code: json['code'],
+    code: json['code'] ?? '',
     name: json['name'],
     startDate: json['startDate'],
     endDate: json['endDate'],
     status: EventStatus.values.asNameMap()[(json['status'] as String?)?.toLowerCase()] ?? EventStatus.draft,
+    isOutlet: json['type'] == 'outlet',
   );
 
-  AssignedEvent withStatus(EventStatus status) =>
-      AssignedEvent(id: id, code: code, name: name, startDate: startDate, endDate: endDate, status: status);
+  Map<String, dynamic> toJson() => {
+    'id': id,
+    'code': code,
+    'name': name,
+    'startDate': ?startDate,
+    'endDate': ?endDate,
+    'status': status.name.toUpperCase(),
+    'type': isOutlet ? 'outlet' : 'event',
+  };
 
   final String id;
   final String code;
@@ -28,6 +38,7 @@ class AssignedEvent {
   final String? startDate;
   final String? endDate;
   final EventStatus status;
+  final bool isOutlet;
 }
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -46,6 +57,9 @@ extension EventDates on AssignedEvent {
     if (s.month != e.month) return '${s.day} ${_months[s.month - 1]} – $end';
     return '${s.day} – $end';
   }
+
+  /// "Outlet", or "Event · 10 – 20 Mar 2027".
+  String get placeLabel => isOutlet ? 'Outlet' : ['Event', if (dateRange.isNotEmpty) dateRange].join(' · ');
 
   /// "Day 3 of 14" while the event is running on [today].
   String? dayOf(DateTime today) {

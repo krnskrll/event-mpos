@@ -7,7 +7,17 @@ import 'tables.dart';
 part 'database.g.dart';
 
 @DriftDatabase(
-  tables: [EventSnapshots, Products, Members, Promotions, PendingOrders, Receipts, CartDrafts, NumberBlocks],
+  tables: [
+    EventSnapshots,
+    Products,
+    Members,
+    Promotions,
+    PendingOrders,
+    Receipts,
+    CartDrafts,
+    NumberBlocks,
+    StaffMembers,
+  ],
 )
 class AppDatabase extends _$AppDatabase {
   // Shared so the background upload isolate and the app use one connection.
@@ -15,7 +25,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'mpos', native: const DriftNativeOptions(shareAcrossIsolates: true)));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -25,6 +35,10 @@ class AppDatabase extends _$AppDatabase {
         await m.addColumn(pendingOrders, pendingOrders.subtotal);
         await m.addColumn(pendingOrders, pendingOrders.discount);
         await m.addColumn(pendingOrders, pendingOrders.promotionName);
+      }
+      if (from < 4) {
+        await m.addColumn(pendingOrders, pendingOrders.staffId);
+        await m.createTable(staffMembers);
       }
     },
   );

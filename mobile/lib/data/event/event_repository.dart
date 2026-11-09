@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/db/database.dart';
 import '../../core/network/api_client.dart';
 import '../../core/network/api_failure.dart';
-import '../../domain/event.dart';
 
 final eventRepositoryProvider = Provider((ref) => EventRepository(ref.watch(dioProvider), ref.watch(databaseProvider)));
 
@@ -16,15 +15,6 @@ class EventRepository {
 
   final Dio _dio;
   final AppDatabase _db;
-
-  Future<List<AssignedEvent>> assignedEvents() async {
-    try {
-      final res = await _dio.get<List>('api/me/events');
-      return res.data!.map((e) => AssignedEvent.fromJson(e)).toList();
-    } on DioException catch (e) {
-      throw ApiFailure.from(e, 'Loading events');
-    }
-  }
 
   Future<String?> cachedVersion(String eventId) async {
     final query = _db.select(_db.eventSnapshots)..where((s) => s.eventId.equals(eventId));
@@ -69,7 +59,7 @@ class EventRepository {
       snapshot = res.data;
     } on DioException catch (e) {
       if (e.response?.statusCode == 409) return;
-      throw ApiFailure.from(e, 'Sync', {403: 'You are not assigned to this event.'});
+      throw ApiFailure.from(e, 'Sync', {403: 'This device belongs to another location.'});
     }
     if (snapshot['changed'] == false) return;
 

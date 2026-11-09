@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/database.dart';
 import '../../core/network/api_client.dart';
+import '../../core/network/device_interceptor.dart';
 import '../../core/printer/printer.dart';
 import '../../domain/receipt.dart';
 
@@ -52,10 +53,11 @@ class ReceiptService {
     return error;
   }
 
-  /// After upload: remember the server order (reprints are logged against it) and log the first print.
-  Future<void> linkServerOrder(String orderKey, String serverOrderId) async {
+  /// After upload: remember the server order (reprints are logged against it) and log the first print
+  /// as [staffId], the cashier who sold it.
+  Future<void> linkServerOrder(String orderKey, String serverOrderId, {String? staffId}) async {
     await _update(orderKey, ReceiptsCompanion(backendOrderId: Value(serverOrderId)));
-    await _logPrint(serverOrderId);
+    await _logPrint(serverOrderId, staffId);
   }
 
   /// Stamps the stored receipt CANCELLED, so the screen and every reprint show it.
@@ -74,8 +76,9 @@ class ReceiptService {
   }
 
   /// Best effort: the server audit counts prints and reprints.
-  Future<void> _logPrint(String serverOrderId) =>
-      _dio.post('api/me/orders/$serverOrderId/receipts').then((_) {}, onError: (_) {});
+  Future<void> _logPrint(String serverOrderId, [String? staffId]) => _dio
+      .post('api/me/orders/$serverOrderId/receipts', options: Options(headers: {staffHeader: ?staffId}))
+      .then((_) {}, onError: (_) {});
 
   Future<ReceiptRow?> _row(String orderKey) =>
       (_db.select(_db.receipts)..where((r) => r.orderKey.equals(orderKey))).getSingleOrNull();

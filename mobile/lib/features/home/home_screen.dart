@@ -9,8 +9,6 @@ import '../../core/connectivity.dart';
 import '../../core/format/money.dart';
 import '../../core/notifications.dart';
 import '../../core/printer/printer.dart';
-import '../../core/secure/token_storage.dart';
-import '../../data/auth/auth_repository.dart';
 import '../../data/order/order_numbers.dart';
 import '../../data/order/order_uploader.dart';
 import '../../data/product/product_repository.dart';
@@ -106,7 +104,7 @@ class _Header extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name = (ref.watch(tokenStorageProvider).userName ?? 'there').split(' ').first;
+    final name = (ref.watch(signedInProvider)?.name ?? 'there').split(' ').first;
     final event = ref.watch(sessionEventProvider);
     final day = event?.dayOf(DateTime.now());
     final where = [?day, ?event?.name].join(' · ');
@@ -133,10 +131,11 @@ class _Header extends ConsumerWidget {
         const SyncChip(),
         if (wide) ...[
           const SizedBox(width: 10),
-          OutlinedButton(
-            onPressed: () => ref.read(authRepositoryProvider).logout(),
+          OutlinedButton.icon(
+            onPressed: () => ref.read(signedInProvider.notifier).lock(),
             style: OutlinedButton.styleFrom(minimumSize: const Size(0, 44)),
-            child: const Text('End session'),
+            icon: const Icon(Icons.lock_outline, size: 18),
+            label: const Text('Switch cashier'),
           ),
         ],
       ],
@@ -297,7 +296,7 @@ class _ClosedCard extends ConsumerWidget {
           Text(
             pending > 0
                 ? 'Selling has stopped. Keep the app open and online: orders are accepted for 24 hours after closing.'
-                : 'Selling has stopped and every order has been sent. You can end the session.',
+                : 'Selling has stopped and every order has been sent.',
             style: AppText.body.copyWith(color: Brand.slate),
           ),
           const SizedBox(height: 14),

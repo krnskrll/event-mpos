@@ -36,7 +36,12 @@ class _OrderPanelState extends ConsumerState<OrderPanel> {
     try {
       final key = await ref
           .read(orderRepositoryProvider)
-          .confirm(ref.read(sessionEventProvider)!, ref.read(cartProvider), ref.read(pricedCartProvider));
+          .confirm(
+            ref.read(sessionEventProvider)!,
+            ref.read(cartProvider),
+            ref.read(pricedCartProvider),
+            staffId: ref.read(signedInProvider)!.id,
+          );
       ref.read(cartProvider.notifier).clear();
       if (mounted) context.push('/receipt/$key');
     } catch (e) {

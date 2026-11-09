@@ -15,10 +15,10 @@ void main() {
         200,
         {'businessDate': '20261031', 'rangeStart': 41, 'rangeEnd': 42},
       );
-    final numbers = OrderNumbers(db, Dio()..httpClientAdapter = server, await fakePrefs());
+    final numbers = OrderNumbers(db, Dio()..httpClientAdapter = server);
 
     await numbers.topUp('EV01');
-    expect(server.requests.single.data, {'deviceId': numbers.deviceId});
+    expect(server.requests.single.path, 'api/me/events/EV01/number-blocks');
     expect(await numbers.remaining('EV01'), 2);
     expect((await numbers.next('EV01')).number, 41);
     expect(await numbers.next('EV01'), (number: 42, businessDate: '20261031'));

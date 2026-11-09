@@ -20,6 +20,7 @@ void main() {
       'receipt',
       'cart_draft',
       'number_block',
+      'staff',
     });
   });
 

@@ -3,8 +3,8 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mpos/core/db/database.dart';
+import 'package:mpos/core/network/device_interceptor.dart';
 import 'package:mpos/core/printer/printer.dart';
-import 'package:mpos/data/order/order_numbers.dart';
 import 'package:mpos/data/order/order_uploader.dart';
 import 'package:mpos/data/receipt/receipt_service.dart';
 
@@ -20,12 +20,14 @@ void main() {
   setUp(() async {
     db = AppDatabase(NativeDatabase.memory());
     server = FakeServer();
-    final dio = Dio()..httpClientAdapter = server;
+    // Sari is signed in now; the queued order was sold by Budi.
+    final dio = Dio()
+      ..httpClientAdapter = server
+      ..interceptors.add(DeviceInterceptor(await fakeDevice(), () => sari.id));
     uploader = OrderUploader(
       dio,
       db,
       ReceiptService(db, dio, () async => const FakePrinter()),
-      OrderNumbers(db, dio, await fakePrefs()),
       notify: (_, _, _) async {},
     );
     await db
@@ -39,6 +41,7 @@ void main() {
             status: 'PENDING',
             createdAt: DateTime(2026, 10, 31, 10),
             orderNumber: const Value(7),
+            staffId: Value(budi.id),
           ),
         );
   });
@@ -62,6 +65,28 @@ void main() {
     server.routes[_path] = (409, {});
     expect(await uploader.drainPending(), isFalse);
     expect(((await order()).status, (await order()).errorMessage), ('FAILED', 'Rejected (409)'));
+
+    await (db.update(db.pendingOrders)).write(const PendingOrdersCompanion(status: Value('PENDING')));
+    server.routes[_path] = (403, {'message': 'Unknown staff member'});
+    await uploader.drainPending();
+    expect((await order()).errorMessage, 'Unknown staff member');
+  });
+
+  test('uploads as the cashier who sold the order, with the device token', () async {
+    server.routes[_path] = (200, {'id': 's1', 'orderNumberDisplay': '#007', 'referenceId': 'ORD-1', 'total': 99000});
+    await uploader.drainPending();
+
+    final upload = server.requests.firstWhere((r) => r.path == _path);
+    expect((upload.headers['Authorization'], upload.headers[staffHeader]), ('Device t1', budi.id));
+    expect(upload.data.containsKey('deviceId'), isFalse);
+    final receiptLog = server.requests.firstWhere((r) => r.path == 'api/me/orders/s1/receipts');
+    expect(receiptLog.headers[staffHeader], budi.id);
+  });
+
+  test('a removed device (401) keeps the order queued without retrying', () async {
+    server.routes[_path] = (401, {});
+    expect(await uploader.drainPending(), isFalse);
+    expect((await order()).status, 'PENDING');
   });
 
   test('two drains at once upload the order only once', () async {

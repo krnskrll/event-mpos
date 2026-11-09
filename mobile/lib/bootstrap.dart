@@ -5,14 +5,14 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'core/preferences.dart';
-import 'core/secure/token_storage.dart';
+import 'core/secure/device_storage.dart';
 import 'data/order/order_uploader.dart';
 
 /// Platform state opened once, before any provider reads it (shared by the app and background jobs).
 Future<List<Override>> bootstrap() async {
   final prefs = await SharedPreferences.getInstance();
-  final tokens = await TokenStorage.open();
-  return [preferencesProvider.overrideWithValue(prefs), tokenStorageProvider.overrideWithValue(tokens)];
+  final device = await DeviceStorage.open();
+  return [preferencesProvider.overrideWithValue(prefs), deviceStorageProvider.overrideWithValue(device)];
 }
 
 /// WorkManager entry point: uploads queued orders while the app is in the background or closed.

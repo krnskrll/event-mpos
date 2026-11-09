@@ -95,6 +95,7 @@ class PendingOrders extends Table {
   RealColumn get subtotal => real().nullable()(); // v3: kept so the order detail shows what was charged
   RealColumn get discount => real().nullable()();
   TextColumn get promotionName => text().nullable()();
+  TextColumn get staffId => text().nullable()(); // v4: who sold it; the upload acts as them
 
   @override
   Set<Column> get primaryKey => {idempotencyKey};
@@ -148,4 +149,20 @@ class NumberBlocks extends Table {
 
   @override
   Set<Column> get primaryKey => {eventId, rangeStart};
+}
+
+/// The location's active staff with PIN hashes, so the lock screen works offline (v4).
+@DataClassName('StaffRow')
+class StaffMembers extends Table {
+  @override
+  String get tableName => 'staff';
+
+  TextColumn get id => text()();
+  TextColumn get name => text()();
+  TextColumn get role => text()(); // KASIR | SUPERVISOR
+  TextColumn get pinHash => text()();
+  IntColumn get position => integer()(); // the server's order
+
+  @override
+  Set<Column> get primaryKey => {id};
 }

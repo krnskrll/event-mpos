@@ -4,8 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../core/connectivity.dart';
 import '../core/printer/printer.dart';
-import '../core/secure/token_storage.dart';
-import '../data/auth/auth_repository.dart';
 import '../data/session/session.dart';
 import '../domain/order.dart';
 import '../features/orders/orders_screen.dart';
@@ -56,7 +54,7 @@ class SyncChip extends ConsumerWidget {
   }
 }
 
-/// The cashier's initials in gold; opens the session menu.
+/// The signed-in staff member's initials in gold; opens the session menu.
 class UserAvatar extends ConsumerWidget {
   const UserAvatar({super.key, this.radius = 22});
 
@@ -64,7 +62,7 @@ class UserAvatar extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name = ref.watch(tokenStorageProvider).userName ?? 'Cashier';
+    final name = ref.watch(signedInProvider)?.name ?? '';
     return Semantics(
       container: true,
       button: true,
@@ -86,14 +84,14 @@ class UserAvatar extends ConsumerWidget {
   }
 }
 
-/// Who is signed in and where, printer settings, and End session.
+/// Who is signed in, on which device and where; printer settings; Switch cashier (locks the device).
 Future<void> showSessionMenu(BuildContext context) => showModalBottomSheet(
   context: context,
   useRootNavigator: true,
   builder: (sheet) => Consumer(
     builder: (_, ref, _) {
-      final name = ref.watch(tokenStorageProvider).userName ?? 'Cashier';
-      final event = ref.watch(sessionEventProvider);
+      final staff = ref.watch(signedInProvider);
+      final device = ref.watch(deviceProvider);
       return SafeArea(
         child: Padding(
           padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
@@ -104,30 +102,32 @@ Future<void> showSessionMenu(BuildContext context) => showModalBottomSheet(
                 leading: CircleAvatar(
                   backgroundColor: Brand.gold,
                   child: Text(
-                    initials(name),
+                    initials(staff?.name ?? ''),
                     style: AppText.label.copyWith(color: Brand.onGold, fontWeight: FontWeight.w900),
                   ),
                 ),
-                title: Text(name, style: AppText.bodyLarge.copyWith(color: Brand.forest)),
-                subtitle: event == null ? null : Text('${event.name} · ${event.code}', style: AppText.caption),
+                title: Text(staff?.name ?? '', style: AppText.bodyLarge.copyWith(color: Brand.forest)),
+                subtitle: Text(
+                  [?staff?.roleLabel, ?device?.name, ?device?.location.name].join(' · '),
+                  style: AppText.caption,
+                ),
               ),
               const Divider(),
-              if (event != null) // the printer page belongs to a session
-                ListTile(
-                  leading: const Icon(Icons.print_outlined, color: Brand.green),
-                  title: const Text('Printer'),
-                  onTap: () {
-                    Navigator.pop(sheet);
-                    context.push('/printer');
-                  },
-                ),
               ListTile(
-                leading: const Icon(Icons.logout, color: Brand.errorInk),
-                title: Text('End session', style: AppText.body.copyWith(color: Brand.errorInk)),
+                leading: const Icon(Icons.print_outlined, color: Brand.green),
+                title: const Text('Printer'),
                 onTap: () {
-                  final auth = ref.read(authRepositoryProvider);
                   Navigator.pop(sheet);
-                  auth.logout();
+                  context.push('/printer');
+                },
+              ),
+              ListTile(
+                leading: const Icon(Icons.lock_outline, color: Brand.forest),
+                title: const Text('Switch cashier'),
+                subtitle: Text('Locks this device', style: AppText.caption),
+                onTap: () {
+                  Navigator.pop(sheet);
+                  ref.read(signedInProvider.notifier).lock();
                 },
               ),
             ],

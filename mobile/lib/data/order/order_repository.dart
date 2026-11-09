@@ -42,8 +42,8 @@ class OrderRepository {
   final ProductRepository _products;
 
   /// Confirms the sale on the device, online or offline: final number from this device's block,
-  /// receipt stored and printed, upload queued. Returns the order key. Throws [NoOrderNumbers].
-  Future<String> confirm(AssignedEvent event, Cart cart, PricedCart priced) async {
+  /// receipt stored and printed, upload queued as [staffId]. Returns the order key. Throws [NoOrderNumbers].
+  Future<String> confirm(AssignedEvent event, Cart cart, PricedCart priced, {required String staffId}) async {
     final customer = cart.customer!;
     final (:number, :businessDate) = await _numbers.next(event.id);
     final padded = number.toString().padLeft(3, '0');
@@ -75,6 +75,7 @@ class OrderRepository {
             subtotal: Value(priced.subtotal.toDouble()),
             discount: Value(priced.discount.toDouble()),
             promotionName: Value(priced.promotionName),
+            staffId: Value(staffId),
           ),
         );
     for (final line in lines) {
