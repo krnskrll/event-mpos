@@ -18,6 +18,8 @@ import (
 	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
 	cataloghandler "github.com/krnskrll/event-mpos/internal/catalog/handler"
 	catalogsvc "github.com/krnskrll/event-mpos/internal/catalog/service"
+	devicehandler "github.com/krnskrll/event-mpos/internal/device/handler"
+	devicesvc "github.com/krnskrll/event-mpos/internal/device/service"
 	eventhandler "github.com/krnskrll/event-mpos/internal/event/handler"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventsvc "github.com/krnskrll/event-mpos/internal/event/service"
@@ -32,6 +34,7 @@ import (
 	ordersvc "github.com/krnskrll/event-mpos/internal/order/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 	"github.com/krnskrll/event-mpos/internal/platform/media"
 	"github.com/krnskrll/event-mpos/internal/platform/realtime"
 	producthandler "github.com/krnskrll/event-mpos/internal/product/handler"
@@ -41,6 +44,8 @@ import (
 	receiptsvc "github.com/krnskrll/event-mpos/internal/receipt/service"
 	reporthandler "github.com/krnskrll/event-mpos/internal/report/handler"
 	reportsvc "github.com/krnskrll/event-mpos/internal/report/service"
+	staffhandler "github.com/krnskrll/event-mpos/internal/staff/handler"
+	staffsvc "github.com/krnskrll/event-mpos/internal/staff/service"
 	stockhandler "github.com/krnskrll/event-mpos/internal/stock/handler"
 	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
 	synchandler "github.com/krnskrll/event-mpos/internal/syncconfig/handler"
@@ -74,6 +79,8 @@ type App struct {
 	Media       *media.Store
 	Catalog     *catalogsvc.Service
 	CatalogSync *bhoomy.CatalogSync
+	Staff       *staffsvc.Service
+	Devices     *devicesvc.Service
 }
 
 // New builds services, handlers and routes on an already-migrated database. It starts the WebSocket
@@ -99,6 +106,12 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Catalog = catalogsvc.NewService(db)
 	a.Products.SetSource(a.Catalog)
 	a.CatalogSync = bhoomy.NewCatalogSync(a.Bhoomy, a.Catalog, a.Products)
+	a.Staff = staffsvc.NewService(db, a.Events)
+	a.Devices = devicesvc.NewService(db, a.Events, a.Catalog.StoreName)
+	// A closed location sells nothing: its devices keep the late-sync window, then stop working.
+	a.Events.SetOnClose(func(tx database.Tx, locationID uuid.UUID, closedAt time.Time) error {
+		return a.Devices.ScheduleRemoval(tx, locationID, closedAt.Add(24*time.Hour))
+	})
 	a.Members = membersvc.NewService(db)
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
@@ -154,6 +167,8 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders, a.Events)
 	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit, a.Events)
 	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.MemberSync)
+	staffHandler := staffhandler.NewHandler(a.Staff)
+	deviceHandler := devicehandler.NewHandler(a.Devices, a.Staff)
 	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
 
 	gin.SetMode(gin.ReleaseMode)
@@ -176,6 +191,13 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		// Public
 		api.POST("/auth/login", authHandler.Login)
 		api.POST("/auth/refresh", authHandler.Refresh)
+		api.POST("/device/pair", common.RateLimit(10, time.Minute), deviceHandler.Pair)
+
+		// Cashier app on a paired device (Authorization: Device <token>; X-Staff-Id when acting for a person).
+		device := api.Group("")
+		device.Use(devicehandler.Auth(a.Devices, a.Staff))
+		device.GET("/device", deviceHandler.Me)
+		device.GET("/device/staff", deviceHandler.Staff)
 
 		// Authenticated (any valid token)
 		authed := api.Group("")
@@ -246,6 +268,14 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		back.PUT("/promotions/:id", promotionHandler.StoreUpdate)
 		back.DELETE("/promotions/:id", promotionHandler.Delete)
 		back.GET("/members", memberHandler.StoreList)
+		back.GET("/staff", staffHandler.List)
+		back.POST("/staff", staffHandler.Create)
+		back.GET("/staff/:id", staffHandler.Get)
+		back.PUT("/staff/:id", staffHandler.Update)
+		back.GET("/locations/:id/devices", deviceHandler.List)
+		back.POST("/locations/:id/pairing-code", deviceHandler.NewCode)
+		back.PATCH("/devices/:id", deviceHandler.Rename)
+		back.DELETE("/devices/:id", deviceHandler.Remove)
 
 		// Warehouse-only
 		warehouse := authed.Group("/warehouse")

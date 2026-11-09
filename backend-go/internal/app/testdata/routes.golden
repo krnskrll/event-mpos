@@ -1,3 +1,4 @@
+DELETE /api/backoffice/devices/:id
 DELETE /api/backoffice/promotions/:id
 GET /api/admin/catalog/sync
 GET /api/admin/events
@@ -13,11 +14,16 @@ GET /api/backoffice/items/:id
 GET /api/backoffice/locations
 GET /api/backoffice/locations/:id
 GET /api/backoffice/locations/:id/audit
+GET /api/backoffice/locations/:id/devices
 GET /api/backoffice/locations/:id/items
 GET /api/backoffice/locations/:id/report
 GET /api/backoffice/members
 GET /api/backoffice/promotions
 GET /api/backoffice/promotions/:id
+GET /api/backoffice/staff
+GET /api/backoffice/staff/:id
+GET /api/device
+GET /api/device/staff
 GET /api/health
 GET /api/me
 GET /api/me/event
@@ -36,6 +42,7 @@ GET /api/warehouse/events/:eventId/stock
 GET /media/:file
 GET /ws/events/:eventId/orders
 PATCH /api/admin/users/:id
+PATCH /api/backoffice/devices/:id
 PATCH /api/backoffice/locations/:id/status
 PATCH /api/warehouse/orders/:orderId/status
 POST /api/admin/assignments
@@ -50,7 +57,10 @@ POST /api/backoffice/items
 POST /api/backoffice/items/:id/photo
 POST /api/backoffice/locations
 POST /api/backoffice/locations/:id/items
+POST /api/backoffice/locations/:id/pairing-code
 POST /api/backoffice/promotions
+POST /api/backoffice/staff
+POST /api/device/pair
 POST /api/me/events/:eventId/number-blocks
 POST /api/me/events/:eventId/orders
 POST /api/me/events/:eventId/promotions/quote
@@ -63,3 +73,4 @@ PUT /api/backoffice/items/:id
 PUT /api/backoffice/locations/:id
 PUT /api/backoffice/locations/:id/items
 PUT /api/backoffice/promotions/:id
+PUT /api/backoffice/staff/:id

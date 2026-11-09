@@ -19,3 +19,9 @@ func HashPassword(plain string) (string, error) {
 func CheckPassword(hash, plain string) bool {
 	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(plain)) == nil
 }
+
+// HashPin hashes a staff PIN at cost 10: devices verify it offline, so it must stay quick on a phone.
+func HashPin(pin string) (string, error) {
+	b, err := bcrypt.GenerateFromPassword([]byte(pin), 10)
+	return string(b), err
+}

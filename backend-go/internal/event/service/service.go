@@ -15,6 +15,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/event/repository"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
@@ -22,6 +23,7 @@ type Service struct {
 	db        *gorm.DB
 	users     useriface.Users
 	providers iface.Providers
+	onClose   func(tx database.Tx, locationID uuid.UUID, closedAt time.Time) error
 }
 
 var _ iface.Events = (*Service)(nil)
@@ -31,6 +33,11 @@ func NewService(db *gorm.DB, users useriface.Users) *Service {
 }
 
 func (s *Service) SetProviders(p iface.Providers) { s.providers = p }
+
+// SetOnClose runs fn in the same transaction when a location closes.
+func (s *Service) SetOnClose(fn func(tx database.Tx, locationID uuid.UUID, closedAt time.Time) error) {
+	s.onClose = fn
+}
 
 func (s *Service) Get(id uuid.UUID) (*iface.EventResponse, error) {
 	e, err := s.find(id)
@@ -135,7 +142,16 @@ func (s *Service) ChangeStatus(storeID, id uuid.UUID, target iface.EventStatus) 
 	if target == iface.StatusClosed {
 		e.ClosedAt = &e.UpdatedAt
 	}
-	if err := s.db.Save(e).Error; err != nil {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Save(e).Error; err != nil {
+			return err
+		}
+		if target == iface.StatusClosed && s.onClose != nil {
+			return s.onClose(tx, e.ID, *e.ClosedAt)
+		}
+		return nil
+	})
+	if err != nil {
 		return nil, err
 	}
 	resp := e.ToResponse()

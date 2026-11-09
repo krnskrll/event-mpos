@@ -1,6 +1,7 @@
 package common
 
 import (
+	"errors"
 	"net/http"
 	"time"
 
@@ -17,6 +18,12 @@ type AppError struct {
 func (e *AppError) Error() string { return e.Msg }
 
 func NewAppError(status int, msg string) *AppError { return &AppError{Status: status, Msg: msg} }
+
+// IsNotFound reports whether err is a 404 AppError.
+func IsNotFound(err error) bool {
+	var ae *AppError
+	return errors.As(err, &ae) && ae.Status == http.StatusNotFound
+}
 
 // ApiError is the JSON body returned for controller-level errors — identical shape to the Kotlin
 // GlobalExceptionHandler's ApiError: {timestamp, status, error, message, path}.

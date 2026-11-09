@@ -38,13 +38,19 @@ func SummaryOf(u *useriface.Account) UserSummary {
 	return UserSummary{ID: u.ID, StoreID: u.StoreID, Email: u.Email, FullName: u.FullName, Role: u.Role}
 }
 
-// Principal is the authenticated user attached to the request context.
+// Principal is the caller attached to the request context: an admin user, or a paired device
+// (DeviceID, LocationID) with the staff member working on it as UserID/FullName.
 type Principal struct {
 	UserID   uuid.UUID
 	StoreID  uuid.UUID
 	Email    string
 	FullName string
 	Role     useriface.Role
+
+	DeviceID   uuid.UUID
+	LocationID uuid.UUID
+	// StaffActive: the staff member is active and assigned to the device's location.
+	StaffActive bool
 }
 
 const principalKey = "authPrincipal"

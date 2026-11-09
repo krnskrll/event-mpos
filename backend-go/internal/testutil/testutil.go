@@ -33,6 +33,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
+	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
@@ -185,20 +186,11 @@ func (a *TestApp) Remaining(eventID, productID uuid.UUID) int {
 // Do sends a JSON request through the real router and returns the recorder.
 func (a *TestApp) Do(method, path string, body any, token string) *httptest.ResponseRecorder {
 	a.t.Helper()
-	var buf bytes.Buffer
-	if body != nil {
-		if err := json.NewEncoder(&buf).Encode(body); err != nil {
-			a.t.Fatalf("encode: %v", err)
-		}
-	}
-	req := httptest.NewRequest(method, path, &buf)
-	req.Header.Set("Content-Type", "application/json")
+	h := map[string]string{}
 	if token != "" {
-		req.Header.Set("Authorization", "Bearer "+token)
+		h["Authorization"] = "Bearer " + token
 	}
-	rec := httptest.NewRecorder()
-	a.Router.ServeHTTP(rec, req)
-	return rec
+	return a.Send(method, path, body, h)
 }
 
 // ServiceToken is the token the Bhoomy backend sends in tests.
@@ -207,19 +199,80 @@ const ServiceToken = "test-service-token"
 // Back calls the back office as the Bhoomy backend acting for a Bhoomy store.
 func (a *TestApp) Back(method, path string, body any, bhoomyStore uuid.UUID) *httptest.ResponseRecorder {
 	a.t.Helper()
+	return a.Send(method, "/api/backoffice"+path, body, map[string]string{
+		"Authorization": "Bearer " + ServiceToken, "X-Bhoomy-Store-Id": bhoomyStore.String(),
+	})
+}
+
+// Send sends a JSON request with the given headers; "RemoteAddr" sets the client address.
+func (a *TestApp) Send(method, path string, body any, headers map[string]string) *httptest.ResponseRecorder {
+	a.t.Helper()
 	var buf bytes.Buffer
 	if body != nil {
 		if err := json.NewEncoder(&buf).Encode(body); err != nil {
 			a.t.Fatalf("encode: %v", err)
 		}
 	}
-	req := httptest.NewRequest(method, "/api/backoffice"+path, &buf)
+	req := httptest.NewRequest(method, path, &buf)
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+ServiceToken)
-	req.Header.Set("X-Bhoomy-Store-Id", bhoomyStore.String())
+	for k, v := range headers {
+		if k == "RemoteAddr" {
+			req.RemoteAddr = v
+		} else {
+			req.Header.Set(k, v)
+		}
+	}
 	rec := httptest.NewRecorder()
 	a.Router.ServeHTTP(rec, req)
 	return rec
+}
+
+// Device is a paired test device.
+type Device struct {
+	ID, LocationID uuid.UUID
+	Name, Token    string
+}
+
+// PairDevice pairs a new device to a location with a fresh pairing code.
+func (a *TestApp) PairDevice(locationID uuid.UUID) Device {
+	a.t.Helper()
+	ev, err := a.Events.Get(locationID)
+	if err != nil {
+		a.t.Fatalf("location: %v", err)
+	}
+	code, err := a.Devices.NewCode(ev.StoreID, locationID)
+	if err != nil {
+		a.t.Fatalf("pairing code: %v", err)
+	}
+	resp, err := a.Devices.Pair(code.Code, "Test phone")
+	if err != nil {
+		a.t.Fatalf("pair: %v", err)
+	}
+	return Device{ID: resp.Device.ID, LocationID: locationID, Name: resp.Device.Name, Token: resp.Token}
+}
+
+// TestPin is every test staff member's PIN.
+const TestPin = "1234"
+
+// NewStaff adds an active staff member with TestPin, assigned to the given locations.
+func (a *TestApp) NewStaff(storeID uuid.UUID, role staffiface.Role, locations ...uuid.UUID) *staffiface.StaffResponse {
+	a.t.Helper()
+	pin := TestPin
+	s, err := a.Staff.Create(storeID, staffiface.StaffRequest{Name: Unique("Staf "), Role: role, Pin: &pin, LocationIDs: locations})
+	if err != nil {
+		a.t.Fatalf("create staff: %v", err)
+	}
+	return s
+}
+
+// DeviceDo sends a request as a paired device; a nil staffID sends no X-Staff-Id.
+func (a *TestApp) DeviceDo(method, path string, body any, d Device, staffID uuid.UUID) *httptest.ResponseRecorder {
+	a.t.Helper()
+	h := map[string]string{"Authorization": "Device " + d.Token}
+	if staffID != uuid.Nil {
+		h["X-Staff-Id"] = staffID.String()
+	}
+	return a.Send(method, path, body, h)
 }
 
 // Decode unmarshals a recorder body into v, failing the test on error.

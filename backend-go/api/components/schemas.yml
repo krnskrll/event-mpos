@@ -679,3 +679,90 @@ components:
       required: [itemIds]
       properties:
         itemIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
+    PairRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, description: 6-digit pairing code }
+        model: { type: string }
+    DeviceRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        removesAt: { type: string, format: date-time, description: set once the location closed }
+    DeviceLocation:
+      type: object
+      required: [id, name, type, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [event, outlet] }
+        status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+    DeviceResponse:
+      type: object
+      required: [device, location, storeName]
+      properties:
+        device: { $ref: '#/components/schemas/DeviceRef' }
+        location: { $ref: '#/components/schemas/DeviceLocation' }
+        storeName: { type: string }
+    PairResponse:
+      type: object
+      required: [token, device, location, storeName]
+      properties:
+        token: { type: string, description: "send as Authorization: Device <token>; shown only once" }
+        device: { $ref: '#/components/schemas/DeviceRef' }
+        location: { $ref: '#/components/schemas/DeviceLocation' }
+        storeName: { type: string }
+    DeviceStaff:
+      type: object
+      required: [id, name, role, pinHash]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: string, enum: [KASIR, SUPERVISOR] }
+        pinHash: { type: string, description: bcrypt }
+    StaffRequest:
+      type: object
+      required: [name, role, locationIds]
+      properties:
+        name: { type: string, maxLength: 40 }
+        role: { type: string, enum: [KASIR, SUPERVISOR] }
+        pin: { type: string, pattern: '^[0-9]{4,6}$', description: required on create; resets it on update }
+        locationIds: { type: array, items: { type: string, format: uuid } }
+        active: { type: boolean }
+    StaffResponse:
+      type: object
+      required: [id, name, role, locationIds, active, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: string, enum: [KASIR, SUPERVISOR] }
+        locationIds: { type: array, items: { type: string, format: uuid } }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DeviceView:
+      type: object
+      required: [id, name, pairedAt, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        model: { type: string }
+        pairedAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        removesAt: { type: string, format: date-time }
+    PairingCode:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string }
+        expiresAt: { type: string, format: date-time }
+    RenameDeviceRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 40 }
