@@ -1,23 +1,23 @@
 # event-mpos
 
-Event-based Android Mobile POS for retail beauty events.
+Mobile POS for retail beauty events and outlets; the back office lives in Bhoomy.
 
 ## System Overview
 
 | Component | Tech | Purpose |
 |---|---|---|
-| Android mPOS | Kotlin + Jetpack Compose | Beauty Advisor selling tool |
+| Cashier app (`mobile/`) | Flutter | Selling and the pickup board on paired devices |
 | Backend API | Go (Gin + GORM) + PostgreSQL | Source of truth |
-| Web Dashboard | React + TypeScript | Warehouse order execution |
+| Old dashboard (`web/`) | React + TypeScript | ADMIN stock allocation until Phase 6 |
 
 ## Project Structure
 
 ```
 event-mpos/
-├── android/          # Android mPOS app (Kotlin)
 ├── backend-go/       # Go API (Gin, GORM, golang-migrate, native WebSocket)
-├── testdata/         # Fixtures shared by backend and Android tests (promotion parity)
-├── web/              # React web dashboard
+├── mobile/           # Flutter cashier app
+├── testdata/         # Fixtures shared by backend and Flutter tests (promotion parity)
+├── web/              # Old dashboard: ADMIN login + stock allocation
 └── prompts/          # Cursor development prompts (one per epic)
 ```
 
@@ -25,14 +25,13 @@ event-mpos/
 
 ```bash
 # 1. Backend + Postgres (no local Go toolchain needed — uses Docker)
-docker compose up --build          # Go API on http://localhost:8080, seeded with demo users
+docker compose up --build          # Go API on http://localhost:8080, seeded with demo data
 # After pulling a schema change, reset the dev DB first: docker compose down -v
 
 # 2. Web dashboard
 cd web && npm install && npm run dev   # http://localhost:5173
 
-# 3. Android app
-# open the android/ folder in Android Studio and Run on an emulator
+# 3. Cashier app: see mobile/ (pair it with the pairing code the seed logs)
 ```
 
 ## Backend (Go)
@@ -40,8 +39,8 @@ cd web && npm install && npm run dev   # http://localhost:5173
 `backend-go/` is the only backend. Stack: **Gin** (HTTP), **GORM** on PostgreSQL,
 **golang-migrate** (schema in `backend-go/migrations/`, applied on startup — add new numbered
 `00000N_*.up.sql` / `.down.sql` files, never edit `000001_init`), JWT auth with rotating refresh
-tokens, a DB-driven **robfig/cron** sync scheduler, and a native **WebSocket** for the warehouse
-board at `GET /ws/events/{id}/orders?token=<jwt>` (the token is redacted from access logs).
+tokens, a DB-driven **robfig/cron** sync scheduler, and a native **WebSocket** for the pickup
+board at `GET /ws/events/{id}/orders?token=<device token>` (the token is redacted from access logs).
 Configuration is environment variables — see `backend-go/.env.example`; the only value that
 changes per environment is `DB_URL`. Behavioural parity with the retired Kotlin backend is recorded
 in [backend-go/PARITY-NOTES.md](backend-go/PARITY-NOTES.md).
@@ -66,7 +65,7 @@ unique per store. A location (`pos_locations`) is either `type: event` (temporar
 **Catalogue and money:** products are `pos_items`; each has one default variant (`pos_item_variants`,
 `is_default`) carrying its price, which the API hides — `price` is the default variant's and
 `variants` lists only the real ones. Money is whole rupiah (`BIGINT`); a discount rounds to the
-nearest rupiah (.5 up) in the server, the Flutter app and the Android app alike
+nearest rupiah (.5 up) in the server and the Flutter app alike
 (`testdata/promotion-cases.json`).
 
 **Location prices and photos:** `pos_location_items` says which variants a location sells and at
@@ -90,11 +89,34 @@ cashier apps) or chosen items. Laporan POS takes WIB dates and counts offline or
 day; it is final once the event is closed or the period ended over a day ago. Members are read-only
 with the QR code masked.
 
-**Old admin (`/api/admin/*`):** only what Bhoomy does not own yet: users, cashier assignment, the
-event list, stock allocation, member sync and the Produk Toko pull. Products are not created in POS;
-the ERP product sync runs only in the dev seed (`SEED_ENABLED`).
-A Bhoomy store gets its first admin with `echo '<password>' | ./server create-admin -bhoomy-store <id>
--email <email> -name <name>` (until Phase 5 moves accounts to Bhoomy).
+**Staff and devices (Phase 5):** cashiers are staff, not logins. Bhoomy's Staf POS adds them
+(name ≤40, `KASIR`/`SUPERVISOR`, a 4–6 digit PIN stored as bcrypt cost 10 and never returned, and
+their outlets/events). A device is paired to one location: Perangkat › "Tambah perangkat" makes a
+6-digit code valid 10 minutes for any number of devices; each gets the next free "Kasir N"
+(renamable). To move a device, remove it and pair again. Closing a location (event or outlet) keeps
+its devices working 24 h for late uploads, then removes them.
+
+| Back office (`/api/backoffice`) | What |
+|---|---|
+| `GET/POST /staff`, `GET/PUT /staff/:id` | `{name, role, pin?, locationIds, active}`; pin required on create, resets on update |
+| `GET /locations/:id/devices`, `POST /locations/:id/pairing-code` | Devices with `lastSeenAt`; a new code replaces the old one |
+| `PATCH /devices/:id` `{name}`, `DELETE /devices/:id` | Rename, remove (its token stops working) |
+| `GET/POST /members/sync`, `PUT /members/sync/schedule` `{enabled, time}` | Member POS sync bar; `time` is a daily WIB `HH:MM` |
+
+**Device API (cashier app):** `POST /api/device/pair {code, model}` is public (10 tries a minute per
+client) and returns `{token, device, location, storeName}`. Every other call sends
+`Authorization: Device <token>` (opaque, stored as SHA-256); `GET /api/device` is the heartbeat (401
+once removed) and `GET /api/device/staff` gives the location's active staff with PIN hashes so the
+app signs people in offline. Calls that act for a person add `X-Staff-Id`; the server checks the
+staff member is active and assigned to the device's location. `/api/me/events/:eventId/...` and the
+pickup board (`/api/warehouse/...`) keep their paths and bodies, but `eventId` must be the device's
+location. Orders record the staff member and the device. Cancelling needs `{reason, supervisorId,
+supervisorPin}` from a supervisor of that location; the audit names both.
+
+**Old admin (`/api/admin/*`, ADMIN only):** the location list, stock allocation and the Produk Toko
+pull, until Phase 6 moves stock to Bhoomy. Products are not created in POS; the ERP product sync runs
+only in the dev seed (`SEED_ENABLED`). A Bhoomy store gets its admin with
+`echo '<password>' | ./server create-admin -bhoomy-store <id> -email <email> -name <name>`.
 
 **Barcodes:** each Produk Toko variant barcode is copied to `pos_item_barcodes` on every sync
 (unique per store). The snapshot version includes every barcode, so a changed barcode reaches the
@@ -116,29 +138,28 @@ cd backend-go && make generate && go test ./...
 # no local Go: docker run --rm -v "$PWD":/app -w /app golang:1.25-alpine sh -c "apk add make && make test"
 ```
 
-Seeded demo logins: `admin@eventmpos.local` / `Admin123!` (admin),
-`ba@eventmpos.local` / `Ba123456!` (BA, assigned to EV01),
-`wh@eventmpos.local` / `Wh123456!` (warehouse).
+Dev seed: admin `admin@eventmpos.local` / `Admin123!`; EV01 staff Bella (KASIR, PIN 1234) and Sari
+(SUPERVISOR, PIN 9999); a paired device "Kasir 1" whose token, plus a fresh pairing code, is printed
+in the server log.
 
 ## Architecture
 
 ```
-Android (Kotlin, Compose, Room)  ──HTTPS/JSON──▶  Go API (Gin)  ──GORM──▶  PostgreSQL
-  offline-first: Room is the UI's                 source of truth          golang-migrate schema
-  source; WorkManager uploads orders              row-locked stock         append-only audit (trigger)
-                                                       │
-Web dashboard (React + TS)  ◀──native WebSocket────────┘  live warehouse board (+ polling fallback)
+Flutter cashier app (paired device) ──HTTPS/JSON──▶  Go API (Gin)  ──GORM──▶  PostgreSQL
+  offline-first; uploads queued orders              source of truth          golang-migrate schema
+  pickup board ◀──native WebSocket─────────────────  row-locked stock         append-only audit (trigger)
+Bhoomy back office ──service token──▶ /api/backoffice
 ```
 
-- **Event-scoped**: products, stock, promotions, orders and BA assignments all belong to an event.
+- **Location-scoped**: prices, stock, promotions, orders, staff assignments and devices belong to a location.
 - **Selling offline**: each device draws final order numbers from its own server-issued block, prints
   the receipt at confirmation, and uploads later. The server never rejects an uploaded order for
   stock; it flags `stock_conflict`. A CLOSED event accepts orders created before closing for 24h.
 - **Stock** changes only through `SELECT … FOR UPDATE` in the stock service; every order state change
   is audited in the same transaction.
 - **Hardware** sits behind `PrinterPort` / `ScannerPort`, so the app runs on an emulator.
-- **CI** (`.github/workflows/ci.yml`): Go vet + migrations + Postgres integration tests; Android
-  lint + unit tests + build; web type check + build + vitest. The Go and Android promotion engines
+- **CI** (`.github/workflows/ci.yml`): Go vet + migrations + Postgres integration tests; Flutter
+  analyze + test + build; web type check + build + vitest. The Go and Flutter promotion engines
   both run `testdata/promotion-cases.json`.
 
 ## Epic Status
