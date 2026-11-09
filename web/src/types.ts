@@ -1,4 +1,4 @@
-export type Role = "ADMIN" | "BA" | "WAREHOUSE";
+export type Role = "ADMIN";
 
 export interface UserSummary {
   id: string;
@@ -26,11 +26,6 @@ export interface EventResponse {
   status: EventStatus;
 }
 
-export interface UserResponse extends UserSummary {
-  active: boolean;
-  createdAt: string;
-}
-
 export interface AllocationRow {
   productId: string;
   sku: string;
@@ -39,55 +34,4 @@ export interface AllocationRow {
   allocatedQty: number;
   soldQty: number;
   remaining: number;
-}
-
-export interface StockLevelRow {
-  productId: string;
-  sku: string;
-  name: string;
-  allocatedQty: number;
-  soldQty: number;
-  remaining: number;
-  lowStock: boolean;
-}
-
-export type OrderStatus = "NEW" | "PACKING" | "READY" | "COLLECTED" | "CANCELLED";
-
-export interface WarehouseItem {
-  name: string;
-  sku: string;
-  qty: number;
-}
-
-export interface WarehouseOrderView {
-  id: string;
-  orderNumber: number;
-  orderNumberDisplay: string;
-  referenceId: string;
-  customerName: string;
-  baName: string;
-  items: WarehouseItem[];
-  status: OrderStatus;
-  total: number;
-  createdAt: string;
-  stockConflict: boolean;
-  lateSynced: boolean;
-}
-
-// ---- Member sync schedule ----
-
-export interface SyncTypeView {
-  type: "MEMBER";
-  enabled: boolean;
-  cron: string;
-  updatedAt: string;
-  lastSyncAt: string | null;
-  lastResult: string | null;
-  count: number;
-  source: string | null;
-  message: string | null;
-}
-
-export interface SyncOverview {
-  member: SyncTypeView;
 }

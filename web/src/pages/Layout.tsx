@@ -1,29 +1,16 @@
 import type { ReactNode } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../auth/AuthContext";
-import type { Role } from "../types";
 import { Icon } from "./icons";
 
-interface NavLink {
-  to: string;
-  label: string;
-  icon: ReactNode;
-}
-
-const NAV: Record<Role, NavLink[]> = {
-  ADMIN: [
-    { to: "/admin", label: "Dashboard", icon: Icon.dashboard },
-    { to: "/admin/stock", label: "Stock", icon: Icon.box },
-  ],
-  WAREHOUSE: [{ to: "/warehouse", label: "Order Board", icon: Icon.truck }],
-  BA: [{ to: "/ba", label: "My Events", icon: Icon.calendar }],
-};
+// Staff, devices, members and everything else live in Bhoomy; stock stays here until Phase 6.
+const NAV = [{ to: "/stock", label: "Stock", icon: Icon.box }];
 
 function initials(name: string): string {
   return name.split(" ").map((n) => n[0]).filter(Boolean).join("").toUpperCase().slice(0, 2) || "?";
 }
 
-/** Sidebar dashboard shell: brand + role-based nav on the left, top bar + content on the right. */
+/** Sidebar dashboard shell: brand + nav on the left, top bar + content on the right. */
 export default function Layout({ title, children }: { title: string; children: ReactNode }) {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
@@ -34,11 +21,6 @@ export default function Layout({ title, children }: { title: string; children: R
     navigate("/login", { replace: true });
   }
 
-  const links = user ? NAV[user.role] : [];
-
-  function isActive(to: string): boolean {
-    return to === "/admin" ? location.pathname === "/admin" : location.pathname.startsWith(to);
-  }
 
   return (
     <div className="app-shell">
@@ -47,10 +29,10 @@ export default function Layout({ title, children }: { title: string; children: R
           <span className="app-sidebar__logo">e</span>
           <span>event-mpos</span>
         </div>
-        <div className="app-sidebar__section-label">{user?.role === "ADMIN" ? "Administration" : "Menu"}</div>
+        <div className="app-sidebar__section-label">Administration</div>
         <nav>
-          {links.map((l) => (
-            <Link key={l.to} to={l.to} className={`pdx-nav-item${isActive(l.to) ? " pdx-nav-item--active" : ""}`}>
+          {NAV.map((l) => (
+            <Link key={l.to} to={l.to} className={`pdx-nav-item${location.pathname.startsWith(l.to) ? " pdx-nav-item--active" : ""}`}>
               <span className="pdx-nav-item__icon">{l.icon}</span>
               <span className="pdx-nav-item__label">{l.label}</span>
             </Link>

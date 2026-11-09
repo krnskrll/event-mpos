@@ -1,5 +1,5 @@
 {
-  "_about": "Shared promotion-engine fixture. Run by backend-go/internal/promotion/parity_test.go, android app/src/test/.../PromotionParityTest.kt AND mobile/test/domain/promotion_parity_test.dart. All engines must produce exactly these results; change them (and this file) together. Money is a decimal string; discounts are whole rupiah (nearest, .5 up). 'expected.promotion' is the chosen promotion's name, or null when none applies. Only active promotions appear here: the server filters inactive ones out before the snapshot reaches the device.",
+  "_about": "Shared promotion-engine fixture. Run by backend-go/internal/promotion/parity_test.go AND mobile/test/domain/promotion_parity_test.dart. All engines must produce exactly these results; change them (and this file) together. Money is a decimal string; discounts are whole rupiah (nearest, .5 up). 'expected.promotion' is the chosen promotion's name, or null when none applies. Only active promotions appear here: the server filters inactive ones out before the snapshot reaches the device.",
   "now": "2026-07-05T10:00:00Z",
   "carts": {
     "standard": [
