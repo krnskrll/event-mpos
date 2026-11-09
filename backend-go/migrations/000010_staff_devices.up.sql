@@ -44,3 +44,6 @@ CREATE TABLE public.pos_pairing_codes (
 ALTER TABLE public.orders
     ADD COLUMN staff_id uuid,
     ALTER COLUMN ba_user_id DROP NOT NULL;
+
+-- Cashiers no longer log in, so BA→event assignments go (staff are assigned in pos_staff_locations).
+DROP TABLE public.ba_event_assignments;

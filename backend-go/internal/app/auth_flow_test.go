@@ -75,11 +75,20 @@ func TestRefreshRotatesAndRevokedTokenIsRejected(t *testing.T) {
 	}
 }
 
-func TestBACannotReachAdminRoutes(t *testing.T) {
+// BA and WAREHOUSE accounts are retired: cashiers work on paired devices, so only ADMIN signs in.
+func TestOnlyAdminsLogIn(t *testing.T) {
 	a := testutil.NewApp(t)
-	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
-	tokens := login(t, a, ba.Email, "Ba123456!")
-	if rec := a.Do(http.MethodGet, "/api/admin/users", nil, tokens.AccessToken); rec.Code != http.StatusForbidden {
-		t.Errorf("BA on admin route: %d, want 403", rec.Code)
+	for _, role := range []string{"BA", "WAREHOUSE"} {
+		u := a.CreateUser(useriface.RoleAdmin, "Passw0rd!")
+		a.DB.Exec("UPDATE users SET role = ? WHERE id = ?", role, u.ID)
+		if rec := a.Do(http.MethodPost, "/api/auth/login", map[string]string{"email": u.Email, "password": "Passw0rd!"}, ""); rec.Code != http.StatusUnauthorized {
+			t.Errorf("%s login: %d, want 401", role, rec.Code)
+		}
+	}
+	admin := a.CreateUser(useriface.RoleAdmin, "Passw0rd!")
+	tokens := login(t, a, admin.Email, "Passw0rd!")
+	a.DB.Exec("UPDATE users SET role = 'BA' WHERE id = ?", admin.ID)
+	if rec := a.Do(http.MethodPost, "/api/auth/refresh", map[string]string{"refreshToken": tokens.RefreshToken}, ""); rec.Code != http.StatusUnauthorized {
+		t.Errorf("refresh after the role became BA: %d, want 401", rec.Code)
 	}
 }

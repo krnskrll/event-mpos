@@ -22,24 +22,19 @@ type StatusReporter interface {
 	LastRun() LastRun
 }
 
-type UpdateSyncConfigRequest struct {
-	Enabled bool   `json:"enabled"`
-	Cron    string `json:"cron" binding:"required"`
-}
-
-// SyncTypeView combines schedule and last-run status for one sync type.
-type SyncTypeView struct {
-	Type       SyncType   `json:"type"`
+// MemberSync is the Member POS sync bar in the back office. Time is the daily run in WIB ("HH:MM"),
+// nil when the stored schedule is not a daily time.
+type MemberSync struct {
 	Enabled    bool       `json:"enabled"`
-	Cron       string     `json:"cron"`
-	UpdatedAt  time.Time  `json:"updatedAt"`
-	LastSyncAt *time.Time `json:"lastSyncAt,omitempty"`
-	LastResult *string    `json:"lastResult,omitempty"`
+	Time       *string    `json:"time"`
+	LastSyncAt *time.Time `json:"lastSyncAt"`
+	LastResult *string    `json:"lastResult"`
 	Count      int        `json:"count"`
-	Source     *string    `json:"source,omitempty"`
-	Message    *string    `json:"message,omitempty"`
+	Source     *string    `json:"source"`
+	Message    *string    `json:"message"`
 }
 
-type SyncOverview struct {
-	Member SyncTypeView `json:"member"`
+type MemberScheduleRequest struct {
+	Enabled bool   `json:"enabled"`
+	Time    string `json:"time" binding:"required"`
 }

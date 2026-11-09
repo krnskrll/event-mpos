@@ -25,31 +25,6 @@ components:
       properties:
         snapshotHash: { type: string }
         checkedAt: { type: string, format: date-time }
-    UserResponse:
-      type: object
-      required: [id, email, fullName, role, active, createdAt, storeId]
-      properties:
-        storeId: { type: string, format: uuid }
-        id: { type: string, format: uuid }
-        email: { type: string }
-        fullName: { type: string }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
-        active: { type: boolean }
-        createdAt: { type: string, format: date-time }
-    CreateUserRequest:
-      type: object
-      required: [email, password, fullName, role]
-      properties:
-        email: { type: string }
-        password: { type: string }
-        fullName: { type: string }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
-    UpdateUserRequest:
-      type: object
-      properties:
-        fullName: { type: string, nullable: true }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE], nullable: true }
-        active: { type: boolean, nullable: true }
     LoginRequest:
       type: object
       required: [email, password]
@@ -77,7 +52,7 @@ components:
         id: { type: string, format: uuid }
         email: { type: string }
         fullName: { type: string }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
+        role: { type: string, enum: [ADMIN] }
     EventResponse:
       type: object
       required: [id, code, name, status, storeId, type]
@@ -104,11 +79,6 @@ components:
       required: [status]
       properties:
         status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
-    AssignBaRequest:
-      type: object
-      properties:
-        userId: { type: string, format: uuid }
-        eventId: { type: string, format: uuid }
     EventSnapshot:
       type: object
       required: [event, version, products, stock, members, promotions, memberCount]
@@ -468,50 +438,6 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         itemIds: { type: array, items: { type: string, format: uuid } }
-    UpdateSyncConfigRequest:
-      type: object
-      required: [cron]
-      properties:
-        enabled: { type: boolean }
-        cron: { type: string }
-    SyncTypeView:
-      type: object
-      required: [type, enabled, cron, updatedAt, count]
-      properties:
-        type: { type: string, enum: [ERP, MEMBER] }
-        enabled: { type: boolean }
-        cron: { type: string }
-        updatedAt: { type: string, format: date-time }
-        lastSyncAt: { type: string, format: date-time }
-        lastResult: { type: string }
-        count: { type: integer }
-        source: { type: string }
-        message: { type: string }
-    SyncOverview:
-      type: object
-      required: [member]
-      properties:
-        member: { $ref: '#/components/schemas/SyncTypeView' }
-    MemberSyncResult:
-      type: object
-      required: [ok, created, updated, total, source]
-      properties:
-        ok: { type: boolean }
-        created: { type: integer }
-        updated: { type: integer }
-        total: { type: integer }
-        source: { type: string }
-        message: { type: string }
-    MemberSyncStatus:
-      type: object
-      required: [id, memberCount]
-      properties:
-        id: { type: integer }
-        lastSyncAt: { type: string, format: date-time }
-        lastResult: { type: string }
-        memberCount: { type: integer }
-        source: { type: string }
-        message: { type: string }
     CatalogSyncStatus:
       type: object
       required: [linked, cached]
@@ -755,3 +681,20 @@ components:
       required: [name]
       properties:
         name: { type: string, maxLength: 40 }
+    MemberSync:
+      type: object
+      required: [enabled, time, lastSyncAt, lastResult, count, source, message]
+      properties:
+        enabled: { type: boolean }
+        time: { type: string, nullable: true, description: "daily run, HH:MM WIB; null when the schedule is not a daily time" }
+        lastSyncAt: { type: string, format: date-time, nullable: true }
+        lastResult: { type: string, enum: [SUCCESS, FAILED], nullable: true }
+        count: { type: integer }
+        source: { type: string, nullable: true }
+        message: { type: string, nullable: true }
+    MemberScheduleRequest:
+      type: object
+      required: [enabled, time]
+      properties:
+        enabled: { type: boolean }
+        time: { type: string, description: "HH:MM WIB" }

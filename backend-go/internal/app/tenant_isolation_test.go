@@ -24,10 +24,9 @@ func TestStoreIsolation(t *testing.T) {
 
 	// Store A with one of everything.
 	adminA := a.CreateUserIn(storeA, useriface.RoleAdmin, pw)
-	baA := a.CreateUserIn(storeA, useriface.RoleBA, pw)
 	evA, pA := a.ActiveEventIn(storeA), a.ProductIn(storeA, "10000")
 	a.Allocate(evA.ID, pA.ID, 10)
-	staffA := a.NewStaff(storeA, staffiface.RoleKasir, evA.ID)
+	staffA, devA := a.NewStaff(storeA, staffiface.RoleKasir, evA.ID), a.PairDevice(evA.ID)
 	orderA, err := a.Orders.Submit(evA.ID, staffA.ID, orderiface.SubmitOrderRequest{
 		IdempotencyKey: testutil.Unique("iso-"), Customer: orderiface.CustomerInfo{Name: "A"},
 		Lines: []orderiface.OrderLineRequest{{ProductID: pA.ID, Qty: 1}},
@@ -45,8 +44,8 @@ func TestStoreIsolation(t *testing.T) {
 	a.DB.Exec(`INSERT INTO members (id, member_code, qr_code, name, tier, active, updated_at, store_id)
 		VALUES (?, ?, ?, 'Member A', 'GOLD', true, now(), ?)`, uuid.New(), codeA, qrA, storeA)
 
-	// Store B with its own admin, BA and a paired device with its staff.
-	adminB, baB := a.CreateUserIn(storeB, useriface.RoleAdmin, pw), a.CreateUserIn(storeB, useriface.RoleBA, pw)
+	// Store B with its own admin and a paired device with its staff.
+	adminB := a.CreateUserIn(storeB, useriface.RoleAdmin, pw)
 	evB := a.ActiveEventIn(storeB)
 	devB, staffB := a.PairDevice(evB.ID), a.NewStaff(storeB, staffiface.RoleSupervisor, evB.ID).ID
 	tokB := login(t, a, adminB.Email, pw).AccessToken
@@ -56,9 +55,6 @@ func TestStoreIsolation(t *testing.T) {
 		name, method, path, token string
 		body                      any
 	}{
-		{"assign own BA to A's event", http.MethodPost, "/api/admin/assignments", tokB, map[string]string{"userId": baB.ID.String(), "eventId": ev}},
-		{"assign A's BA to own event", http.MethodPost, "/api/admin/assignments", tokB, map[string]string{"userId": baA.ID.String(), "eventId": evB.ID.String()}},
-		{"update user", http.MethodPatch, "/api/admin/users/" + adminA.ID.String(), tokB, map[string]bool{"active": false}},
 		{"allocations", http.MethodGet, "/api/admin/events/" + ev + "/stock", tokB, nil},
 		{"set allocation", http.MethodPut, "/api/admin/events/" + ev + "/stock/" + p, tokB, map[string]int{"allocatedQty": 1}},
 	}
@@ -104,6 +100,12 @@ func TestStoreIsolation(t *testing.T) {
 		{"delete promotion", http.MethodDelete, "/promotions/" + pr, nil},
 		{"report", http.MethodGet, "/locations/" + ev + "/report", nil},
 		{"audit", http.MethodGet, "/locations/" + ev + "/audit", nil},
+		{"location devices", http.MethodGet, "/locations/" + ev + "/devices", nil},
+		{"pairing code", http.MethodPost, "/locations/" + ev + "/pairing-code", nil},
+		{"staff", http.MethodGet, "/staff/" + staffA.ID.String(), nil},
+		{"update staff", http.MethodPut, "/staff/" + staffA.ID.String(), J{"name": "x", "role": "KASIR", "locationIds": []string{}}},
+		{"rename device", http.MethodPatch, "/devices/" + devA.ID.String(), J{"name": "x"}},
+		{"remove device", http.MethodDelete, "/devices/" + devA.ID.String(), nil},
 	}
 	for _, r := range backRefused {
 		if rec := a.Back(r.method, r.path, r.body, bhoomyB); rec.Code != http.StatusNotFound {
@@ -113,7 +115,6 @@ func TestStoreIsolation(t *testing.T) {
 
 	hidden := []struct{ path, token, id string }{
 		{"/api/admin/events", tokB, ev},
-		{"/api/admin/users", tokB, adminA.ID.String()},
 	}
 	for _, h := range hidden {
 		rec := a.Do(http.MethodGet, h.path, nil, h.token)
@@ -127,7 +128,7 @@ func TestStoreIsolation(t *testing.T) {
 			t.Errorf("device %s: store B sees store A data (%d)", path, rec.Code)
 		}
 	}
-	for path, id := range map[string]string{"/locations": ev, "/promotions": pr, "/members": codeA} {
+	for path, id := range map[string]string{"/locations": ev, "/promotions": pr, "/members": codeA, "/staff": staffA.ID.String()} {
 		rec := a.Back(http.MethodGet, path, nil, bhoomyB)
 		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), id) {
 			t.Errorf("back office %s: store B sees store A data (%d)", path, rec.Code)

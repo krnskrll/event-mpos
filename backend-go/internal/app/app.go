@@ -52,7 +52,6 @@ import (
 	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
 	synchandler "github.com/krnskrll/event-mpos/internal/syncconfig/handler"
 	syncsvc "github.com/krnskrll/event-mpos/internal/syncconfig/service"
-	userhandler "github.com/krnskrll/event-mpos/internal/user/handler"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 	usersvc "github.com/krnskrll/event-mpos/internal/user/service"
 )
@@ -100,7 +99,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	refreshService := authsvc.NewRefreshService(db, cfg.RefreshTokenTTLDays)
 	a.Users = usersvc.NewService(db)
 	a.Auth = authsvc.NewService(a.Users, jwtService, refreshService)
-	a.Events = eventsvc.NewService(db, a.Users)
+	a.Events = eventsvc.NewService(db)
 	a.Media = media.NewStore(cfg.MediaDir, cfg.MediaBaseURL)
 	a.Products = productsvc.NewService(db, a.Media)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
@@ -154,7 +153,6 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 
 func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.Engine {
 	authHandler := authhandler.NewHandler(a.Auth)
-	userHandler := userhandler.NewHandler(a.Users)
 	eventHandler := eventhandler.NewHandler(a.Events)
 	productHandler := producthandler.NewHandler(a.Products, a.Events)
 	catalogHandler := cataloghandler.NewHandler(a.Catalog, func(storeID uuid.UUID) error {
@@ -163,13 +161,12 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		return a.CatalogSync.RunStore(ctx, storeID)
 	})
 	memberHandler := memberhandler.NewHandler(a.Members)
-	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
 	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock, a.Events)
 	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
 	promotionHandler := promotionhandler.NewHandler(a.Promotions)
 	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders, a.Staff)
 	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit, a.Events)
-	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.MemberSync)
+	memberSyncHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.MemberSync, func() { a.MemberSync.Sync() })
 	staffHandler := staffhandler.NewHandler(a.Staff)
 	deviceHandler := devicehandler.NewHandler(a.Devices, a.Staff)
 	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
@@ -228,20 +225,12 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		authed.Use(authhandler.JWTMiddleware(jwtService))
 		authed.POST("/auth/logout", authHandler.Logout)
 
-		// Admin-only: what Bhoomy does not own yet (accounts, cashier assignment, stock, member sync).
+		// Old dashboard (ADMIN only) until Phase 6: the location list, stock allocation, Produk Toko pull.
 		admin := authed.Group("/admin")
 		admin.Use(authhandler.RequireRole(useriface.RoleAdmin))
-		admin.GET("/users", userHandler.List)
-		admin.POST("/users", userHandler.Create)
-		admin.PATCH("/users/:id", userHandler.Update)
 		admin.GET("/events", eventHandler.List)
-		admin.POST("/assignments", eventHandler.AssignBa)
 		admin.GET("/catalog/sync", catalogHandler.SyncStatus)
 		admin.POST("/catalog/sync", catalogHandler.Sync)
-		admin.POST("/members/sync", memberSyncHandler.SyncNow)
-		admin.GET("/members/sync/status", memberSyncHandler.Status)
-		admin.GET("/sync", syncConfigHandler.Overview)
-		admin.PUT("/sync/:type", syncConfigHandler.Update)
 		admin.GET("/events/:id/stock", stockAdminHandler.Allocations)
 		admin.PUT("/events/:id/stock/:productId", stockAdminHandler.SetAllocation)
 
@@ -273,6 +262,9 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		back.PUT("/promotions/:id", promotionHandler.StoreUpdate)
 		back.DELETE("/promotions/:id", promotionHandler.Delete)
 		back.GET("/members", memberHandler.StoreList)
+		back.GET("/members/sync", memberSyncHandler.Status)
+		back.POST("/members/sync", memberSyncHandler.SyncNow)
+		back.PUT("/members/sync/schedule", memberSyncHandler.Schedule)
 		back.GET("/staff", staffHandler.List)
 		back.POST("/staff", staffHandler.Create)
 		back.GET("/staff/:id", staffHandler.Get)
@@ -328,8 +320,8 @@ func (a *App) storeFor(pull bool) func(uuid.UUID, string) (uuid.UUID, error) {
 	}
 }
 
-// CreateStoreAdmin adds a POS admin to a Bhoomy store, so the old dashboard can set up its cashiers
-// until Phase 5 moves accounts to Bhoomy.
+// CreateStoreAdmin adds a POS admin to a Bhoomy store, for the old dashboard's stock allocation
+// until Phase 6 moves stock to Bhoomy.
 func (a *App) CreateStoreAdmin(bhoomyStore uuid.UUID, email, name, password string) (*useriface.UserResponse, error) {
 	if len(password) < 8 || strings.TrimSpace(name) == "" {
 		return nil, errors.New("name required, password at least 8 characters")

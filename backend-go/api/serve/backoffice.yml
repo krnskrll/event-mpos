@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: POS back office API
   version: "1.0.0"
-  description: Katalog POS, Outlet & Event, Promosi, Member POS and Laporan POS for the Bhoomy web app. Called only by the Bhoomy backend (service token + X-Bhoomy-Store-Id); not exposed publicly.
+  description: Katalog POS, Outlet & Event, Promosi, Member POS, Laporan POS, Staf POS and Perangkat for the Bhoomy web app. Called only by the Bhoomy backend (service token + X-Bhoomy-Store-Id); not exposed publicly.
 tags:
   - name: backoffice
 paths:
@@ -416,6 +416,36 @@ paths:
         '204': { description: Removed }
         '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/members/sync:
+    get:
+      tags: [backoffice]
+      operationId: getMemberSync
+      summary: "Member POS sync bar: schedule and last run"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberSync' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    post:
+      tags: [backoffice]
+      operationId: runMemberSync
+      summary: "Sinkron sekarang: run the member sync, answer with the new status"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberSync' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/members/sync/schedule:
+    put:
+      tags: [backoffice]
+      operationId: setMemberSyncSchedule
+      summary: "Daily member sync on or off at a WIB time"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberScheduleRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberSync' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
 components:
   securitySchemes:
     serviceToken: { type: http, scheme: bearer }

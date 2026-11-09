@@ -1,5 +1,5 @@
 // Package seed loads dev-only starter data on boot when SEED_ENABLED=true. It is idempotent: it
-// only seeds when the users table is empty. Expanded per phase; Phase 1 seeds the three login users.
+// only seeds when the users table is empty.
 package seed
 
 import (
@@ -10,6 +10,7 @@ import (
 	"github.com/shopspring/decimal"
 	"gorm.io/gorm"
 
+	devicesvc "github.com/krnskrll/event-mpos/internal/device/service"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
 	"github.com/krnskrll/event-mpos/internal/integration/erp"
@@ -20,6 +21,8 @@ import (
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
+	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
+	staffsvc "github.com/krnskrll/event-mpos/internal/staff/service"
 	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 	userrepo "github.com/krnskrll/event-mpos/internal/user/repository"
@@ -27,10 +30,10 @@ import (
 
 // Seeded credentials (CHANGE before any real deployment):
 //
-//	admin@eventmpos.local / Admin123!  (ADMIN)
-//	ba@eventmpos.local    / Ba123456!  (BA)
-//	wh@eventmpos.local    / Wh123456!  (WAREHOUSE)
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stocksvc.Service, promoSvc *promotionsvc.Service) error {
+//	admin@eventmpos.local / Admin123!  (ADMIN, old dashboard)
+//	EV01 staff: Bella (KASIR, PIN 1234), Sari (SUPERVISOR, PIN 9999)
+//	EV01 device "Kasir 1": its token and a fresh pairing code are printed in the log.
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stocksvc.Service, promoSvc *promotionsvc.Service, staff *staffsvc.Service, devices *devicesvc.Service) error {
 	var count int64
 	if err := db.Model(&userrepo.User{}).Count(&count).Error; err != nil {
 		return err
@@ -41,37 +44,16 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 	}
 	log.Println("WARNING: seeding DEV data with default credentials — do NOT use in production")
 
-	seedUsers := []struct {
-		email, password, name string
-		role                  useriface.Role
-	}{
-		{"admin@eventmpos.local", "Admin123!", "System Admin", useriface.RoleAdmin},
-		{"ba@eventmpos.local", "Ba123456!", "Bella Advisor", useriface.RoleBA},
-		{"wh@eventmpos.local", "Wh123456!", "Warren House", useriface.RoleWarehouse},
+	hash, err := security.HashPassword("Admin123!")
+	if err != nil {
+		return err
 	}
-	var baID uuid.UUID
-	for _, su := range seedUsers {
-		hash, err := security.HashPassword(su.password)
-		if err != nil {
-			return err
-		}
-		u := userrepo.User{
-			StoreID:      tenant.DefaultStoreID,
-			Email:        su.email,
-			PasswordHash: hash,
-			FullName:     su.name,
-			Role:         su.role,
-			Active:       true,
-		}
-		if err := db.Create(&u).Error; err != nil {
-			return err
-		}
-		if su.role == useriface.RoleBA {
-			baID = u.ID
-		}
+	if err := db.Create(&userrepo.User{StoreID: tenant.DefaultStoreID, Email: "admin@eventmpos.local", PasswordHash: hash,
+		FullName: "System Admin", Role: useriface.RoleAdmin, Active: true}).Error; err != nil {
+		return err
 	}
 
-	// EV01 — the active demo event, with the BA assigned to it.
+	// EV01 — the active demo event, with a cashier, a supervisor and one paired device.
 	start := common.NewDate(2026, time.July, 1)
 	end := common.NewDate(2026, time.July, 14)
 	ev := eventrepo.Event{
@@ -86,9 +68,27 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 	if err := db.Create(&ev).Error; err != nil {
 		return err
 	}
-	if err := db.Create(&eventrepo.BaEventAssignment{UserID: baID, EventID: ev.ID, Active: true}).Error; err != nil {
+	for _, s := range []struct {
+		name, pin string
+		role      staffiface.Role
+	}{{"Bella", "1234", staffiface.RoleKasir}, {"Sari", "9999", staffiface.RoleSupervisor}} {
+		if _, err := staff.Create(tenant.DefaultStoreID, staffiface.StaffRequest{Name: s.name, Role: s.role, Pin: &s.pin, LocationIDs: []uuid.UUID{ev.ID}}); err != nil {
+			return err
+		}
+	}
+	code, err := devices.NewCode(tenant.DefaultStoreID, ev.ID)
+	if err != nil {
 		return err
 	}
+	paired, err := devices.Pair(code.Code, "Dev seed")
+	if err != nil {
+		return err
+	}
+	if code, err = devices.NewCode(tenant.DefaultStoreID, ev.ID); err != nil {
+		return err
+	}
+	log.Printf("DEV ONLY: EV01 device %q token: %s", paired.Device.Name, paired.Token)
+	log.Printf("DEV ONLY: EV01 pairing code %s (valid until %s)", code.Code, code.ExpiresAt.Format(time.RFC3339))
 
 	// Pull the initial catalogue from the (mock) ERP and make every product available for EV01.
 	erpSync.Sync()

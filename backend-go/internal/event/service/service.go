@@ -16,20 +16,18 @@ import (
 	"github.com/krnskrll/event-mpos/internal/event/repository"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 type Service struct {
 	db        *gorm.DB
-	users     useriface.Users
 	providers iface.Providers
 	onClose   func(tx database.Tx, locationID uuid.UUID, closedAt time.Time) error
 }
 
 var _ iface.Events = (*Service)(nil)
 
-func NewService(db *gorm.DB, users useriface.Users) *Service {
-	return &Service{db: db, users: users}
+func NewService(db *gorm.DB) *Service {
+	return &Service{db: db}
 }
 
 func (s *Service) SetProviders(p iface.Providers) { s.providers = p }
@@ -158,97 +156,9 @@ func (s *Service) ChangeStatus(storeID, id uuid.UUID, target iface.EventStatus) 
 	return &resp, nil
 }
 
-// ---- BA assignment ----
-
-func (s *Service) AssignBaToEvent(storeID, userID, eventID uuid.UUID) (*iface.EventResponse, error) {
-	u, err := s.users.FindByID(userID)
-	if err != nil {
-		return nil, err
-	}
-	if u == nil || u.StoreID != storeID {
-		return nil, common.NewAppError(http.StatusNotFound, "User not found")
-	}
-	if u.Role != useriface.RoleBA {
-		return nil, common.NewAppError(http.StatusBadRequest, "Only BA accounts can be assigned to an event")
-	}
-	e, err := s.findIn(storeID, eventID)
-	if err != nil {
-		return nil, err
-	}
-	current, err := s.activeAssignment(userID)
-	if err != nil {
-		return nil, err
-	}
-	if current != nil {
-		if current.EventID == eventID {
-			resp := e.ToResponse()
-			return &resp, nil
-		}
-		current.Active = false
-		if err := s.db.Save(current).Error; err != nil {
-			return nil, err
-		}
-	}
-	if err := s.db.Create(&repository.BaEventAssignment{UserID: userID, EventID: eventID, Active: true}).Error; err != nil {
-		return nil, err
-	}
-	resp := e.ToResponse()
-	return &resp, nil
-}
-
-// ActiveEventForUser returns the BA's single active event, or nil if none.
-func (s *Service) ActiveEventForUser(userID uuid.UUID) (*iface.EventResponse, error) {
-	a, err := s.activeAssignment(userID)
-	if err != nil || a == nil {
-		return nil, err
-	}
-	e, err := s.find(a.EventID)
-	if err != nil {
-		// A dangling assignment (event deleted) is treated as "no active event".
-		if isNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-	resp := e.ToResponse()
-	return &resp, nil
-}
-
-// AssignedEventsForUser returns all events a BA has been assigned to (history + current).
-func (s *Service) AssignedEventsForUser(userID uuid.UUID) ([]iface.EventResponse, error) {
-	var assignments []repository.BaEventAssignment
-	if err := s.db.Where("user_id = ?", userID).Order("assigned_at").Find(&assignments).Error; err != nil {
-		return nil, err
-	}
-	out := make([]iface.EventResponse, 0, len(assignments))
-	for _, a := range assignments {
-		e, err := s.find(a.EventID)
-		if err != nil {
-			if isNotFound(err) {
-				continue
-			}
-			return nil, err
-		}
-		out = append(out, e.ToResponse())
-	}
-	return out, nil
-}
-
-func (s *Service) RequireAssigned(userID, eventID uuid.UUID) error {
-	var count int64
-	if err := s.db.Model(&repository.BaEventAssignment{}).
-		Where("user_id = ? AND event_id = ?", userID, eventID).Count(&count).Error; err != nil {
-		return err
-	}
-	if count == 0 {
-		return common.NewAppError(http.StatusForbidden, "You are not assigned to this event")
-	}
-	return nil
-}
-
 // ---- snapshot ----
 
-// SnapshotForEvent builds the BA event snapshot. Selling (and therefore a snapshot) is only
+// SnapshotForEvent builds the cashier snapshot of a location. Selling (and therefore a snapshot) is only
 // available while the event is ACTIVE.
 func (s *Service) SnapshotForEvent(eventID uuid.UUID) (*iface.EventSnapshot, error) {
 	e, err := s.find(eventID)
@@ -408,23 +318,6 @@ func trimmed(s *string) *string {
 	}
 	t := strings.TrimSpace(*s)
 	return &t
-}
-
-func (s *Service) activeAssignment(userID uuid.UUID) (*repository.BaEventAssignment, error) {
-	var a repository.BaEventAssignment
-	err := s.db.Where("user_id = ? AND active = ?", userID, true).First(&a).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	return &a, nil
-}
-
-func isNotFound(err error) bool {
-	ae, ok := err.(*common.AppError)
-	return ok && ae.Status == http.StatusNotFound
 }
 
 func emptyIfNil(s []any) []any {

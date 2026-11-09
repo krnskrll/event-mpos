@@ -33,7 +33,8 @@ func (s *Service) Login(email, password string) (*iface.TokenResponse, error) {
 		security.CheckPassword("$2a$12$0000000000000000000000000000000000000000000000000000", password)
 		return nil, common.NewAppError(http.StatusUnauthorized, "Invalid email or password")
 	}
-	if !security.CheckPassword(u.PasswordHash, password) {
+	// Only admins sign in; cashiers use paired devices.
+	if !security.CheckPassword(u.PasswordHash, password) || u.Role != useriface.RoleAdmin {
 		return nil, common.NewAppError(http.StatusUnauthorized, "Invalid email or password")
 	}
 	if !u.Active {
@@ -54,7 +55,7 @@ func (s *Service) Refresh(rawRefreshToken string) (*iface.TokenResponse, error) 
 	if err != nil {
 		return nil, err
 	}
-	if u == nil {
+	if u == nil || u.Role != useriface.RoleAdmin {
 		return nil, common.NewAppError(http.StatusUnauthorized, "Invalid or expired refresh token")
 	}
 	if !u.Active {

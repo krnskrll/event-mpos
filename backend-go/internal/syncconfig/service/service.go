@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -62,4 +63,26 @@ func (s *Service) Update(t iface.SyncType, enabled bool, cronExpr string) (*repo
 		return nil, err
 	}
 	return cfg, nil
+}
+
+// Schedules set from the back office run daily at a WIB time, whatever the server's time zone.
+const dailyPrefix = "CRON_TZ=Asia/Jakarta "
+
+// DailyCron turns "HH:MM" (WIB) into the stored cron.
+func DailyCron(hhmm string) (string, error) {
+	t, err := time.Parse("15:04", strings.TrimSpace(hhmm))
+	if err != nil {
+		return "", common.NewAppError(http.StatusBadRequest, "time: must be HH:MM")
+	}
+	return fmt.Sprintf("%s0 %d %d * * *", dailyPrefix, t.Minute(), t.Hour()), nil
+}
+
+// DailyTime reads "HH:MM" back from a cron DailyCron made; nil for any other schedule.
+func DailyTime(cron string) *string {
+	var m, h int
+	if _, err := fmt.Sscanf(cron, dailyPrefix+"0 %d %d * * *", &m, &h); err != nil || h > 23 || m > 59 {
+		return nil
+	}
+	t := fmt.Sprintf("%02d:%02d", h, m)
+	return &t
 }

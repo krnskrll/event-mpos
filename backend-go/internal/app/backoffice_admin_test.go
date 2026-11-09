@@ -9,30 +9,12 @@ import (
 
 	auditiface "github.com/krnskrll/event-mpos/internal/audit/iface"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
-	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
 	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Ported from the Kotlin BackofficeAdminTest.
-
-func TestAdminCanEditRoleAndDeactivateUser(t *testing.T) {
-	a := testutil.NewApp(t)
-	created := a.CreateUser(useriface.RoleBA, "password1")
-	role, active := useriface.RoleWarehouse, false
-	updated, err := a.Users.Update(tenant.DefaultStoreID, created.ID, useriface.UpdateUserRequest{Role: &role, Active: &active})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if updated.Role != useriface.RoleWarehouse || updated.Active {
-		t.Errorf("role=%s active=%v, want WAREHOUSE/false", updated.Role, updated.Active)
-	}
-	if updated.FullName != created.FullName {
-		t.Errorf("fullName changed to %q", updated.FullName)
-	}
-}
 
 func TestSyncConfigValidatesCronAndPersists(t *testing.T) {
 	a := testutil.NewApp(t)
