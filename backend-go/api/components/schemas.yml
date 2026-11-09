@@ -670,7 +670,7 @@ components:
         locationIds: { type: array, items: { type: string, format: uuid } }
     CatalogueItemDetail:
       type: object
-      required: [id, displayName, status, source, variants, locations]
+      required: [id, displayName, status, source, extraBarcodes, variants, locations]
       properties:
         id: { type: string, format: uuid }
         displayName: { type: string }
@@ -688,6 +688,15 @@ components:
             barcode: { type: string, nullable: true }
             imageUrl: { type: string, nullable: true }
             archived: { type: boolean }
+        extraBarcodes:
+          type: array
+          description: POS-only barcodes
+          items:
+            type: object
+            required: [barcode]
+            properties:
+              barcode: { type: string }
+              label: { type: string }
         variants:
           type: array
           items:
@@ -728,6 +737,16 @@ components:
         displayName: { type: string, maxLength: 40 }
         status: { type: string, enum: [active, archived] }
         basePrice: { type: integer, format: int64, nullable: true }
+        extraBarcodes:
+          type: array
+          maxItems: 20
+          description: Replaces the POS-only barcodes; omit to keep them
+          items:
+            type: object
+            required: [barcode]
+            properties:
+              barcode: { type: string, maxLength: 64 }
+              label: { type: string, maxLength: 60, nullable: true }
         variants:
           type: array
           items:

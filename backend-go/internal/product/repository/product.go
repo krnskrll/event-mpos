@@ -102,7 +102,14 @@ type ProductBarcode struct {
 	StoreID uuid.UUID `gorm:"column:store_id;type:uuid;not null"`
 	Barcode string    `gorm:"not null"`
 	Label   *string   ``
+	Source  string    `gorm:"not null;default:pos"`
 }
+
+// Barcode sources: Produk Toko barcodes follow Bhoomy; POS barcodes are extras edited in Katalog POS.
+const (
+	BarcodeProdukToko = "produk_toko"
+	BarcodePOS        = "pos"
+)
 
 func (ProductBarcode) TableName() string { return "pos_item_barcodes" }
 

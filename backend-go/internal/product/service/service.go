@@ -3,7 +3,6 @@ package service
 import (
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -317,7 +316,7 @@ func (s *Service) AvailableSnapshotProducts(eventID uuid.UUID) ([]any, error) {
 }
 
 // AvailabilityFingerprint is a stable hash of the event's available products, folded into the
-// snapshot version. Format: "sku:price:barcodeCount" per product, comma-joined (matches Kotlin).
+// snapshot version. Format: "sku:price:barcodes" per product (barcodes "+"-joined), comma-joined.
 func (s *Service) AvailabilityFingerprint(eventID uuid.UUID) (string, error) {
 	dtos, err := s.availableSnapshotProducts(eventID)
 	if err != nil {
@@ -325,7 +324,7 @@ func (s *Service) AvailabilityFingerprint(eventID uuid.UUID) (string, error) {
 	}
 	parts := make([]string, 0, len(dtos))
 	for _, d := range dtos {
-		part := d.SKU + ":" + d.Price.String() + ":" + strconv.Itoa(len(d.Barcodes))
+		part := d.SKU + ":" + d.Price.String() + ":" + strings.Join(d.Barcodes, "+")
 		for _, v := range d.Variants {
 			part += "|" + v.Price.String()
 		}
