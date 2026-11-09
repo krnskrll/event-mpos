@@ -18,6 +18,7 @@ export type EventStatus = "DRAFT" | "ACTIVE" | "CLOSED";
 
 export interface EventResponse {
   id: string;
+  type: "event" | "outlet";
   code: string;
   name: string;
   startDate: string | null;
@@ -28,69 +29,6 @@ export interface EventResponse {
 export interface UserResponse extends UserSummary {
   active: boolean;
   createdAt: string;
-}
-
-export type ProductSource = "ERP" | "MANUAL";
-
-export interface VariantDto {
-  id: string;
-  name: string;
-  sku: string;
-  price: number;
-  active: boolean;
-}
-
-export interface BarcodeDto {
-  barcode: string;
-  label: string | null;
-}
-
-export interface ProductResponse {
-  id: string;
-  sku: string;
-  name: string;
-  brand: string | null;
-  price: number;
-  imageUrl: string | null;
-  source: ProductSource;
-  active: boolean;
-  barcodes: BarcodeDto[];
-  variants: VariantDto[];
-  updatedAt: string;
-}
-
-export interface EventProductResponse {
-  product: ProductResponse;
-  available: boolean;
-}
-
-export interface ErpSyncStatus {
-  lastSyncAt: string | null;
-  lastResult: string | null;
-  productCount: number;
-  source: string | null;
-  message: string | null;
-}
-
-export type MemberTier = "STANDARD" | "SILVER" | "GOLD" | "PLATINUM";
-
-export interface MemberResponse {
-  id: string;
-  memberCode: string;
-  qrCode: string;
-  name: string;
-  tier: MemberTier;
-  region: string | null;
-  active: boolean;
-  updatedAt: string;
-}
-
-export interface MemberSyncStatus {
-  lastSyncAt: string | null;
-  lastResult: string | null;
-  memberCount: number;
-  source: string | null;
-  message: string | null;
 }
 
 export interface AllocationRow {
@@ -136,12 +74,10 @@ export interface WarehouseOrderView {
   lateSynced: boolean;
 }
 
-// ---- EPIC-11: back office admin ----
-
-export type SyncType = "ERP" | "MEMBER";
+// ---- Member sync schedule ----
 
 export interface SyncTypeView {
-  type: SyncType;
+  type: "MEMBER";
   enabled: boolean;
   cron: string;
   updatedAt: string;
@@ -153,76 +89,5 @@ export interface SyncTypeView {
 }
 
 export interface SyncOverview {
-  erp: SyncTypeView;
   member: SyncTypeView;
-}
-
-export interface ProductReportRow {
-  productId: string;
-  sku: string;
-  name: string;
-  unitsSold: number;
-  revenue: number;
-  allocated: number;
-  sold: number;
-  remaining: number;
-}
-
-export interface EndOfEventReport {
-  eventId: string;
-  eventCode: string;
-  eventName: string;
-  status: EventStatus;
-  generatedAt: string;
-  totalOrders: number;
-  cancelledOrders: number;
-  lateSyncedOrders: number;
-  stockConflictOrders: number;
-  totalItems: number;
-  totalRevenue: number;
-  totalDiscount: number;
-  products: ProductReportRow[];
-}
-
-export type AuditAction = "ORDER_CREATED" | "STATUS_CHANGED" | "RECEIPT_PRINTED" | "ORDER_CANCELLED";
-export const AUDIT_ACTIONS: AuditAction[] = ["ORDER_CREATED", "STATUS_CHANGED", "RECEIPT_PRINTED", "ORDER_CANCELLED"];
-
-export interface AuditEntry {
-  id: string;
-  orderId: string;
-  orderReference: string;
-  action: AuditAction;
-  actorName: string;
-  fromStatus: string | null;
-  toStatus: string | null;
-  detail: string | null;
-  at: string;
-}
-
-/** One page of an event's audit log, newest first (page is 0-based). */
-export interface AuditPage {
-  items: AuditEntry[];
-  page: number;
-  size: number;
-  total: number;
-}
-
-export type PromotionType = "PERCENTAGE" | "FIXED" | "BUNDLE";
-export type PromotionScope = "ALL" | "SPECIFIC";
-
-export interface PromotionResponse {
-  id: string;
-  locationId: string | null;
-  name: string;
-  type: PromotionType;
-  percentOff: number | null;
-  amountOff: number | null;
-  scope: PromotionScope;
-  productIds: string[];
-  minQty: number | null;
-  minSubtotal: number | null;
-  startsAt: string | null;
-  endsAt: string | null;
-  active: boolean;
-  priority: number;
 }

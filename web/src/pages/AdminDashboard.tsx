@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import { AxiosError } from "axios";
 import Layout from "./Layout";
 import { api } from "../api/client";
-import type { EventResponse, EventStatus, Role, UserResponse } from "../types";
+import type { EventResponse, EventStatus, Role, SyncOverview, SyncTypeView, UserResponse } from "../types";
 import { Icon } from "./icons";
 
 const ROLES: Role[] = ["ADMIN", "BA", "WAREHOUSE"];
@@ -37,6 +37,7 @@ export default function AdminDashboard() {
       <div className="page-head">
         <h2 style={{ marginBottom: 0 }}>Overview</h2>
         <p className="muted">Users, events, and BA assignments at a glance.</p>
+        <p className="muted">Products, outlets and events, promotions, members and reports are managed in Bhoomy.</p>
       </div>
 
       <div className="metric-grid">
@@ -48,7 +49,7 @@ export default function AdminDashboard() {
 
       <div className="grid-2">
         <CreateUserCard onDone={reload} />
-        <CreateEventCard onDone={reload} />
+        <MemberSyncCard />
       </div>
 
       <div style={{ height: 20 }} />
@@ -57,7 +58,7 @@ export default function AdminDashboard() {
       <div style={{ height: 20 }} />
       <UsersTable users={users} onDone={reload} />
       <div style={{ height: 20 }} />
-      <EventsTable events={events} onDone={reload} />
+      <EventsTable events={events} />
     </Layout>
   );
 }
@@ -132,57 +133,6 @@ function CreateUserCard({ onDone }: { onDone: () => void }) {
       {feedback && <div className={feedback.ok ? "ok" : "error"}>{feedback.text}</div>}
       <button type="submit" disabled={busy} style={{ marginTop: 8 }}>
         {busy ? "Creating…" : "Create user"}
-      </button>
-    </form>
-  );
-}
-
-function CreateEventCard({ onDone }: { onDone: () => void }) {
-  const [code, setCode] = useState("");
-  const [name, setName] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
-  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  async function submit(e: FormEvent) {
-    e.preventDefault();
-    setBusy(true);
-    setFeedback(null);
-    try {
-      await api.post("/api/admin/events", {
-        code,
-        name,
-        startDate: startDate || null,
-        endDate: endDate || null,
-      });
-      setFeedback({ ok: true, text: `Created event ${code}` });
-      setCode("");
-      setName("");
-      setStartDate("");
-      setEndDate("");
-      onDone();
-    } catch (err) {
-      setFeedback({ ok: false, text: errMsg(err) });
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  return (
-    <form className="card" onSubmit={submit}>
-      <h2>Create event</h2>
-      <label>Code (e.g. EV02)</label>
-      <input value={code} onChange={(e) => setCode(e.target.value)} required />
-      <label>Name</label>
-      <input value={name} onChange={(e) => setName(e.target.value)} required />
-      <label>Start date</label>
-      <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
-      <label>End date</label>
-      <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} />
-      {feedback && <div className={feedback.ok ? "ok" : "error"}>{feedback.text}</div>}
-      <button type="submit" disabled={busy} style={{ marginTop: 8 }}>
-        {busy ? "Creating…" : "Create event"}
       </button>
     </form>
   );
@@ -316,104 +266,87 @@ function UsersTable({ users, onDone }: { users: UserResponse[]; onDone: () => vo
   );
 }
 
-function EventsTable({ events, onDone }: { events: EventResponse[]; onDone: () => void }) {
-  const [editing, setEditing] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+function MemberSyncCard() {
+  const [cfg, setCfg] = useState<SyncTypeView | null>(null);
+  const [enabled, setEnabled] = useState(false);
+  const [cron, setCron] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [feedback, setFeedback] = useState<{ ok: boolean; text: string } | null>(null);
 
-  async function changeStatus(ev: EventResponse, status: EventStatus) {
-    setError(null);
+  async function reload() {
+    const { member } = (await api.get<SyncOverview>("/api/admin/sync")).data;
+    setCfg(member);
+    setEnabled(member.enabled);
+    setCron(member.cron);
+  }
+
+  useEffect(() => {
+    reload().catch((err) => setFeedback({ ok: false, text: errMsg(err) }));
+  }, []);
+
+  async function run(label: string, call: () => Promise<unknown>) {
+    setBusy(true);
+    setFeedback(null);
     try {
-      await api.patch(`/api/admin/events/${ev.id}/status`, { status });
-      onDone();
+      await call();
+      setFeedback({ ok: true, text: label });
+      await reload();
     } catch (err) {
-      setError(errMsg(err));
+      setFeedback({ ok: false, text: errMsg(err) });
+    } finally {
+      setBusy(false);
     }
   }
 
   return (
     <div className="card">
-      <h2>Events ({events.length})</h2>
+      <h2>Member sync</h2>
       <p className="muted" style={{ marginTop: 0 }}>
-        Lifecycle: DRAFT → ACTIVE → CLOSED. BAs can only sell while an event is ACTIVE.
+        Last run: {cfg?.lastSyncAt ? new Date(cfg.lastSyncAt).toLocaleString() : "never"}
+        {cfg?.lastResult ? ` · ${cfg.lastResult}` : ""} · {cfg?.count ?? 0} members
+        {cfg?.source ? ` · ${cfg.source}` : ""}
       </p>
-      {error && <div className="error">{error}</div>}
-      <table>
-        <thead>
-          <tr><th>Code</th><th>Name</th><th>Dates</th><th>Status</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          {events.map((ev) =>
-            editing === ev.id ? (
-              <EditEventRow key={ev.id} event={ev} onClose={() => setEditing(null)} onDone={onDone} />
-            ) : (
-              <tr key={ev.id}>
-                <td><span className="badge">{ev.code}</span></td>
-                <td>{ev.name}</td>
-                <td className="muted">{ev.startDate ?? "—"} → {ev.endDate ?? "—"}</td>
-                <td><StatusBadge status={ev.status} /></td>
-                <td style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-                  {ev.status === "DRAFT" && (
-                    <button onClick={() => changeStatus(ev, "ACTIVE")}>Activate</button>
-                  )}
-                  {ev.status === "ACTIVE" && (
-                    <button onClick={() => changeStatus(ev, "CLOSED")}>Close</button>
-                  )}
-                  {ev.status !== "CLOSED" && (
-                    <button className="secondary" onClick={() => setEditing(ev.id)}>Edit</button>
-                  )}
-                </td>
-              </tr>
-            ),
-          )}
-        </tbody>
-      </table>
+      <label style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} style={{ width: "auto", margin: 0 }} />
+        Scheduled sync enabled
+      </label>
+      <label>Cron (sec min hour day month weekday)</label>
+      <input value={cron} onChange={(e) => setCron(e.target.value)} placeholder="0 0 2 * * *" />
+      {feedback && <div className={feedback.ok ? "ok" : "error"}>{feedback.text}</div>}
+      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+        <button onClick={() => run("Schedule saved", () => api.put("/api/admin/sync/MEMBER", { enabled, cron }))} disabled={busy}>
+          Save schedule
+        </button>
+        <button className="secondary" onClick={() => run("Members synced", () => api.post("/api/admin/members/sync"))} disabled={busy}>
+          Sync now
+        </button>
+      </div>
     </div>
   );
 }
 
-function EditEventRow({
-  event,
-  onClose,
-  onDone,
-}: {
-  event: EventResponse;
-  onClose: () => void;
-  onDone: () => void;
-}) {
-  const [name, setName] = useState(event.name);
-  const [startDate, setStartDate] = useState(event.startDate ?? "");
-  const [endDate, setEndDate] = useState(event.endDate ?? "");
-  const [error, setError] = useState<string | null>(null);
-
-  async function save() {
-    setError(null);
-    try {
-      await api.put(`/api/admin/events/${event.id}`, {
-        name,
-        startDate: startDate || null,
-        endDate: endDate || null,
-      });
-      onClose();
-      onDone();
-    } catch (err) {
-      setError(errMsg(err));
-    }
-  }
-
+function EventsTable({ events }: { events: EventResponse[] }) {
   return (
-    <tr>
-      <td><span className="badge">{event.code}</span></td>
-      <td><input value={name} onChange={(e) => setName(e.target.value)} style={{ margin: 0 }} /></td>
-      <td>
-        <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} style={{ margin: 0 }} />
-        <input type="date" value={endDate} onChange={(e) => setEndDate(e.target.value)} style={{ margin: "4px 0 0" }} />
-      </td>
-      <td><StatusBadge status={event.status} /></td>
-      <td style={{ display: "flex", gap: 6 }}>
-        <button onClick={save}>Save</button>
-        <button className="secondary" onClick={onClose}>Cancel</button>
-        {error && <div className="error">{error}</div>}
-      </td>
-    </tr>
+    <div className="card">
+      <h2>Events ({events.length})</h2>
+      <p className="muted" style={{ marginTop: 0 }}>
+        Read-only here: create, edit, activate and close locations in Bhoomy (Outlet &amp; Event).
+      </p>
+      <table>
+        <thead>
+          <tr><th>Code</th><th>Name</th><th>Dates</th><th>Status</th></tr>
+        </thead>
+        <tbody>
+          {events.map((ev) => (
+            <tr key={ev.id}>
+              <td><span className="badge">{ev.code}</span></td>
+              <td>{ev.name}</td>
+              <td className="muted">{ev.startDate ?? "—"} → {ev.endDate ?? "—"}</td>
+              <td><StatusBadge status={ev.status} /></td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
