@@ -24,3 +24,24 @@ func (h *Handler) List(c *gin.Context) {
 	}
 	c.JSON(http.StatusOK, members)
 }
+
+// StoreList is the read-only back-office list; the QR code shows only its last 4 characters.
+func (h *Handler) StoreList(c *gin.Context) {
+	members, err := h.svc.List(authiface.StoreOf(c))
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	for i := range members {
+		members[i].QRCode = mask(members[i].QRCode)
+	}
+	c.JSON(http.StatusOK, members)
+}
+
+func mask(qr string) string {
+	r := []rune(qr)
+	if len(r) <= 4 {
+		return "••••"
+	}
+	return "•••• " + string(r[len(r)-4:])
+}

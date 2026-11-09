@@ -440,6 +440,45 @@ func (s *Service) freeBarcodes(tx *gorm.DB, storeID, itemID uuid.UUID, p catalog
 	return out, nil
 }
 
+func (s *Service) Categories(storeID uuid.UUID) ([]iface.Category, error) {
+	cats, err := s.source.Categories(storeID)
+	if err != nil {
+		return nil, err
+	}
+	var items []repository.Product
+	if err := s.db.Select("id, bhoomy_product_id").Where("store_id = ? AND bhoomy_product_id IS NOT NULL", storeID).
+		Find(&items).Error; err != nil {
+		return nil, err
+	}
+	itemOf := make(map[uuid.UUID]uuid.UUID, len(items))
+	for _, p := range items {
+		itemOf[*p.BhoomyProductID] = p.ID
+	}
+	out := make([]iface.Category, 0, len(cats))
+	for _, c := range cats {
+		cat := iface.Category{ID: c.ID, Name: c.Name, ItemIDs: []uuid.UUID{}}
+		for _, pid := range c.ProductIDs {
+			if id, ok := itemOf[pid]; ok {
+				cat.ItemIDs = append(cat.ItemIDs, id)
+			}
+		}
+		out = append(out, cat)
+	}
+	return out, nil
+}
+
+func (s *Service) RequireItems(storeID uuid.UUID, ids []uuid.UUID) error {
+	ids = unique(ids)
+	var n int64
+	if err := s.db.Model(&repository.Product{}).Where("store_id = ? AND id IN ?", storeID, ids).Count(&n).Error; err != nil {
+		return err
+	}
+	if int(n) != len(ids) {
+		return common.NewAppError(http.StatusBadRequest, "Some products are not in Katalog POS")
+	}
+	return nil
+}
+
 func (s *Service) findLinked(storeID, id uuid.UUID) (*repository.Product, error) {
 	p, err := s.findIn(storeID, id)
 	if err != nil {

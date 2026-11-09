@@ -212,7 +212,7 @@ export type PromotionScope = "ALL" | "SPECIFIC";
 
 export interface PromotionResponse {
   id: string;
-  eventId: string;
+  locationId: string | null;
   name: string;
   type: PromotionType;
   percentOff: number | null;

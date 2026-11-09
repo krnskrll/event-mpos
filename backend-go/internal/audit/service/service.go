@@ -102,6 +102,12 @@ func (s *Service) Search(q iface.Query) (*iface.Page, error) {
 	if q.Action != nil {
 		tx = tx.Where("action = ?", *q.Action)
 	}
+	if !q.From.IsZero() {
+		tx = tx.Where("created_at >= ?", q.From)
+	}
+	if !q.To.IsZero() {
+		tx = tx.Where("created_at < ?", q.To)
+	}
 	var total int64
 	if err := tx.Count(&total).Error; err != nil {
 		return nil, err

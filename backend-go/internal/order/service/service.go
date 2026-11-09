@@ -542,24 +542,33 @@ func (s *Service) ForReceipt(tx database.Tx, orderID, baUserID uuid.UUID) (*ifac
 	return &iface.ReceiptOrder{ID: o.ID, EventID: o.EventID, ReferenceID: o.ReferenceID}, nil
 }
 
-func (s *Service) ForReport(eventID uuid.UUID) ([]iface.SoldOrder, int, error) {
+func (s *Service) ForReport(eventID uuid.UUID, from, to time.Time) ([]iface.SoldOrder, int, error) {
+	sold := func() *gorm.DB {
+		q := s.db.Model(&repository.Order{}).Where("event_id = ?", eventID)
+		if !from.IsZero() {
+			q = q.Where("COALESCE(client_created_at, created_at) >= ?", from)
+		}
+		if !to.IsZero() {
+			q = q.Where("COALESCE(client_created_at, created_at) < ?", to)
+		}
+		return q
+	}
 	var orders []repository.Order
-	if err := s.db.Preload("Items").Where("event_id = ? AND status <> ?", eventID, iface.StatusCancelled).
+	if err := sold().Preload("Items").Where("status <> ?", iface.StatusCancelled).
 		Order("created_at DESC").Find(&orders).Error; err != nil {
 		return nil, 0, err
 	}
 	var cancelled int64
-	if err := s.db.Model(&repository.Order{}).Where("event_id = ? AND status = ?", eventID, iface.StatusCancelled).
-		Count(&cancelled).Error; err != nil {
+	if err := sold().Where("status = ?", iface.StatusCancelled).Count(&cancelled).Error; err != nil {
 		return nil, 0, err
 	}
 	out := make([]iface.SoldOrder, 0, len(orders))
 	for _, o := range orders {
 		items := make([]iface.SoldItem, 0, len(o.Items))
 		for _, it := range o.Items {
-			items = append(items, iface.SoldItem{ProductID: it.ProductID, SKU: it.SKU, Name: it.Name, Qty: it.Qty, LineTotal: it.LineTotal})
+			items = append(items, iface.SoldItem{ProductID: it.ProductID, SKU: it.SKU, Name: it.Name, VariantName: it.VariantName, Qty: it.Qty, LineTotal: it.LineTotal})
 		}
-		out = append(out, iface.SoldOrder{Total: o.Total, Discount: o.Discount, LateSynced: o.LateSynced, StockConflict: o.StockConflict, Items: items})
+		out = append(out, iface.SoldOrder{PromotionID: o.PromotionID, Total: o.Total, Discount: o.Discount, LateSynced: o.LateSynced, StockConflict: o.StockConflict, Items: items})
 	}
 	return out, int(cancelled), nil
 }

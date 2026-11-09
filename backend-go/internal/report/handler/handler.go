@@ -3,6 +3,7 @@ package handler
 import (
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -68,7 +69,7 @@ const (
 )
 
 // Audit returns one page of an event's audit log, newest first:
-// ?page (0-based, default 0) &size (default 50, capped at 200) &actor (user id) &action &orderId.
+// ?page (0-based, default 0) &size (default 50, capped at 200) &actor (user id) &action &orderId &from &to.
 func (h *Handler) Audit(c *gin.Context) {
 	eventID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -105,6 +106,13 @@ func (h *Handler) Audit(c *gin.Context) {
 			*f.dst = &id
 		}
 	}
+	if c.Query("from") != "" || c.Query("to") != "" {
+		from, to, ok := period(c)
+		if !ok {
+			return
+		}
+		q.From, q.To = from, to.AddDate(0, 0, 1)
+	}
 	if raw := c.Query("action"); raw != "" {
 		a, ok := auditiface.ParseAction(raw)
 		if !ok {
@@ -123,4 +131,39 @@ func (h *Handler) Audit(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, page)
+}
+
+// Sales is the back-office report of one location: ?from &to are WIB dates, default today.
+func (h *Handler) Sales(c *gin.Context) {
+	locationID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid location id")
+		return
+	}
+	from, to, ok := period(c)
+	if !ok {
+		return
+	}
+	if err := h.events.RequireInStore(authiface.StoreOf(c), locationID); err != nil {
+		common.Fail(c, err)
+		return
+	}
+	rep, err := h.svc.Sales(locationID, from, to, time.Now())
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, rep)
+}
+
+// period reads ?from &to (YYYY-MM-DD, WIB, both included, at most a year apart).
+func period(c *gin.Context) (time.Time, time.Time, bool) {
+	today := service.Today(time.Now())
+	from, err1 := service.Day(c.DefaultQuery("from", today))
+	to, err2 := service.Day(c.DefaultQuery("to", today))
+	if err1 != nil || err2 != nil || to.Before(from) || to.Sub(from) > 366*24*time.Hour {
+		common.AbortError(c, http.StatusBadRequest, "from and to must be dates (YYYY-MM-DD), from first, at most a year apart")
+		return from, to, false
+	}
+	return from, to, true
 }

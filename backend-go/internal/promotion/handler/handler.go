@@ -13,7 +13,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/promotion/service"
 )
 
-// Handler exposes the admin promotion endpoints under /api/admin.
+// Handler exposes the promotion endpoints: per event under /api/admin, per store under /api/backoffice.
 type Handler struct {
 	svc    *service.Service
 	events eventiface.Events
@@ -24,93 +24,113 @@ func NewHandler(svc *service.Service, events eventiface.Events) *Handler {
 }
 
 func (h *Handler) List(c *gin.Context) {
-	eventID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+	eventID, ok := h.event(c)
+	if !ok {
 		return
 	}
-	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
-		common.Fail(c, err)
-		return
-	}
-	promos, err := h.svc.ListForEvent(eventID)
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, promos)
+	reply(c, http.StatusOK)(h.svc.List(authiface.StoreOf(c), &eventID))
 }
 
 func (h *Handler) Create(c *gin.Context) {
-	eventID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+	eventID, ok := h.event(c)
+	if !ok {
 		return
 	}
 	req, ok := bindPromotion(c)
 	if !ok {
 		return
 	}
-	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
-		common.Fail(c, err)
-		return
-	}
-	resp, err := h.svc.Create(eventID, req)
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	c.JSON(http.StatusCreated, resp)
+	req.LocationID = &eventID
+	reply(c, http.StatusCreated)(h.svc.Create(authiface.StoreOf(c), req))
 }
 
+// Update keeps the promotion's location; the admin form does not send it.
 func (h *Handler) Update(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		common.AbortError(c, http.StatusBadRequest, "Invalid promotion id")
-		return
-	}
-	req, ok := bindPromotion(c)
+	id, req, ok := bindWithID(c)
 	if !ok {
 		return
 	}
-	if !h.promotionInStore(c, id) {
-		return
-	}
-	resp, err := h.svc.Update(id, req)
+	cur, err := h.svc.Get(authiface.StoreOf(c), id)
 	if err != nil {
 		common.Fail(c, err)
 		return
 	}
-	c.JSON(http.StatusOK, resp)
+	req.LocationID = cur.LocationID
+	reply(c, http.StatusOK)(h.svc.Update(authiface.StoreOf(c), id, req))
 }
 
 func (h *Handler) Delete(c *gin.Context) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		common.AbortError(c, http.StatusBadRequest, "Invalid promotion id")
+	id, ok := promotionID(c)
+	if !ok {
 		return
 	}
-	if !h.promotionInStore(c, id) {
-		return
-	}
-	if err := h.svc.Delete(id); err != nil {
+	if err := h.svc.Delete(authiface.StoreOf(c), id); err != nil {
 		common.Fail(c, err)
 		return
 	}
 	c.Status(http.StatusNoContent)
 }
 
-// promotionInStore answers 404 when the promotion's event is in another store.
-func (h *Handler) promotionInStore(c *gin.Context, id uuid.UUID) bool {
-	eventID, err := h.svc.EventOf(id)
-	if err == nil {
-		err = h.events.RequireInStore(authiface.StoreOf(c), eventID)
+// StoreList is the back-office list: ?locationId narrows it to what runs at one location.
+func (h *Handler) StoreList(c *gin.Context) {
+	var loc *uuid.UUID
+	if raw := c.Query("locationId"); raw != "" {
+		id, err := uuid.Parse(raw)
+		if err != nil {
+			common.AbortError(c, http.StatusBadRequest, "Invalid locationId")
+			return
+		}
+		loc = &id
 	}
+	reply(c, http.StatusOK)(h.svc.List(authiface.StoreOf(c), loc))
+}
+
+func (h *Handler) StoreGet(c *gin.Context) {
+	if id, ok := promotionID(c); ok {
+		reply(c, http.StatusOK)(h.svc.Get(authiface.StoreOf(c), id))
+	}
+}
+
+func (h *Handler) StoreCreate(c *gin.Context) {
+	if req, ok := bindPromotion(c); ok {
+		reply(c, http.StatusCreated)(h.svc.Create(authiface.StoreOf(c), req))
+	}
+}
+
+func (h *Handler) StoreUpdate(c *gin.Context) {
+	if id, req, ok := bindWithID(c); ok {
+		reply(c, http.StatusOK)(h.svc.Update(authiface.StoreOf(c), id, req))
+	}
+}
+
+func (h *Handler) event(c *gin.Context) (uuid.UUID, bool) {
+	eventID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		common.Fail(c, err)
-		return false
+		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
+		return eventID, false
 	}
-	return true
+	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
+		common.Fail(c, err)
+		return eventID, false
+	}
+	return eventID, true
+}
+
+func promotionID(c *gin.Context) (uuid.UUID, bool) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		common.AbortError(c, http.StatusBadRequest, "Invalid promotion id")
+	}
+	return id, err == nil
+}
+
+func bindWithID(c *gin.Context) (uuid.UUID, iface.PromotionRequest, bool) {
+	id, ok := promotionID(c)
+	if !ok {
+		return id, iface.PromotionRequest{}, false
+	}
+	req, ok := bindPromotion(c)
+	return id, req, ok
 }
 
 func bindPromotion(c *gin.Context) (iface.PromotionRequest, bool) {
@@ -124,4 +144,14 @@ func bindPromotion(c *gin.Context) (iface.PromotionRequest, bool) {
 		return req, false
 	}
 	return req, true
+}
+
+func reply(c *gin.Context, status int) func(any, error) {
+	return func(v any, err error) {
+		if err != nil {
+			common.Fail(c, err)
+			return
+		}
+		c.JSON(status, v)
+	}
 }

@@ -171,6 +171,7 @@ type ReceiptOrder struct {
 
 // SoldOrder is a non-cancelled order as reports see it.
 type SoldOrder struct {
+	PromotionID   *uuid.UUID
 	Total         decimal.Decimal
 	Discount      decimal.Decimal
 	LateSynced    bool
@@ -179,11 +180,12 @@ type SoldOrder struct {
 }
 
 type SoldItem struct {
-	ProductID uuid.UUID
-	SKU       string
-	Name      string
-	Qty       int
-	LineTotal decimal.Decimal
+	ProductID   uuid.UUID
+	SKU         string
+	Name        string
+	VariantName *string
+	Qty         int
+	LineTotal   decimal.Decimal
 }
 
 type Orders interface {
@@ -193,6 +195,7 @@ type Orders interface {
 	Get(orderID uuid.UUID) (*OrderConfirmation, error)
 	// ForReceipt returns nil when the order does not exist or belongs to another BA.
 	ForReceipt(tx database.Tx, orderID, baUserID uuid.UUID) (*ReceiptOrder, error)
-	// ForReport returns non-cancelled orders newest first, plus the cancelled count.
-	ForReport(eventID uuid.UUID) ([]SoldOrder, int, error)
+	// ForReport returns non-cancelled orders sold in [from, to) newest first, plus the cancelled
+	// count. A zero bound is open; the sale time is the device's for offline orders.
+	ForReport(eventID uuid.UUID, from, to time.Time) ([]SoldOrder, int, error)
 }

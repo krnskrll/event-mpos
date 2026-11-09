@@ -80,11 +80,15 @@ changes every `BHOOMY_SYNC_MINUTES` from Bhoomy's internal POS feed into `pos_ca
 bookmark lives in `pos_sync_cursors`, so a failed pull resumes where it stopped. Status and a manual
 pull: `GET`/`POST /api/admin/catalog/sync`.
 
-**Bhoomy back office:** `/api/backoffice/*` serves Katalog POS and Outlet & Event to the Bhoomy web
-app, through the Bhoomy backend only: `BHOOMY_SERVICE_TOKEN` plus `X-Bhoomy-Store-Id` (the POS store
+**Bhoomy back office:** `/api/backoffice/*` serves Katalog POS, Outlet & Event, Promosi, Member POS
+and Laporan POS to the Bhoomy web app, through the Bhoomy backend only: `BHOOMY_SERVICE_TOKEN` plus `X-Bhoomy-Store-Id` (the POS store
 is created on that store's first visit). Keep these routes off the public domain (Caddy 404).
 Katalog POS items come from Produk Toko, start "Tidak dijual" without a price, and follow Produk
-Toko changes on each pull. Location codes are generated (`OUT-KG`, `EV-SC27`).
+Toko changes on each pull. Location codes are generated (`OUT-KG`, `EV-SC27`). A promotion runs at
+one location or all of them, on all items, one Produk Toko category (expanded into items for the
+cashier apps) or chosen items. Laporan POS takes WIB dates and counts offline orders on their sale
+day; it is final once the event is closed or the period ended over a day ago. Members are read-only
+with the QR code masked.
 
 Modules call each other only through `iface`; `internal/archtest` fails the build otherwise, and
 `internal/app/testdata/routes.golden` pins every route.

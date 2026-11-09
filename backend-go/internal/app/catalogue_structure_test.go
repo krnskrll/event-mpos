@@ -109,7 +109,7 @@ func TestMoneyIsWholeRupiah(t *testing.T) {
 	}
 	ev := a.ActiveEvent()
 	half := decimal.RequireFromString("100.5")
-	if _, err := a.Promotions.Create(ev.ID, promotioniface.PromotionRequest{Name: "x", Type: promotioniface.TypeFixed, AmountOff: &half}); testutil.StatusOf(err) != http.StatusBadRequest {
+	if _, err := a.Promotions.Create(ev.StoreID, promotioniface.PromotionRequest{LocationID: &ev.ID, Name: "x", Type: promotioniface.TypeFixed, AmountOff: &half}); testutil.StatusOf(err) != http.StatusBadRequest {
 		t.Errorf("promotion amount with decimals: got %v, want 400", err)
 	}
 
@@ -117,7 +117,7 @@ func TestMoneyIsWholeRupiah(t *testing.T) {
 	p := a.Product("15550")
 	a.Allocate(ev.ID, p.ID, 5)
 	pct := decimal.RequireFromString("7")
-	if _, err := a.Promotions.Create(ev.ID, promotioniface.PromotionRequest{Name: "7%", Type: promotioniface.TypePercentage, PercentOff: &pct}); err != nil {
+	if _, err := a.Promotions.Create(ev.StoreID, promotioniface.PromotionRequest{LocationID: &ev.ID, Name: "7%", Type: promotioniface.TypePercentage, PercentOff: &pct}); err != nil {
 		t.Fatal(err)
 	}
 	order := sellOne(t, a, ev.ID, p.ID, nil)
