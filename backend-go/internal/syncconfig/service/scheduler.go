@@ -9,8 +9,8 @@ import (
 	"github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 )
 
-// Scheduler drives the ERP + member syncs from the DB-stored config instead of a fixed cron. Each
-// job re-reads `enabled` at fire time (so toggling never needs a restart), and a config update
+// Scheduler drives the member sync from the DB-stored config instead of a fixed cron. The job
+// re-reads `enabled` at fire time (so toggling never needs a restart), and a config update
 // reschedules the entry with the new cron. Mirrors the Kotlin DynamicSyncScheduler.
 type Scheduler struct {
 	c       *cron.Cron
@@ -20,18 +20,18 @@ type Scheduler struct {
 	mu      sync.Mutex
 }
 
-func NewScheduler(cfg *Service, erpJob, memberJob func()) *Scheduler {
+func NewScheduler(cfg *Service, memberJob func()) *Scheduler {
 	return &Scheduler{
 		c:       cron.New(cron.WithParser(cronParser)),
 		cfg:     cfg,
-		jobs:    map[iface.SyncType]func(){iface.TypeERP: erpJob, iface.TypeMember: memberJob},
+		jobs:    map[iface.SyncType]func(){iface.TypeMember: memberJob},
 		entries: map[iface.SyncType]cron.EntryID{},
 	}
 }
 
-// Start schedules both syncs from their current config and starts the cron loop.
+// Start schedules the jobs from their current config and starts the cron loop.
 func (s *Scheduler) Start() {
-	for _, t := range []iface.SyncType{iface.TypeERP, iface.TypeMember} {
+	for t := range s.jobs {
 		cfg, err := s.cfg.Get(t)
 		if err != nil {
 			log.Printf("scheduler: cannot load %s config: %v", t, err)

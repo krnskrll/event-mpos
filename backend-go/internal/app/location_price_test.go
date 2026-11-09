@@ -16,14 +16,14 @@ import (
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // Location price of the variant → variant price → default variant price (at that location).
 func TestLocationPriceRule(t *testing.T) {
 	a := testutil.NewApp(t)
-	tok := adminToken(t, a)
-	p := a.Product("10000")
+	bhoomyStore := uuid.New()
+	store := posStore(t, a, bhoomyStore)
+	p := a.ProductIn(store, "10000")
 	plumPrice := decimal.RequireFromString("15000")
 	rose := productrepo.ProductVariant{ItemID: p.ID, Name: "Rose", SKU: testutil.Unique("SKU-"), SellInPOS: true}
 	plum := productrepo.ProductVariant{ItemID: p.ID, Name: "Plum", SKU: testutil.Unique("SKU-"), Price: &plumPrice, SellInPOS: true}
@@ -32,28 +32,19 @@ func TestLocationPriceRule(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	ev := a.ActiveEvent()
+	ev := a.ActiveEventIn(store)
 	a.Allocate(ev.ID, p.ID, 10)
-	base := "/api/admin/events/" + ev.ID.String()
-	if rec := a.Do(http.MethodPut, base+"/products/"+p.ID.String(), map[string]bool{"available": true}, tok); rec.Code != http.StatusOK {
-		t.Fatalf("availability: %d %s", rec.Code, rec.Body.String())
+	save := func(rows ...J) int {
+		return a.Back(http.MethodPut, "/locations/"+ev.ID.String()+"/items", J{"rows": rows}, bhoomyStore).Code
 	}
-	setVariant := func(id uuid.UUID, body map[string]any) map[string]any {
-		t.Helper()
-		rec := a.Do(http.MethodPut, base+"/variants/"+id.String(), body, tok)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("variant: %d %s", rec.Code, rec.Body.String())
-		}
-		return testutil.Decode[map[string]any](t, rec)
-	}
+	row := func(id uuid.UUID, sold bool, price any) J { return J{"variantId": id, "sold": sold, "price": price} }
 	hash := func() string { h, _ := a.Events.SnapshotVersion(ev.ID); return h }
 
-	resp := setVariant(p.Default().ID, map[string]any{"available": true, "price": 9000})
-	if resp["available"] != true || len(resp["variants"].([]any)) != 3 {
-		t.Fatalf("event product: %v", resp)
+	if got := save(row(p.Default().ID, true, 9000), row(rose.ID, true, nil), row(plum.ID, true, nil)); got != http.StatusOK {
+		t.Fatalf("save rows: %d", got)
 	}
 	before := hash()
-	setVariant(plum.ID, map[string]any{"available": true, "price": 14000})
+	save(row(plum.ID, true, 14000))
 	if hash() == before {
 		t.Error("snapshot version did not change with a variant's location price")
 	}
@@ -73,26 +64,25 @@ func TestLocationPriceRule(t *testing.T) {
 	}
 
 	// Rose switched off here leaves the snapshot; an empty price clears Plum's location price.
-	setVariant(rose.ID, map[string]any{"available": false})
-	setVariant(plum.ID, map[string]any{"available": true})
+	save(row(rose.ID, false, nil), row(plum.ID, true, nil))
 	if prices := snapshotPrices(t, a, ev.ID, p.ID); prices["Rose"] != "" || prices["Plum"] != "15000" {
 		t.Errorf("after changes: %v", prices)
 	}
-	if rec := a.Do(http.MethodPut, base+"/variants/"+plum.ID.String(), map[string]any{"available": true, "price": 1.5}, tok); rec.Code != http.StatusBadRequest {
-		t.Errorf("price with decimals: %d", rec.Code)
+	if got := save(row(plum.ID, true, 1.5)); got != http.StatusBadRequest {
+		t.Errorf("price with decimals: %d", got)
 	}
 }
 
 func TestPhotoUpload(t *testing.T) {
 	a := testutil.NewApp(t)
-	tok := adminToken(t, a)
-	p := a.Product("1000")
+	bhoomyStore := uuid.New()
+	p := a.ProductIn(posStore(t, a, bhoomyStore), "1000")
 	var img bytes.Buffer
 	if err := png.Encode(&img, image.NewRGBA(image.Rect(0, 0, 2, 2))); err != nil {
 		t.Fatal(err)
 	}
 
-	rec := upload(a, p.ID, img.Bytes(), tok)
+	rec := upload(a, p.ID, img.Bytes(), bhoomyStore)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("upload: %d %s", rec.Code, rec.Body.String())
 	}
@@ -106,7 +96,7 @@ func TestPhotoUpload(t *testing.T) {
 	}
 
 	for name, body := range map[string][]byte{"text file": []byte("<html>hi</html>"), "over 2 MB": append(img.Bytes(), make([]byte, 2<<20)...)} {
-		if rec := upload(a, p.ID, body, tok); rec.Code != http.StatusBadRequest {
+		if rec := upload(a, p.ID, body, bhoomyStore); rec.Code != http.StatusBadRequest {
 			t.Errorf("%s: got %d, want 400", name, rec.Code)
 		}
 	}
@@ -116,26 +106,26 @@ func TestPhotoUpload(t *testing.T) {
 		}
 	}
 
-	storeB := a.NewStore("Store B")
-	tokB := login(t, a, a.CreateUserIn(storeB, useriface.RoleAdmin, "Passw0rd!").Email, "Passw0rd!").AccessToken
-	if rec := upload(a, p.ID, img.Bytes(), tokB); rec.Code != http.StatusNotFound {
+	other := uuid.New()
+	if rec := upload(a, p.ID, img.Bytes(), other); rec.Code != http.StatusNotFound {
 		t.Errorf("store B uploading to store A's product: got %d, want 404", rec.Code)
 	}
-	evB := a.ActiveEventIn(storeB)
-	if rec := a.Do(http.MethodPut, "/api/admin/events/"+evB.ID.String()+"/variants/"+p.Default().ID.String(), map[string]any{"available": true}, tokB); rec.Code != http.StatusNotFound {
+	evB := a.ActiveEventIn(posStore(t, a, other))
+	if rec := a.Back(http.MethodPut, "/locations/"+evB.ID.String()+"/items", J{"rows": []J{{"variantId": p.Default().ID, "sold": true}}}, other); rec.Code != http.StatusNotFound {
 		t.Errorf("store B pricing store A's variant: got %d, want 404", rec.Code)
 	}
 }
 
-func upload(a *testutil.TestApp, productID uuid.UUID, data []byte, tok string) *httptest.ResponseRecorder {
+func upload(a *testutil.TestApp, productID uuid.UUID, data []byte, bhoomyStore uuid.UUID) *httptest.ResponseRecorder {
 	var body bytes.Buffer
 	w := multipart.NewWriter(&body)
 	part, _ := w.CreateFormFile("file", "photo")
 	part.Write(data)
 	w.Close()
-	req := httptest.NewRequest(http.MethodPost, "/api/admin/products/"+productID.String()+"/photo", &body)
+	req := httptest.NewRequest(http.MethodPost, "/api/backoffice/items/"+productID.String()+"/photo", &body)
 	req.Header.Set("Content-Type", w.FormDataContentType())
-	req.Header.Set("Authorization", "Bearer "+tok)
+	req.Header.Set("Authorization", "Bearer "+testutil.ServiceToken)
+	req.Header.Set("X-Bhoomy-Store-Id", bhoomyStore.String())
 	rec := httptest.NewRecorder()
 	a.Router.ServeHTTP(rec, req)
 	return rec

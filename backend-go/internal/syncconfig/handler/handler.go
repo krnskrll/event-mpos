@@ -11,48 +11,41 @@ import (
 	"github.com/krnskrll/event-mpos/internal/syncconfig/service"
 )
 
-// Handler exposes the admin sync administration under /api/admin/sync.
+// Handler exposes the member sync schedule under /api/admin/sync.
 type Handler struct {
 	cfg    *service.Service
 	sched  *service.Scheduler
-	erp    iface.StatusReporter
 	member iface.StatusReporter
 }
 
-func NewHandler(cfg *service.Service, sched *service.Scheduler, erpSync iface.StatusReporter, memberSync iface.StatusReporter) *Handler {
-	return &Handler{cfg: cfg, sched: sched, erp: erpSync, member: memberSync}
+func NewHandler(cfg *service.Service, sched *service.Scheduler, memberSync iface.StatusReporter) *Handler {
+	return &Handler{cfg: cfg, sched: sched, member: memberSync}
 }
 
-func (h *Handler) view(t iface.SyncType, cfg *repository.SyncConfig) iface.SyncTypeView {
-	v := iface.SyncTypeView{Type: t, Enabled: cfg.Enabled, Cron: cfg.Cron, UpdatedAt: cfg.UpdatedAt}
-	var r iface.LastRun
-	if t == iface.TypeERP {
-		r = h.erp.LastRun()
-	} else {
-		r = h.member.LastRun()
-	}
+func (h *Handler) view(cfg *repository.SyncConfig) iface.SyncTypeView {
+	v := iface.SyncTypeView{Type: iface.TypeMember, Enabled: cfg.Enabled, Cron: cfg.Cron, UpdatedAt: cfg.UpdatedAt}
+	r := h.member.LastRun()
 	v.LastSyncAt, v.LastResult, v.Count, v.Source, v.Message = r.At, r.Result, r.Count, r.Source, r.Message
 	return v
 }
 
 func (h *Handler) Overview(c *gin.Context) {
-	erpCfg, err := h.cfg.Get(iface.TypeERP)
+	cfg, err := h.cfg.Get(iface.TypeMember)
 	if err != nil {
 		common.Fail(c, err)
 		return
 	}
-	memCfg, err := h.cfg.Get(iface.TypeMember)
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, iface.SyncOverview{ERP: h.view(iface.TypeERP, erpCfg), Member: h.view(iface.TypeMember, memCfg)})
+	c.JSON(http.StatusOK, iface.SyncOverview{Member: h.view(cfg)})
 }
 
 func (h *Handler) Update(c *gin.Context) {
-	t, ok := iface.ParseType(c.Param("type"))
-	if !ok {
-		common.AbortError(c, http.StatusBadRequest, "type: must be one of ERP, MEMBER")
+	t := iface.SyncType(c.Param("type"))
+	switch {
+	case t == "ERP":
+		common.AbortError(c, http.StatusBadRequest, "ERP product sync is retired")
+		return
+	case t != iface.TypeMember:
+		common.AbortError(c, http.StatusBadRequest, "type: must be MEMBER")
 		return
 	}
 	var req iface.UpdateSyncConfigRequest
@@ -66,5 +59,5 @@ func (h *Handler) Update(c *gin.Context) {
 		return
 	}
 	h.sched.Reschedule(t, cfg.Cron)
-	c.JSON(http.StatusOK, h.view(t, cfg))
+	c.JSON(http.StatusOK, h.view(cfg))
 }

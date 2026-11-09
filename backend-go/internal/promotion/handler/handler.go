@@ -7,57 +7,17 @@ import (
 	"github.com/google/uuid"
 
 	authiface "github.com/krnskrll/event-mpos/internal/auth/iface"
-	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/promotion/iface"
 	"github.com/krnskrll/event-mpos/internal/promotion/service"
 )
 
-// Handler exposes the promotion endpoints: per event under /api/admin, per store under /api/backoffice.
+// Handler exposes the store's promotions under /api/backoffice.
 type Handler struct {
-	svc    *service.Service
-	events eventiface.Events
+	svc *service.Service
 }
 
-func NewHandler(svc *service.Service, events eventiface.Events) *Handler {
-	return &Handler{svc: svc, events: events}
-}
-
-func (h *Handler) List(c *gin.Context) {
-	eventID, ok := h.event(c)
-	if !ok {
-		return
-	}
-	reply(c, http.StatusOK)(h.svc.List(authiface.StoreOf(c), &eventID))
-}
-
-func (h *Handler) Create(c *gin.Context) {
-	eventID, ok := h.event(c)
-	if !ok {
-		return
-	}
-	req, ok := bindPromotion(c)
-	if !ok {
-		return
-	}
-	req.LocationID = &eventID
-	reply(c, http.StatusCreated)(h.svc.Create(authiface.StoreOf(c), req))
-}
-
-// Update keeps the promotion's location; the admin form does not send it.
-func (h *Handler) Update(c *gin.Context) {
-	id, req, ok := bindWithID(c)
-	if !ok {
-		return
-	}
-	cur, err := h.svc.Get(authiface.StoreOf(c), id)
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	req.LocationID = cur.LocationID
-	reply(c, http.StatusOK)(h.svc.Update(authiface.StoreOf(c), id, req))
-}
+func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
 func (h *Handler) Delete(c *gin.Context) {
 	id, ok := promotionID(c)
@@ -101,19 +61,6 @@ func (h *Handler) StoreUpdate(c *gin.Context) {
 	if id, req, ok := bindWithID(c); ok {
 		reply(c, http.StatusOK)(h.svc.Update(authiface.StoreOf(c), id, req))
 	}
-}
-
-func (h *Handler) event(c *gin.Context) (uuid.UUID, bool) {
-	eventID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
-		return eventID, false
-	}
-	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
-		common.Fail(c, err)
-		return eventID, false
-	}
-	return eventID, true
 }
 
 func promotionID(c *gin.Context) (uuid.UUID, bool) {

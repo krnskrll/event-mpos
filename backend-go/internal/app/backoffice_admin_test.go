@@ -35,74 +35,25 @@ func TestAdminCanEditRoleAndDeactivateUser(t *testing.T) {
 
 func TestSyncConfigValidatesCronAndPersists(t *testing.T) {
 	a := testutil.NewApp(t)
-	before, err := a.SyncConfig.Get(syncconfigiface.TypeERP)
+	before, err := a.SyncConfig.Get(syncconfigiface.TypeMember)
 	if err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { _, _ = a.SyncConfig.Update(syncconfigiface.TypeERP, before.Enabled, before.Cron) })
+	t.Cleanup(func() { _, _ = a.SyncConfig.Update(syncconfigiface.TypeMember, before.Enabled, before.Cron) })
 
-	cfg, err := a.SyncConfig.Update(syncconfigiface.TypeERP, true, "0 0 */2 * * *")
+	cfg, err := a.SyncConfig.Update(syncconfigiface.TypeMember, true, "0 0 */2 * * *")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !cfg.Enabled || cfg.Cron != "0 0 */2 * * *" {
 		t.Errorf("saved %+v", cfg)
 	}
-	reread, _ := a.SyncConfig.Get(syncconfigiface.TypeERP)
+	reread, _ := a.SyncConfig.Get(syncconfigiface.TypeMember)
 	if reread.Cron != "0 0 */2 * * *" {
 		t.Errorf("not persisted: %+v", reread)
 	}
 	if _, err := a.SyncConfig.Update(syncconfigiface.TypeMember, true, "not a cron"); testutil.StatusOf(err) != http.StatusBadRequest {
 		t.Errorf("bad cron: got %v, want 400", err)
-	}
-}
-
-func TestEndOfEventReportTotalsAndCSV(t *testing.T) {
-	a := testutil.NewApp(t)
-	ev, p := a.ActiveEvent(), a.Product("50.00")
-	a.Allocate(ev.ID, p.ID, 10)
-	if _, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 3)); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 2)); err != nil {
-		t.Fatal(err)
-	}
-	closeEvent(t, a, ev.ID)
-
-	r, err := a.Reports.EndOfEvent(ev.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if r.TotalOrders != 2 || r.TotalItems != 5 || !r.TotalRevenue.Equal(dec("250")) {
-		t.Errorf("orders/items/revenue = %d/%d/%s, want 2/5/250", r.TotalOrders, r.TotalItems, r.TotalRevenue)
-	}
-	var found bool
-	for _, row := range r.Products {
-		if row.ProductID != p.ID {
-			continue
-		}
-		found = true
-		if row.UnitsSold != 5 || !row.Revenue.Equal(dec("250")) || row.Allocated != 10 || row.Sold != 5 || row.Remaining != 5 {
-			t.Errorf("row = %+v", row)
-		}
-	}
-	if !found {
-		t.Fatal("product missing from report")
-	}
-
-	csv := a.Reports.ToCSV(r)
-	if !strings.Contains(csv, "SKU,Product,Units Sold,Revenue,Allocated,Sold,Remaining") {
-		t.Errorf("csv header missing:\n%s", csv)
-	}
-	if want := p.SKU + ",Widget,5,250.00,10,5,5"; !strings.Contains(csv, want) {
-		t.Errorf("csv row %q missing:\n%s", want, csv)
-	}
-
-	// Same report over HTTP for an admin.
-	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
-	tok := login(t, a, admin.Email, "Admin123!").AccessToken
-	if rec := a.Do(http.MethodGet, "/api/admin/events/"+ev.ID.String()+"/report.csv", nil, tok); rec.Code != http.StatusOK {
-		t.Errorf("report.csv: %d", rec.Code)
 	}
 }
 

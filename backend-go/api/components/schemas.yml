@@ -101,16 +101,6 @@ components:
         endDate: { type: string, format: date }
         status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
         closedAt: { type: string, format: date-time }
-    CreateEventRequest:
-      type: object
-      required: [code, name]
-      properties:
-        type: { type: string, enum: [event, outlet] }
-        address: { type: string, nullable: true }
-        code: { type: string }
-        name: { type: string }
-        startDate: { type: string, format: date, nullable: true }
-        endDate: { type: string, format: date, nullable: true }
     UpdateEventRequest:
       type: object
       properties:
@@ -177,57 +167,6 @@ components:
         sku: { type: string }
         price: { type: integer, format: int64 }
         active: { type: boolean }
-    BarcodeInput:
-      type: object
-      properties:
-        barcode: { type: string }
-        label: { type: string, nullable: true }
-    CreateProductRequest:
-      type: object
-      required: [sku, name]
-      properties:
-        sku: { type: string }
-        name: { type: string }
-        brand: { type: string, nullable: true }
-        price: { type: integer, format: int64 }
-        imageUrl: { type: string, nullable: true }
-        barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeInput' } }
-    UpdateProductRequest:
-      type: object
-      properties:
-        name: { type: string, nullable: true }
-        brand: { type: string, nullable: true }
-        price: { type: integer, format: int64, nullable: true }
-        imageUrl: { type: string, nullable: true }
-        active: { type: boolean, nullable: true }
-        barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeInput' } }
-    EventProductResponse:
-      type: object
-      required: [product, available, variants]
-      properties:
-        product: { $ref: '#/components/schemas/ProductResponse' }
-        available: { type: boolean }
-        variants: { type: array, items: { $ref: '#/components/schemas/LocationVariant' } }
-    LocationVariant:
-      type: object
-      required: [id, name, isDefault, available]
-      properties:
-        id: { type: string, format: uuid }
-        name: { type: string }
-        isDefault: { type: boolean }
-        available: { type: boolean }
-        locationPrice: { type: integer, format: int64, nullable: true }
-    SetLocationVariantRequest:
-      type: object
-      required: [available]
-      properties:
-        available: { type: boolean }
-        price: { type: integer, format: int64, nullable: true }
-    SetAvailabilityRequest:
-      type: object
-      required: [available]
-      properties:
-        available: { type: boolean, nullable: true }
     ProductSnapshotDto:
       type: object
       required: [id, sku, name, price, barcodes, variants, remainingStock]
@@ -507,35 +446,6 @@ components:
         page: { type: integer }
         size: { type: integer }
         total: { type: integer, format: int64 }
-    ProductReportRow:
-      type: object
-      required: [productId, sku, name, unitsSold, revenue, allocated, sold, remaining]
-      properties:
-        productId: { type: string, format: uuid }
-        sku: { type: string }
-        name: { type: string }
-        unitsSold: { type: integer }
-        revenue: { type: integer, format: int64 }
-        allocated: { type: integer }
-        sold: { type: integer }
-        remaining: { type: integer }
-    EndOfEventReport:
-      type: object
-      required: [eventId, eventCode, eventName, status, generatedAt, totalOrders, cancelledOrders, lateSyncedOrders, stockConflictOrders, totalItems, totalRevenue, totalDiscount, products]
-      properties:
-        eventId: { type: string, format: uuid }
-        eventCode: { type: string }
-        eventName: { type: string }
-        status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
-        generatedAt: { type: string, format: date-time }
-        totalOrders: { type: integer }
-        cancelledOrders: { type: integer }
-        lateSyncedOrders: { type: integer }
-        stockConflictOrders: { type: integer }
-        totalItems: { type: integer }
-        totalRevenue: { type: integer, format: int64 }
-        totalDiscount: { type: integer, format: int64 }
-        products: { type: array, items: { $ref: '#/components/schemas/ProductReportRow' } }
     SalesRow:
       type: object
       required: [productId, sku, name, unitsSold, revenue]
@@ -590,30 +500,9 @@ components:
         message: { type: string }
     SyncOverview:
       type: object
-      required: [erp, member]
+      required: [member]
       properties:
-        erp: { $ref: '#/components/schemas/SyncTypeView' }
         member: { $ref: '#/components/schemas/SyncTypeView' }
-    ErpSyncResult:
-      type: object
-      required: [ok, created, updated, total, source]
-      properties:
-        ok: { type: boolean }
-        created: { type: integer }
-        updated: { type: integer }
-        total: { type: integer }
-        source: { type: string }
-        message: { type: string }
-    ErpSyncStatus:
-      type: object
-      required: [id, productCount]
-      properties:
-        id: { type: integer }
-        lastSyncAt: { type: string, format: date-time }
-        lastResult: { type: string }
-        productCount: { type: integer }
-        source: { type: string }
-        message: { type: string }
     MemberSyncResult:
       type: object
       required: [ok, created, updated, total, source]

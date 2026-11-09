@@ -9,7 +9,6 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
-	syncconfigiface "github.com/krnskrll/event-mpos/internal/syncconfig/iface"
 )
 
 // SyncStatus is a single-row record (id=1) of the most recent ERP sync.
@@ -24,7 +23,7 @@ type SyncStatus struct {
 
 func (SyncStatus) TableName() string { return "erp_sync_status" }
 
-// SyncResult is returned by POST /api/admin/erp/sync.
+// SyncResult is the outcome of one sync.
 type SyncResult struct {
 	Ok      bool    `json:"ok"`
 	Created int     `json:"created"`
@@ -35,7 +34,8 @@ type SyncResult struct {
 }
 
 // SyncService pulls products from the active Source and upserts them by SKU (idempotent). Barcodes
-// are rewritten only when they actually changed, to avoid unique-constraint churn.
+// are rewritten only when they actually changed, to avoid unique-constraint churn. Only the dev seed
+// runs it: Bhoomy owns products.
 type SyncService struct {
 	source   Source
 	db       *gorm.DB
@@ -86,14 +86,6 @@ func (s *SyncService) Sync() SyncResult {
 	return result
 }
 
-func (s *SyncService) Status() SyncStatus {
-	var st SyncStatus
-	if err := s.db.First(&st, 1).Error; err != nil {
-		return SyncStatus{ID: 1}
-	}
-	return st
-}
-
 func (s *SyncService) saveStatus(result SyncResult) {
 	var st SyncStatus
 	if err := s.db.First(&st, 1).Error; err != nil {
@@ -127,9 +119,4 @@ func (p Product) toSource() productiface.SourceProduct {
 		SKU: p.SKU, Name: p.Name, Brand: p.Brand, Price: p.Price, ImageURL: p.ImageURL,
 		StockQuantity: p.StockQuantity, Barcodes: barcodes,
 	}
-}
-
-func (s *SyncService) LastRun() syncconfigiface.LastRun {
-	st := s.Status()
-	return syncconfigiface.LastRun{At: st.LastSyncAt, Result: st.LastResult, Count: st.ProductCount, Source: st.Source, Message: st.Message}
 }

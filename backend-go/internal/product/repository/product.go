@@ -52,13 +52,6 @@ func (p *Product) BeforeCreate(_ *gorm.DB) error {
 
 func (p *Product) Active() bool { return p.Status == StatusActive }
 
-func (p *Product) SetActive(active bool) {
-	p.Status = StatusArchived
-	if active {
-		p.Status = StatusActive
-	}
-}
-
 // Default is the variant that carries the base price; every item has exactly one.
 func (p *Product) Default() *ProductVariant {
 	for i := range p.Variants {

@@ -1,15 +1,19 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"flag"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/krnskrll/event-mpos/internal/app"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
@@ -33,6 +37,11 @@ func main() {
 	a, err := app.New(cfg, db)
 	if err != nil {
 		log.Fatalf("app init failed: %v", err)
+	}
+
+	if len(os.Args) > 1 && os.Args[1] == "create-admin" {
+		createAdmin(a, os.Args[2:])
+		return
 	}
 
 	// 3. Seed dev data
@@ -95,4 +104,23 @@ func syncCatalog(ctx context.Context, a *app.App, every time.Duration) {
 		case <-t.C:
 		}
 	}
+}
+
+// createAdmin: server create-admin -bhoomy-store <id> -email <email> -name <name>, password on stdin.
+func createAdmin(a *app.App, args []string) {
+	fs := flag.NewFlagSet("create-admin", flag.ExitOnError)
+	store := fs.String("bhoomy-store", "", "Bhoomy store id")
+	email := fs.String("email", "", "login email")
+	name := fs.String("name", "", "full name")
+	_ = fs.Parse(args)
+	id, err := uuid.Parse(*store)
+	if err != nil {
+		log.Fatalf("create-admin: -bhoomy-store: %v", err)
+	}
+	password, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+	u, err := a.CreateStoreAdmin(id, *email, *name, strings.TrimRight(password, "\r\n"))
+	if err != nil {
+		log.Fatalf("create-admin: %v", err)
+	}
+	log.Printf("admin %s created in POS store %s", u.Email, u.StoreID)
 }

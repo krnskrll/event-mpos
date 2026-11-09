@@ -2,21 +2,11 @@ package iface
 
 import "time"
 
-// SyncType is one schedulable sync; also the primary key of its config row.
+// SyncType is one schedulable sync; also the primary key of its config row. The ERP product sync
+// is retired: Bhoomy owns products.
 type SyncType string
 
-const (
-	TypeERP    SyncType = "ERP"
-	TypeMember SyncType = "MEMBER"
-)
-
-func ParseType(s string) (SyncType, bool) {
-	switch SyncType(s) {
-	case TypeERP, TypeMember:
-		return SyncType(s), true
-	}
-	return "", false
-}
+const TypeMember SyncType = "MEMBER"
 
 // LastRun is the latest outcome of a sync job.
 type LastRun struct {
@@ -27,7 +17,7 @@ type LastRun struct {
 	Message *string
 }
 
-// StatusReporter is implemented by each sync job.
+// StatusReporter is implemented by the member sync.
 type StatusReporter interface {
 	LastRun() LastRun
 }
@@ -51,6 +41,5 @@ type SyncTypeView struct {
 }
 
 type SyncOverview struct {
-	ERP    SyncTypeView `json:"erp"`
 	Member SyncTypeView `json:"member"`
 }

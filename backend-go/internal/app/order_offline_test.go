@@ -10,6 +10,7 @@ import (
 
 	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
+	orderrepo "github.com/krnskrll/event-mpos/internal/order/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
@@ -77,8 +78,9 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 		t.Errorf("number block for a closed event: %v, want 409", err)
 	}
 
-	r, err := a.Reports.EndOfEvent(ev.ID)
-	if err != nil || r.LateSyncedOrders != 1 || r.StockConflictOrders != 2 {
-		t.Errorf("report late/conflict = %d/%d (%v), want 1/2", r.LateSyncedOrders, r.StockConflictOrders, err)
+	var conflicts int64
+	a.DB.Model(&orderrepo.Order{}).Where("event_id = ? AND stock_conflict", ev.ID).Count(&conflicts)
+	if r := salesSoFar(t, a, ev.ID); r.LateSyncedOrders != 1 || conflicts != 2 {
+		t.Errorf("late/conflict orders = %d/%d, want 1/2", r.LateSyncedOrders, conflicts)
 	}
 }

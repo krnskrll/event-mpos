@@ -5,6 +5,10 @@ The Go backend is validated against the live Kotlin backend with a side-by-side 
 timestamps) are normalized out. This file records the few **intentional** divergences — everything
 else is byte-identical.
 
+> Phase 4e retired the admin routes the Bhoomy back office replaced (admin product CRUD, ERP product
+> sync, event create/edit/status, availability and location prices, member list, promotions, the
+> end-of-event report and audit). The lists below are kept as the historical parity record.
+
 ## Intentional divergences
 
 ### 1. Malformed login/refresh body with a *missing* required field → 400 (Go) vs 401 (Kotlin)

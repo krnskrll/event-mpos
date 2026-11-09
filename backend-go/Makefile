@@ -1,7 +1,7 @@
 # POS backend — codegen + build, same layout as cuscos-backend/server.
 # oapi-codegen is pinned by the go.mod tool directive (v2.4.1); never @latest.
 OAPI := go tool oapi-codegen
-SERVE_MODULES = health auth me user event product catalog member stock promotion order report syncconfig backoffice
+SERVE_MODULES = health auth me user event product catalog stock order syncconfig backoffice
 
 .PHONY: api api-models api-serve generate build test
 

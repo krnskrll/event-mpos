@@ -13,10 +13,7 @@ interface NavLink {
 const NAV: Record<Role, NavLink[]> = {
   ADMIN: [
     { to: "/admin", label: "Dashboard", icon: Icon.dashboard },
-    { to: "/admin/products", label: "Products", icon: Icon.box },
-    { to: "/admin/members", label: "Members", icon: Icon.users },
-    { to: "/admin/promotions", label: "Promotions", icon: Icon.tag },
-    { to: "/admin/reports", label: "Reports & Sync", icon: Icon.chart },
+    { to: "/admin/stock", label: "Stock", icon: Icon.box },
   ],
   WAREHOUSE: [{ to: "/warehouse", label: "Order Board", icon: Icon.truck }],
   BA: [{ to: "/ba", label: "My Events", icon: Icon.calendar }],

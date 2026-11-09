@@ -8,7 +8,8 @@ React + TypeScript (Vite). Used by the warehouse team and admins.
 - Automatic token refresh on 401 (single-flight) via the axios interceptor in
   [`src/api/client.ts`](src/api/client.ts)
 - **Admin dashboard** ([`src/pages/AdminDashboard.tsx`](src/pages/AdminDashboard.tsx)): create users,
-  create events, and assign a BA to an event
+  assign a BA to an event, member sync; stock allocation in [`src/pages/StockPage.tsx`](src/pages/StockPage.tsx).
+  Products, outlets and events, promotions, members and reports are managed in Bhoomy.
 
 ## Run it
 Needs Node 18+.

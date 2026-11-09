@@ -136,19 +136,19 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 	pri1, pri2, pri3 := 1, 2, 3
 	bundleQty := 3
 	specific := promotioniface.ScopeSpecific
-	if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+	if _, err := promoSvc.Create(tenant.DefaultStoreID, promotioniface.PromotionRequest{LocationID: &ev.ID,
 		Name: "10% off everything", Type: promotioniface.TypePercentage, PercentOff: &pct, Priority: &pri1,
 	}); err != nil {
 		return err
 	}
-	if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+	if _, err := promoSvc.Create(tenant.DefaultStoreID, promotioniface.PromotionRequest{LocationID: &ev.ID,
 		Name: "Rp20.000 off when you spend Rp200.000", Type: promotioniface.TypeFixed,
 		AmountOff: &off20k, MinSubtotal: &min200k, Priority: &pri2,
 	}); err != nil {
 		return err
 	}
 	if lipstick.ID != uuid.Nil {
-		if _, err := promoSvc.Create(ev.ID, promotioniface.PromotionRequest{
+		if _, err := promoSvc.Create(tenant.DefaultStoreID, promotioniface.PromotionRequest{LocationID: &ev.ID,
 			Name: "Lipstick bundle: buy 3, Rp30.000 off", Type: promotioniface.TypeBundle,
 			AmountOff: &off30k, Scope: &specific, ProductIDs: []uuid.UUID{lipstick.ID},
 			MinQty: &bundleQty, Priority: &pri3,

@@ -9,7 +9,7 @@ paths:
     get:
       tags: [syncconfig]
       operationId: getSyncOverview
-      summary: "Schedules and last runs of the ERP and member syncs"
+      summary: "Schedule and last run of the member sync"
       security: [{ bearerAuth: [] }]
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/SyncOverview' } } } }
@@ -21,7 +21,7 @@ paths:
     put:
       tags: [syncconfig]
       operationId: updateSyncConfig
-      summary: "Change a sync schedule"
+      summary: "Change the member sync schedule (MEMBER only; ERP product sync is retired)"
       security: [{ bearerAuth: [] }]
       requestBody:
         required: true
@@ -29,26 +29,6 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/SyncTypeView' } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/admin/erp/sync:
-    post:
-      tags: [syncconfig]
-      operationId: runErpSync
-      summary: "Run the ERP product sync now"
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErpSyncResult' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/admin/erp/status:
-    get:
-      tags: [syncconfig]
-      operationId: getErpSyncStatus
-      summary: "Last ERP sync outcome"
-      security: [{ bearerAuth: [] }]
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErpSyncStatus' } } } }
         '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/admin/members/sync:

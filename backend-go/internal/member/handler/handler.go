@@ -16,15 +16,6 @@ type Handler struct {
 
 func NewHandler(svc *service.Service) *Handler { return &Handler{svc: svc} }
 
-func (h *Handler) List(c *gin.Context) {
-	members, err := h.svc.List(authiface.StoreOf(c))
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, members)
-}
-
 // StoreList is the read-only back-office list; the QR code shows only its last 4 characters.
 func (h *Handler) StoreList(c *gin.Context) {
 	members, err := h.svc.List(authiface.StoreOf(c))

@@ -70,9 +70,9 @@ nearest rupiah (.5 up) in the server, the Flutter app and the Android app alike
 (`testdata/promotion-cases.json`).
 
 **Location prices and photos:** `pos_location_items` says which variants a location sells and at
-what price (`PUT /api/admin/events/:id/variants/:variantId`). Price rule: the variant's location
+what price (`PUT /api/backoffice/locations/:id/items`). Price rule: the variant's location
 price, else its own price, else the default variant's price at that location. POS photos are
-uploaded to `POST /api/admin/products/:id/photo` (JPEG/PNG/WebP, max 2 MB), stored in `MEDIA_DIR`
+uploaded to `POST /api/backoffice/items/:id/photo` (JPEG/PNG/WebP, max 2 MB), stored in `MEDIA_DIR`
 and served publicly from `/media/:file`.
 
 **Produk Toko copy:** a store linked to Bhoomy (`pos_stores.bhoomy_store_id`) pulls its Produk Toko
@@ -89,6 +89,16 @@ one location or all of them, on all items, one Produk Toko category (expanded in
 cashier apps) or chosen items. Laporan POS takes WIB dates and counts offline orders on their sale
 day; it is final once the event is closed or the period ended over a day ago. Members are read-only
 with the QR code masked.
+
+**Old admin (`/api/admin/*`):** only what Bhoomy does not own yet: users, cashier assignment, the
+event list, stock allocation, member sync and the Produk Toko pull. Products are not created in POS;
+the ERP product sync runs only in the dev seed (`SEED_ENABLED`).
+A Bhoomy store gets its first admin with `echo '<password>' | ./server create-admin -bhoomy-store <id>
+-email <email> -name <name>` (until Phase 5 moves accounts to Bhoomy).
+
+**Barcodes:** each Produk Toko variant barcode is copied to `pos_item_barcodes` on every sync
+(unique per store). The snapshot version includes every barcode, so a changed barcode reaches the
+cashier apps.
 
 Modules call each other only through `iface`; `internal/archtest` fails the build otherwise, and
 `internal/app/testdata/routes.golden` pins every route.

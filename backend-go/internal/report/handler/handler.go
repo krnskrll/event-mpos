@@ -15,7 +15,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/report/service"
 )
 
-// Handler exposes the admin reporting + audit surface under /api/admin.
+// Handler exposes the back-office location report and audit log.
 type Handler struct {
 	svc    *service.Service
 	audit  auditiface.Audit
@@ -24,43 +24,6 @@ type Handler struct {
 
 func NewHandler(svc *service.Service, aud auditiface.Audit, events eventiface.Events) *Handler {
 	return &Handler{svc: svc, audit: aud, events: events}
-}
-
-func (h *Handler) Report(c *gin.Context) {
-	eventID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
-		return
-	}
-	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
-		common.Fail(c, err)
-		return
-	}
-	rep, err := h.svc.EndOfEvent(eventID)
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, rep)
-}
-
-func (h *Handler) ReportCSV(c *gin.Context) {
-	eventID, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		common.AbortError(c, http.StatusBadRequest, "Invalid event id")
-		return
-	}
-	if err := h.events.RequireInStore(authiface.StoreOf(c), eventID); err != nil {
-		common.Fail(c, err)
-		return
-	}
-	rep, err := h.svc.EndOfEvent(eventID)
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	c.Header("Content-Disposition", "attachment; filename=\"report-"+rep.EventCode+".csv\"")
-	c.Data(http.StatusOK, "text/csv", []byte(h.svc.ToCSV(rep)))
 }
 
 const (
