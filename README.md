@@ -96,9 +96,9 @@ the ERP product sync runs only in the dev seed (`SEED_ENABLED`).
 A Bhoomy store gets its first admin with `echo '<password>' | ./server create-admin -bhoomy-store <id>
 -email <email> -name <name>` (until Phase 5 moves accounts to Bhoomy).
 
-**Barcodes:** `pos_item_barcodes.source` is `produk_toko` (follows the Bhoomy variant barcodes on
-every sync) or `pos` (extra barcodes saved with the Katalog POS item as `extraBarcodes`). Barcodes
-are unique per store; Produk Toko wins a clash. The snapshot version includes every barcode.
+**Barcodes:** each Produk Toko variant barcode is copied to `pos_item_barcodes` on every sync
+(unique per store). The snapshot version includes every barcode, so a changed barcode reaches the
+cashier apps.
 
 Modules call each other only through `iface`; `internal/archtest` fails the build otherwise, and
 `internal/app/testdata/routes.golden` pins every route.

@@ -208,6 +208,12 @@ func TestKatalogPOS(t *testing.T) {
 	if got := sells(); got["Coral"] != "85000" {
 		t.Errorf("location price: Coral sells at %s, want 85000", got["Coral"])
 	}
+	before, _ := a.Events.SnapshotVersion(uuid.MustParse(locID))
+	pt.put(lipstick, "Rose", "PRD-102-RO", false, "active", str("8990001009"))
+	pt.sync(t)
+	if after, _ := a.Events.SnapshotVersion(uuid.MustParse(locID)); after == before {
+		t.Error("a new Produk Toko barcode must change the cashier snapshot version")
+	}
 	locs := ok[[]J](t, a.Back(http.MethodGet, "/locations", nil, store), http.StatusOK)
 	if len(locs) != 1 || locs[0]["items"] != float64(1) || locs[0]["code"] != "OUT-KG" {
 		t.Errorf("locations: %v", locs)

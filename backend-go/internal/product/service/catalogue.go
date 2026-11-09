@@ -161,12 +161,6 @@ func (s *Service) CatalogueItem(storeID, id uuid.UUID, locs []iface.ItemLocation
 			d.Source.Barcode = v.Barcode
 		}
 	}
-	d.ExtraBarcodes = []iface.BarcodeDto{}
-	for _, b := range p.Barcodes {
-		if b.Source == repository.BarcodePOS {
-			d.ExtraBarcodes = append(d.ExtraBarcodes, iface.BarcodeDto{Barcode: b.Barcode, Label: b.Label})
-		}
-	}
 	for _, v := range p.Options() {
 		d.Variants = append(d.Variants, iface.CatalogueVariant{ID: v.ID, Name: v.Name, SKU: v.SKU, SellInPOS: v.SellInPOS, Price: v.Price})
 	}
@@ -221,17 +215,8 @@ func (s *Service) UpdateCatalogueItem(storeID, id uuid.UUID, req iface.UpdateIte
 		}
 		v.SellInPOS, v.Price = in.SellInPOS, in.Price
 	}
-	extras, err := extraBarcodes(req.ExtraBarcodes)
-	if err != nil {
-		return err
-	}
 	p.DisplayName, p.Status, p.UpdatedAt = name, req.Status, nowUTC()
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		if req.ExtraBarcodes != nil {
-			if err := s.saveExtraBarcodes(tx, p, extras); err != nil {
-				return err
-			}
-		}
 		for i := range p.Variants {
 			if err := tx.Save(&p.Variants[i]).Error; err != nil {
 				return err
@@ -419,7 +404,7 @@ func (s *Service) reconcile(tx *gorm.DB, p *repository.Product, sp catalogiface.
 	if err != nil {
 		return err
 	}
-	if err := tx.Where("item_id = ? AND source = ?", p.ID, repository.BarcodeProdukToko).Delete(&repository.ProductBarcode{}).Error; err != nil {
+	if err := tx.Where("item_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {
 		return err
 	}
 	for i := range barcodes {
@@ -430,8 +415,7 @@ func (s *Service) reconcile(tx *gorm.DB, p *repository.Product, sp catalogiface.
 	return tx.Model(&repository.Product{}).Where("id = ?", p.ID).Update("updated_at", nowUTC()).Error
 }
 
-// freeBarcodes are the product's active barcodes not used by another item's Produk Toko barcode.
-// Produk Toko wins over POS extras: an extra with the same code is removed.
+// freeBarcodes are the product's active barcodes not used by another item of the store.
 func (s *Service) freeBarcodes(tx *gorm.DB, storeID, itemID uuid.UUID, p catalogiface.Product) ([]repository.ProductBarcode, error) {
 	var out []repository.ProductBarcode
 	seen := map[string]bool{}
@@ -440,19 +424,14 @@ func (s *Service) freeBarcodes(tx *gorm.DB, storeID, itemID uuid.UUID, p catalog
 			continue
 		}
 		seen[*v.Barcode] = true
-		var taken repository.ProductBarcode
-		err := tx.Where("store_id = ? AND barcode = ?", storeID, *v.Barcode).Limit(1).Find(&taken).Error
-		switch {
-		case err != nil:
+		owner, err := s.ownerOfBarcode(tx, storeID, *v.Barcode)
+		if err != nil {
 			return nil, err
-		case taken.ID != uuid.Nil && taken.Source == repository.BarcodePOS:
-			if err := tx.Delete(&taken).Error; err != nil {
-				return nil, err
-			}
-		case taken.ID != uuid.Nil && taken.ItemID != itemID:
+		}
+		if owner != nil && *owner != itemID {
 			continue
 		}
-		b := repository.ProductBarcode{ItemID: itemID, StoreID: storeID, Barcode: *v.Barcode, Source: repository.BarcodeProdukToko}
+		b := repository.ProductBarcode{ItemID: itemID, StoreID: storeID, Barcode: *v.Barcode}
 		if !v.IsDefault {
 			b.Label = &v.VariantName
 		}
@@ -646,67 +625,4 @@ func notFoundOr(err error, msg string) error {
 		return err
 	}
 	return common.NewAppError(http.StatusNotFound, msg)
-}
-
-// extraBarcodes trims and checks the edit form's extra barcodes.
-func extraBarcodes(in *[]iface.BarcodeInput) ([]iface.BarcodeInput, error) {
-	if in == nil {
-		return nil, nil
-	}
-	if len(*in) > iface.MaxExtraBarcodes {
-		return nil, common.NewAppError(http.StatusBadRequest, "extraBarcodes: at most 20")
-	}
-	out := make([]iface.BarcodeInput, 0, len(*in))
-	seen := map[string]bool{}
-	for _, b := range *in {
-		code := strings.TrimSpace(b.Barcode)
-		if code == "" || len(code) > iface.MaxBarcode || strings.ContainsAny(code, " \t\n") {
-			return nil, common.NewAppError(http.StatusBadRequest, "extraBarcodes: 1 to 64 characters, no spaces")
-		}
-		if seen[code] {
-			return nil, common.NewAppError(http.StatusBadRequest, "Barcode '"+code+"' is listed twice")
-		}
-		seen[code] = true
-		var label *string
-		if b.Label != nil {
-			if l := strings.TrimSpace(*b.Label); l != "" {
-				if utf8.RuneCountInString(l) > iface.MaxBarcodeLabel {
-					return nil, common.NewAppError(http.StatusBadRequest, "extraBarcodes: label up to 60 characters")
-				}
-				label = &l
-			}
-		}
-		out = append(out, iface.BarcodeInput{Barcode: code, Label: label})
-	}
-	return out, nil
-}
-
-// saveExtraBarcodes replaces the item's POS barcodes; a code used anywhere else in the store is a 409.
-func (s *Service) saveExtraBarcodes(tx *gorm.DB, p *repository.Product, extras []iface.BarcodeInput) error {
-	if len(extras) > 0 {
-		codes := make([]string, len(extras))
-		for i, b := range extras {
-			codes[i] = b.Barcode
-		}
-		var clash struct{ Barcode, DisplayName string }
-		err := tx.Table("pos_item_barcodes b").Select("b.barcode, i.display_name").Joins("JOIN pos_items i ON i.id = b.item_id").
-			Where("b.store_id = ? AND b.barcode IN ? AND NOT (b.item_id = ? AND b.source = ?)", p.StoreID, codes, p.ID, repository.BarcodePOS).
-			Limit(1).Scan(&clash).Error
-		if err != nil {
-			return err
-		}
-		if clash.Barcode != "" {
-			return common.NewAppError(http.StatusConflict, "Barcode '"+clash.Barcode+"' is already used by "+clash.DisplayName)
-		}
-	}
-	if err := tx.Where("item_id = ? AND source = ?", p.ID, repository.BarcodePOS).Delete(&repository.ProductBarcode{}).Error; err != nil {
-		return err
-	}
-	for _, b := range extras {
-		row := repository.ProductBarcode{ItemID: p.ID, StoreID: p.StoreID, Barcode: b.Barcode, Label: b.Label, Source: repository.BarcodePOS}
-		if err := tx.Create(&row).Error; err != nil {
-			return err
-		}
-	}
-	return nil
 }

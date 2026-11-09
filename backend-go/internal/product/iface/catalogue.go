@@ -11,13 +11,6 @@ const SourceBhoomy ProductSource = "BHOOMY"
 // MaxDisplayName is the longest name in POS (product button, cart and receipt).
 const MaxDisplayName = 40
 
-// Extra barcode limits.
-const (
-	MaxExtraBarcodes = 20
-	MaxBarcode       = 64
-	MaxBarcodeLabel  = 60
-)
-
 // SourceOption is a Produk Toko product that can still be added to Katalog POS.
 type SourceOption struct {
 	ProductID    uuid.UUID `json:"productId"`
@@ -72,15 +65,14 @@ type ItemLocation struct {
 }
 
 type CatalogueItemDetail struct {
-	ID            uuid.UUID          `json:"id"`
-	DisplayName   string             `json:"displayName"`
-	PhotoURL      *string            `json:"photoUrl"`
-	Status        string             `json:"status"`
-	BasePrice     *decimal.Decimal   `json:"basePrice"`
-	Source        SourceFacts        `json:"source"`
-	ExtraBarcodes []BarcodeDto       `json:"extraBarcodes"`
-	Variants      []CatalogueVariant `json:"variants"`
-	Locations     []ItemLocation     `json:"locations"`
+	ID          uuid.UUID          `json:"id"`
+	DisplayName string             `json:"displayName"`
+	PhotoURL    *string            `json:"photoUrl"`
+	Status      string             `json:"status"`
+	BasePrice   *decimal.Decimal   `json:"basePrice"`
+	Source      SourceFacts        `json:"source"`
+	Variants    []CatalogueVariant `json:"variants"`
+	Locations   []ItemLocation     `json:"locations"`
 }
 
 type AddItemsRequest struct {
@@ -109,8 +101,6 @@ type UpdateItemRequest struct {
 	BasePrice   *decimal.Decimal `json:"basePrice"`
 	Variants    []VariantInput   `json:"variants"`
 	Locations   []LocationInput  `json:"locations"`
-	// ExtraBarcodes replaces the item's POS barcodes; nil keeps them.
-	ExtraBarcodes *[]BarcodeInput `json:"extraBarcodes"`
 }
 
 // LocationRow is one item variant at a location.
