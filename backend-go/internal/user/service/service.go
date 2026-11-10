@@ -47,10 +47,6 @@ func (s *Service) account(where string, arg any) (*iface.Account, error) {
 	return u.ToAccount(), nil
 }
 
-func (s *Service) findIn(storeID, id uuid.UUID) (*repository.User, error) {
-	return s.find("id = ? AND store_id = ?", id, storeID)
-}
-
 func (s *Service) find(where string, args ...any) (*repository.User, error) {
 	var u repository.User
 	err := s.db.Where(where, args...).First(&u).Error
@@ -61,26 +57,6 @@ func (s *Service) find(where string, args ...any) (*repository.User, error) {
 		return nil, err
 	}
 	return &u, nil
-}
-
-func (s *Service) List(storeID uuid.UUID) ([]iface.UserResponse, error) {
-	return s.query(s.db.Where("store_id = ?", storeID))
-}
-
-func (s *Service) ListByRole(storeID uuid.UUID, role iface.Role) ([]iface.UserResponse, error) {
-	return s.query(s.db.Where("store_id = ? AND role = ?", storeID, role))
-}
-
-func (s *Service) query(tx *gorm.DB) ([]iface.UserResponse, error) {
-	var users []repository.User
-	if err := tx.Order("created_at").Find(&users).Error; err != nil {
-		return nil, err
-	}
-	out := make([]iface.UserResponse, 0, len(users))
-	for i := range users {
-		out = append(out, users[i].ToResponse())
-	}
-	return out, nil
 }
 
 func (s *Service) Create(storeID uuid.UUID, req iface.CreateUserRequest) (*iface.UserResponse, error) {
@@ -107,30 +83,6 @@ func (s *Service) Create(storeID uuid.UUID, req iface.CreateUserRequest) (*iface
 		Active:       true,
 	}
 	if err := s.db.Create(&u).Error; err != nil {
-		return nil, err
-	}
-	resp := u.ToResponse()
-	return &resp, nil
-}
-
-func (s *Service) Update(storeID, id uuid.UUID, req iface.UpdateUserRequest) (*iface.UserResponse, error) {
-	u, err := s.findIn(storeID, id)
-	if err != nil {
-		return nil, err
-	}
-	if u == nil {
-		return nil, common.NewAppError(http.StatusNotFound, "User not found")
-	}
-	if req.FullName != nil {
-		u.FullName = strings.TrimSpace(*req.FullName)
-	}
-	if req.Role != nil {
-		u.Role = *req.Role
-	}
-	if req.Active != nil {
-		u.Active = *req.Active
-	}
-	if err := s.db.Save(u).Error; err != nil {
 		return nil, err
 	}
 	resp := u.ToResponse()

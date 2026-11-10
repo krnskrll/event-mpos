@@ -20,6 +20,15 @@ flutter run                          # emulator reaches the backend at 10.0.2.2:
 flutter run --dart-define=API_BASE_URL=http://<mac-lan-ip>:8080/   # real device
 ```
 
+First run: get a pairing code in Bhoomy (Outlet & Event › location › Tambah perangkat) and enter it on
+the pairing screen. Afterwards staff sign in with name + PIN (checked on the device, works offline).
+
+| Stored | Where |
+|---|---|
+| Device token, device, store, location | Keystore/Keychain (`DeviceStorage`) |
+| Staff list with PIN hashes | drift `staff` table, refreshed at start, on resume and every minute |
+| Who is signed in | memory only (relaunch or 5 idle minutes lock the device) |
+
 ## Check
 
 ```bash

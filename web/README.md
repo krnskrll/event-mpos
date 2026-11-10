@@ -1,15 +1,15 @@
 # Web Dashboard — event-mpos
 
-React + TypeScript (Vite). Used by the warehouse team and admins.
+React + TypeScript (Vite). The old admin dashboard, kept only for **stock allocation** until
+Phase 6 moves stock to Bhoomy. Staff, devices, locations, products, promotions, members and reports
+are managed in Bhoomy; cashiers work in the Flutter app on paired devices.
 
-## What EPIC-01 delivers
-- Login page → stores tokens, routes by role
-- **Role-based routing**: ADMIN → `/admin`, WAREHOUSE → `/warehouse`, BA → `/ba`
-- Automatic token refresh on 401 (single-flight) via the axios interceptor in
-  [`src/api/client.ts`](src/api/client.ts)
-- **Admin dashboard** ([`src/pages/AdminDashboard.tsx`](src/pages/AdminDashboard.tsx)): create users,
-  assign a BA to an event, member sync; stock allocation in [`src/pages/StockPage.tsx`](src/pages/StockPage.tsx).
-  Products, outlets and events, promotions, members and reports are managed in Bhoomy.
+| Page | What |
+|---|---|
+| Login | ADMIN accounts only (`create-admin`, or the dev seed) |
+| Stock ([`src/pages/StockPage.tsx`](src/pages/StockPage.tsx)) | Allocate stock per location |
+
+Tokens refresh automatically on 401 (single-flight) via [`src/api/client.ts`](src/api/client.ts).
 
 ## Run it
 Needs Node 18+.
@@ -19,17 +19,10 @@ npm install
 npm run dev
 ```
 Opens http://localhost:5173. API calls to `/api/*` are proxied to `http://localhost:8080`
-(the Go backend) — so start it first with `docker compose up --build` from the repo root.
+(the Go backend) — start it first with `docker compose up --build` from the repo root.
+Sign in with `admin@eventmpos.local` / `Admin123!`.
 
-Sign in with the seeded accounts (e.g. `admin@eventmpos.local` / `Admin123!`).
-
-## Build
+## Build and test
 ```bash
-npm run build
+npx tsc --noEmit && npm run build && npm test
 ```
-
-## Notes
-- Tokens live in `localStorage` for this internal dashboard; the Android app uses
-  EncryptedSharedPreferences instead (shared physical device).
-- The warehouse and BA pages are intentionally thin in EPIC-01 — they prove auth + routing work.
-  The live packing board arrives in EPIC-09.

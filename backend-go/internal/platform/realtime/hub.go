@@ -1,7 +1,6 @@
-// Package realtime is the real-time order push for the warehouse dashboard. It replaces the Kotlin
-// STOMP-over-SockJS broker with a native gorilla/websocket hub: clients connect per event room and
-// receive WarehouseOrderView JSON messages as orders are created/advanced. Only the web dashboard
-// uses this; the Android app does not.
+// Package realtime is the real-time order push for the pickup board in the cashier app: a native
+// gorilla/websocket hub where devices connect per location room and receive WarehouseOrderView
+// JSON messages as orders are created/advanced.
 package realtime
 
 import (

@@ -70,20 +70,6 @@ func (h *Handler) ChangeStatus(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-func (h *Handler) AssignBa(c *gin.Context) {
-	var req iface.AssignBaRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		common.AbortError(c, http.StatusBadRequest, common.BindingMessage(err))
-		return
-	}
-	resp, err := h.svc.AssignBaToEvent(authiface.StoreOf(c), req.UserID, req.EventID)
-	if err != nil {
-		common.Fail(c, err)
-		return
-	}
-	c.JSON(http.StatusOK, resp)
-}
-
 func (h *Handler) CreateLocation(c *gin.Context) {
 	var req iface.CreateLocationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

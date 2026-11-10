@@ -19,46 +19,12 @@ components:
         error: { type: string }
         message: { type: string }
         path: { type: string }
-    MeResponse:
-      type: object
-      required: [id, email, fullName, role, storeId]
-      properties:
-        storeId: { type: string, format: uuid }
-        id: { type: string, format: uuid }
-        email: { type: string }
-        fullName: { type: string }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
     SnapshotHashResponse:
       type: object
       required: [snapshotHash, checkedAt]
       properties:
         snapshotHash: { type: string }
         checkedAt: { type: string, format: date-time }
-    UserResponse:
-      type: object
-      required: [id, email, fullName, role, active, createdAt, storeId]
-      properties:
-        storeId: { type: string, format: uuid }
-        id: { type: string, format: uuid }
-        email: { type: string }
-        fullName: { type: string }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
-        active: { type: boolean }
-        createdAt: { type: string, format: date-time }
-    CreateUserRequest:
-      type: object
-      required: [email, password, fullName, role]
-      properties:
-        email: { type: string }
-        password: { type: string }
-        fullName: { type: string }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
-    UpdateUserRequest:
-      type: object
-      properties:
-        fullName: { type: string, nullable: true }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE], nullable: true }
-        active: { type: boolean, nullable: true }
     LoginRequest:
       type: object
       required: [email, password]
@@ -86,7 +52,7 @@ components:
         id: { type: string, format: uuid }
         email: { type: string }
         fullName: { type: string }
-        role: { type: string, enum: [ADMIN, BA, WAREHOUSE] }
+        role: { type: string, enum: [ADMIN] }
     EventResponse:
       type: object
       required: [id, code, name, status, storeId, type]
@@ -113,11 +79,6 @@ components:
       required: [status]
       properties:
         status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
-    AssignBaRequest:
-      type: object
-      properties:
-        userId: { type: string, format: uuid }
-        eventId: { type: string, format: uuid }
     EventSnapshot:
       type: object
       required: [event, version, products, stock, members, promotions, memberCount]
@@ -311,11 +272,6 @@ components:
         total: { type: integer, format: int64 }
         appliedPromotionId: { type: string, format: uuid }
         appliedPromotionName: { type: string }
-    NumberBlockRequest:
-      type: object
-      required: [deviceId]
-      properties:
-        deviceId: { type: string }
     NumberBlockResponse:
       type: object
       required: [eventId, businessDate, rangeStart, rangeEnd]
@@ -344,7 +300,7 @@ components:
         idempotencyKey: { type: string }
         customer: { $ref: '#/components/schemas/CustomerInfo' }
         lines: { type: array, items: { $ref: '#/components/schemas/OrderLineRequest' } }
-        deviceId: { type: string, nullable: true }
+        deviceId: { type: string, nullable: true, description: ignored; the server records the paired device }
         orderNumber: { type: integer, nullable: true }
         clientCreatedAt: { type: string, format: date-time, nullable: true }
     OrderItemView:
@@ -409,7 +365,7 @@ components:
         orderNumberDisplay: { type: string }
         referenceId: { type: string }
         customerName: { type: string }
-        baName: { type: string }
+        baName: { type: string, description: the cashier (staff) who sold it }
         items: { type: array, items: { $ref: '#/components/schemas/WarehouseItem' } }
         status: { type: string, enum: [NEW, PACKING, READY, COLLECTED, CANCELLED] }
         total: { type: integer, format: int64 }
@@ -418,8 +374,11 @@ components:
         lateSynced: { type: boolean }
     CancelOrderRequest:
       type: object
+      required: [supervisorId, supervisorPin]
       properties:
         reason: { type: string, nullable: true }
+        supervisorId: { type: string, format: uuid }
+        supervisorPin: { type: string }
     AdvanceStatusRequest:
       type: object
       required: [status]
@@ -479,50 +438,6 @@ components:
         id: { type: string, format: uuid }
         name: { type: string }
         itemIds: { type: array, items: { type: string, format: uuid } }
-    UpdateSyncConfigRequest:
-      type: object
-      required: [cron]
-      properties:
-        enabled: { type: boolean }
-        cron: { type: string }
-    SyncTypeView:
-      type: object
-      required: [type, enabled, cron, updatedAt, count]
-      properties:
-        type: { type: string, enum: [ERP, MEMBER] }
-        enabled: { type: boolean }
-        cron: { type: string }
-        updatedAt: { type: string, format: date-time }
-        lastSyncAt: { type: string, format: date-time }
-        lastResult: { type: string }
-        count: { type: integer }
-        source: { type: string }
-        message: { type: string }
-    SyncOverview:
-      type: object
-      required: [member]
-      properties:
-        member: { $ref: '#/components/schemas/SyncTypeView' }
-    MemberSyncResult:
-      type: object
-      required: [ok, created, updated, total, source]
-      properties:
-        ok: { type: boolean }
-        created: { type: integer }
-        updated: { type: integer }
-        total: { type: integer }
-        source: { type: string }
-        message: { type: string }
-    MemberSyncStatus:
-      type: object
-      required: [id, memberCount]
-      properties:
-        id: { type: integer }
-        lastSyncAt: { type: string, format: date-time }
-        lastResult: { type: string }
-        memberCount: { type: integer }
-        source: { type: string }
-        message: { type: string }
     CatalogSyncStatus:
       type: object
       required: [linked, cached]
@@ -679,3 +594,107 @@ components:
       required: [itemIds]
       properties:
         itemIds: { type: array, minItems: 1, items: { type: string, format: uuid } }
+    PairRequest:
+      type: object
+      required: [code]
+      properties:
+        code: { type: string, description: 6-digit pairing code }
+        model: { type: string }
+    DeviceRef:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        removesAt: { type: string, format: date-time, description: set once the location closed }
+    DeviceLocation:
+      type: object
+      required: [id, name, type, status]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        type: { type: string, enum: [event, outlet] }
+        status: { type: string, enum: [DRAFT, ACTIVE, CLOSED] }
+        startDate: { type: string, format: date }
+        endDate: { type: string, format: date }
+    DeviceResponse:
+      type: object
+      required: [device, location, storeName]
+      properties:
+        device: { $ref: '#/components/schemas/DeviceRef' }
+        location: { $ref: '#/components/schemas/DeviceLocation' }
+        storeName: { type: string }
+    PairResponse:
+      type: object
+      required: [token, device, location, storeName]
+      properties:
+        token: { type: string, description: "send as Authorization: Device <token>; shown only once" }
+        device: { $ref: '#/components/schemas/DeviceRef' }
+        location: { $ref: '#/components/schemas/DeviceLocation' }
+        storeName: { type: string }
+    DeviceStaff:
+      type: object
+      required: [id, name, role, pinHash]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: string, enum: [KASIR, SUPERVISOR] }
+        pinHash: { type: string, description: bcrypt }
+    StaffRequest:
+      type: object
+      required: [name, role, locationIds]
+      properties:
+        name: { type: string, maxLength: 40 }
+        role: { type: string, enum: [KASIR, SUPERVISOR] }
+        pin: { type: string, pattern: '^[0-9]{4,6}$', description: required on create; resets it on update }
+        locationIds: { type: array, items: { type: string, format: uuid } }
+        active: { type: boolean }
+    StaffResponse:
+      type: object
+      required: [id, name, role, locationIds, active, createdAt, updatedAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        role: { type: string, enum: [KASIR, SUPERVISOR] }
+        locationIds: { type: array, items: { type: string, format: uuid } }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    DeviceView:
+      type: object
+      required: [id, name, pairedAt, lastSeenAt]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        model: { type: string }
+        pairedAt: { type: string, format: date-time }
+        lastSeenAt: { type: string, format: date-time, nullable: true }
+        removesAt: { type: string, format: date-time }
+    PairingCode:
+      type: object
+      required: [code, expiresAt]
+      properties:
+        code: { type: string }
+        expiresAt: { type: string, format: date-time }
+    RenameDeviceRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string, maxLength: 40 }
+    MemberSync:
+      type: object
+      required: [enabled, time, lastSyncAt, lastResult, count, source, message]
+      properties:
+        enabled: { type: boolean }
+        time: { type: string, nullable: true, description: "daily run, HH:MM WIB; null when the schedule is not a daily time" }
+        lastSyncAt: { type: string, format: date-time, nullable: true }
+        lastResult: { type: string, enum: [SUCCESS, FAILED], nullable: true }
+        count: { type: integer }
+        source: { type: string, nullable: true }
+        message: { type: string, nullable: true }
+    MemberScheduleRequest:
+      type: object
+      required: [enabled, time]
+      properties:
+        enabled: { type: boolean }
+        time: { type: string, description: "HH:MM WIB" }

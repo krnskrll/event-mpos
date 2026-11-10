@@ -9,7 +9,7 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 )
 
-// EventStatus is the event lifecycle. BAs can only sell while ACTIVE.
+// EventStatus is the location lifecycle. Cashiers can only sell while ACTIVE.
 type EventStatus string
 
 const (
@@ -99,13 +99,6 @@ type ChangeStatusRequest struct {
 	Status EventStatus `json:"status" binding:"required"`
 }
 
-// AssignBaRequest — userId/eventId are looked up (a nonexistent id yields 404, matching Kotlin's
-// @NotNull semantics which reject only a missing field, not a zero-valued UUID).
-type AssignBaRequest struct {
-	UserID  uuid.UUID `json:"userId"`
-	EventID uuid.UUID `json:"eventId"`
-}
-
 // EventSnapshot is the one-call payload a device downloads for an event. Stock stays empty:
 // remaining stock is carried on each product.
 type EventSnapshot struct {
@@ -158,9 +151,6 @@ type Events interface {
 	Get(id uuid.UUID) (*EventResponse, error)
 	RequireInStore(storeID, eventID uuid.UUID) error
 	ListEvents(storeID uuid.UUID) ([]EventResponse, error)
-	RequireAssigned(userID, eventID uuid.UUID) error
-	ActiveEventForUser(userID uuid.UUID) (*EventResponse, error)
-	AssignedEventsForUser(userID uuid.UUID) ([]EventResponse, error)
 	SnapshotForEvent(eventID uuid.UUID) (*EventSnapshot, error)
 	SnapshotVersion(eventID uuid.UUID) (string, error)
 }

@@ -63,11 +63,11 @@ void main() {
     expect(await db.select(db.products).get(), hasLength(1));
   });
 
-  test('403 explains the assignment; 409 (event closed) still opens the cached session', () async {
+  test('403 names the wrong location; 409 (event closed) still opens the cached session', () async {
     server.routes[_path] = (403, {});
     await expectLater(
       repo.syncSnapshot('EV01'),
-      throwsA(isA<ApiFailure>().having((e) => e.message, 'message', 'You are not assigned to this event.')),
+      throwsA(isA<ApiFailure>().having((e) => e.message, 'message', 'This device belongs to another location.')),
     );
 
     server.routes[_path] = (409, {'message': 'Event is closed'});

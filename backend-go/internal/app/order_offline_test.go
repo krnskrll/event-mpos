@@ -12,7 +12,6 @@ import (
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
 	orderrepo "github.com/krnskrll/event-mpos/internal/order/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // EPIC-12 C1/C2: device number blocks (D1) and the late-sync window after close (D2).
@@ -20,10 +19,10 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("10.00")
 	a.Allocate(ev.ID, p.ID, 2)
-	ba := a.CreateUser(useriface.RoleBA, "Ba123456!")
+	ba := uuid.New()
 	device := "device-" + uuid.NewString()
 	deviceOrder := func(n int, createdAt time.Time) (*orderiface.OrderConfirmation, error) {
-		return a.Orders.Submit(ev.ID, ba.ID, orderiface.SubmitOrderRequest{
+		return a.Orders.Submit(ev.ID, ba, orderiface.SubmitOrderRequest{
 			IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "Offline"},
 			Lines:    []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 2}},
 			DeviceID: &device, OrderNumber: &n, ClientCreatedAt: &createdAt,

@@ -29,12 +29,12 @@ func NewService(db *gorm.DB, orders orderiface.Orders, aud auditiface.Audit) *Se
 	return &Service{db: db, orders: orders, audit: aud}
 }
 
-// LogPrint records a print/reprint of one of the BA's own orders. In one transaction it bumps the
+// LogPrint records a print/reprint of an order sold at the location. In one transaction it bumps the
 // receipt_logs counter (atomic upsert, safe under concurrent prints) and appends a RECEIPT_PRINTED
-// audit entry. An unknown order, or another BA's order, is a 404.
-func (s *Service) LogPrint(orderID, baUserID uuid.UUID) error {
+// audit entry. An unknown order, or one from another location, is a 404.
+func (s *Service) LogPrint(orderID, locationID, staffID uuid.UUID) error {
 	return s.db.Transaction(func(tx *gorm.DB) error {
-		o, err := s.orders.ForReceipt(tx, orderID, baUserID)
+		o, err := s.orders.ForReceipt(tx, orderID, locationID)
 		if err != nil {
 			return err
 		}
@@ -57,6 +57,6 @@ func (s *Service) LogPrint(orderID, baUserID uuid.UUID) error {
 		if err := tx.Model(&repository.ReceiptLog{}).Where("order_id = ?", orderID).Pluck("print_count", &printCount).Error; err != nil {
 			return err
 		}
-		return s.audit.RecordReceiptPrinted(tx, o.EventID, o.ID, o.ReferenceID, &baUserID, printCount)
+		return s.audit.RecordReceiptPrinted(tx, o.EventID, o.ID, o.ReferenceID, &staffID, printCount)
 	})
 }

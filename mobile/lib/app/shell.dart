@@ -45,6 +45,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       (Icons.home_outlined, 'Home', 0, true),
       (Icons.grid_view_rounded, 'Sell', 0, !closed),
       (Icons.receipt_long_outlined, 'Orders', pending, true),
+      (Icons.inventory_2_outlined, 'Pickup', 0, true),
     ];
     Widget icon(IconData data, int badge) => Badge(
       isLabelVisible: badge > 0,
@@ -77,7 +78,13 @@ class _AppShellState extends ConsumerState<AppShell> {
                         padding: EdgeInsets.only(bottom: 16),
                         child: Column(
                           mainAxisSize: MainAxisSize.min,
-                          children: [_PrinterButton(), SizedBox(height: 10), UserAvatar()],
+                          children: [
+                            _PrinterButton(),
+                            SizedBox(height: 10),
+                            _LockButton(),
+                            SizedBox(height: 10),
+                            UserAvatar(),
+                          ],
                         ),
                       ),
                     ),
@@ -121,6 +128,24 @@ class _AppShellState extends ConsumerState<AppShell> {
       ),
     );
   }
+}
+
+/// Switch cashier: locks the device back to the staff list.
+class _LockButton extends ConsumerWidget {
+  const _LockButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => IconButton(
+    onPressed: () => ref.read(signedInProvider.notifier).lock(),
+    tooltip: 'Switch cashier',
+    style: IconButton.styleFrom(
+      backgroundColor: Brand.forestRaised,
+      foregroundColor: Brand.greenTint,
+      fixedSize: const Size(48, 48),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+    ),
+    icon: const Icon(Icons.lock_outline),
+  );
 }
 
 /// Printer shortcut with a status dot: green when ready, gold otherwise.

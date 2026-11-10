@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { AxiosError } from "axios";
 import { useAuth } from "../auth/AuthContext";
-import { homePathForRole } from "../auth/ProtectedRoute";
 
 export default function LoginPage() {
   const { login } = useAuth();
@@ -17,8 +16,8 @@ export default function LoginPage() {
     setError(null);
     setBusy(true);
     try {
-      const user = await login(email, password);
-      navigate(homePathForRole(user.role), { replace: true });
+      await login(email, password);
+      navigate("/stock", { replace: true });
     } catch (err) {
       const ax = err as AxiosError<{ message?: string }>;
       setError(ax.response?.data?.message ?? "Login failed. Please try again.");
@@ -34,7 +33,7 @@ export default function LoginPage() {
           <span className="app-sidebar__logo">e</span>
           <div>
             <h1>event-mpos</h1>
-            <p className="muted" style={{ margin: 0, fontSize: "var(--pdx-font-sm)" }}>Warehouse &amp; Admin dashboard</p>
+            <p className="muted" style={{ margin: 0, fontSize: "var(--pdx-font-sm)" }}>Stock allocation (admin)</p>
           </div>
         </div>
 

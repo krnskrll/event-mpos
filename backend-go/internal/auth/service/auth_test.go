@@ -44,7 +44,7 @@ func TestJwtRejectsTampered(t *testing.T) {
 		t.Error("garbage token accepted")
 	}
 	other, _ := NewJwtService("YW5vdGhlci1zZWNyZXQtdGhhdC1pcy1sb25nLWVub3VnaC0zMmJ5dGVzIQ==", 15)
-	u := &useriface.Account{ID: uuid.New(), Email: "x@y.com", Role: useriface.RoleBA}
+	u := &useriface.Account{ID: uuid.New(), Email: "x@y.com", Role: useriface.RoleAdmin}
 	tok, _ := other.GenerateAccessToken(u)
 	if _, ok := j.Parse(tok); ok {
 		t.Error("token signed with a different key was accepted")

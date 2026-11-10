@@ -8,19 +8,15 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/database"
 )
 
-// Role is one of the three system roles, serialized as e.g. "ADMIN".
+// Role of a user account. Only ADMIN signs in (the old dashboard); cashiers are staff on paired
+// devices, and older BA/WAREHOUSE rows can no longer log in.
 type Role string
 
-const (
-	RoleAdmin     Role = "ADMIN"
-	RoleBA        Role = "BA"
-	RoleWarehouse Role = "WAREHOUSE"
-)
+const RoleAdmin Role = "ADMIN"
 
 func ParseRole(s string) (Role, bool) {
-	switch Role(s) {
-	case RoleAdmin, RoleBA, RoleWarehouse:
-		return Role(s), true
+	if Role(s) == RoleAdmin {
+		return RoleAdmin, true
 	}
 	return "", false
 }
@@ -48,13 +44,6 @@ type CreateUserRequest struct {
 	Password string `json:"password" binding:"required,min=8"`
 	FullName string `json:"fullName" binding:"required"`
 	Role     Role   `json:"role" binding:"required"`
-}
-
-// UpdateUserRequest is a partial update: only non-nil fields are applied.
-type UpdateUserRequest struct {
-	FullName *string `json:"fullName"`
-	Role     *Role   `json:"role"`
-	Active   *bool   `json:"active"`
 }
 
 type UserResponse struct {

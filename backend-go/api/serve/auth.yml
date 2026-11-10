@@ -9,7 +9,7 @@ paths:
     post:
       tags: [auth]
       operationId: login
-      summary: "Log in with email and password"
+      summary: "Log in with email and password (ADMIN accounts only; cashiers use paired devices)"
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/LoginRequest' } } }

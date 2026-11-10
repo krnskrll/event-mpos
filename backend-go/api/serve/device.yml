@@ -1,0 +1,43 @@
+openapi: 3.0.3
+info:
+  title: POS device API
+  version: "1.0.0"
+  description: "Cashier app on a paired device: Authorization: Device <token>. Routes that act for a person also take X-Staff-Id."
+tags:
+  - name: device
+paths:
+  /api/device/pair:
+    post:
+      tags: [device]
+      operationId: pairDevice
+      summary: "Pair with a 6-digit code (public, 10 tries a minute per client); the device gets the next free Kasir N"
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/PairRequest' } } }
+      responses:
+        '201': { description: Paired, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/PairResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Code not found or expired, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Location closed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '429': { description: Too many attempts, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/device:
+    get:
+      tags: [device]
+      operationId: getDevice
+      summary: "This device and its location (heartbeat; 401 once removed)"
+      security: [{ deviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/DeviceResponse' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/device/staff:
+    get:
+      tags: [device]
+      operationId: listDeviceStaff
+      summary: "Active staff of the device's location with PIN hashes, for signing in offline"
+      security: [{ deviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/DeviceStaff' } } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+components:
+  securitySchemes:
+    deviceToken: { type: apiKey, in: header, name: Authorization, description: "Device <token>" }

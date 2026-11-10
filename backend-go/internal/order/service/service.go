@@ -22,7 +22,6 @@ import (
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 var _ iface.Orders = (*Service)(nil)
@@ -34,18 +33,18 @@ type Service struct {
 	stock      stockiface.Stock
 	promotions promotioniface.Promotions
 	audit      auditiface.Audit
-	users      useriface.Users
+	names      auditiface.Names
 	jakarta    *time.Location
 	// broadcast pushes an order change to the warehouse board after commit; nil is a no-op.
 	broadcast func(eventID uuid.UUID, view iface.WarehouseOrderView)
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, promotions promotioniface.Promotions, aud auditiface.Audit, users useriface.Users) *Service {
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, promotions promotioniface.Promotions, aud auditiface.Audit, names auditiface.Names) *Service {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
 	}
-	return &Service{db: db, events: events, products: products, stock: stk, promotions: promotions, audit: aud, users: users, jakarta: loc}
+	return &Service{db: db, events: events, products: products, stock: stk, promotions: promotions, audit: aud, names: names, jakarta: loc}
 }
 
 func (s *Service) SetBroadcaster(fn func(eventID uuid.UUID, view iface.WarehouseOrderView)) {
@@ -65,7 +64,7 @@ type draftItem struct {
 // Submit creates an order ATOMICALLY: idempotency → validate → decrement stock (row locks) → apply
 // best promotion → allocate the daily number → persist + audit. Any failure rolls the whole thing
 // back. A retried submit with the same idempotency key returns the original order.
-func (s *Service) Submit(eventID, baUserID uuid.UUID, req iface.SubmitOrderRequest) (*iface.OrderConfirmation, error) {
+func (s *Service) Submit(eventID, staffID uuid.UUID, req iface.SubmitOrderRequest) (*iface.OrderConfirmation, error) {
 	// 1) idempotency fast-path
 	if existing, err := s.findByIdempotencyKey(req.IdempotencyKey); err != nil {
 		return nil, err
@@ -159,7 +158,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req iface.SubmitOrderReque
 	dateKey := time.Now().In(s.jakarta).Format("20060102")
 
 	order := repository.Order{
-		EventID: eventID, BaUserID: baUserID, IdempotencyKey: req.IdempotencyKey,
+		EventID: eventID, StaffID: &staffID, IdempotencyKey: req.IdempotencyKey,
 		ReferenceID: "", CustomerName: strings.TrimSpace(req.Customer.Name), CustomerQr: req.Customer.QRCode,
 		CustomerTier: req.Customer.Tier, Subtotal: subtotal, Discount: discount, Total: total,
 		PromotionID: promoID, PromotionName: promoName, Status: iface.StatusNew,
@@ -198,7 +197,7 @@ func (s *Service) Submit(eventID, baUserID uuid.UUID, req iface.SubmitOrderReque
 		if err := tx.Create(&order).Error; err != nil {
 			return err
 		}
-		return s.audit.RecordOrderCreated(tx, eventID, order.ID, order.ReferenceID, &baUserID, createdDetail(&order))
+		return s.audit.RecordOrderCreated(tx, eventID, order.ID, order.ReferenceID, &staffID, createdDetail(&order))
 	})
 	if txErr != nil {
 		// concurrent submit with the same idempotency key won the race — return its order
@@ -243,10 +242,7 @@ func (s *Service) WarehouseOrders(eventID uuid.UUID, status *iface.OrderStatus) 
 	return views, nil
 }
 
-// AdvanceStatus moves an order one step forward, auditing + broadcasting the change. The order row is
-// locked so a concurrent cancel can't be overtaken by a stale advance.
-// EventOf is the event an order belongs to (404 when it does not exist).
-func (s *Service) EventOf(orderID uuid.UUID) (uuid.UUID, error) {
+func (s *Service) LocationOf(orderID uuid.UUID) (uuid.UUID, error) {
 	var o repository.Order
 	err := s.db.Select("event_id").First(&o, "id = ?", orderID).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -255,6 +251,8 @@ func (s *Service) EventOf(orderID uuid.UUID) (uuid.UUID, error) {
 	return o.EventID, err
 }
 
+// AdvanceStatus moves an order one step forward, auditing + broadcasting the change. The order row is
+// locked so a concurrent cancel can't be overtaken by a stale advance.
 func (s *Service) AdvanceStatus(orderID uuid.UUID, target iface.OrderStatus, actorUserID *uuid.UUID) (*iface.WarehouseOrderView, error) {
 	var o repository.Order
 	err := s.db.Transaction(func(tx *gorm.DB) error {
@@ -277,20 +275,16 @@ func (s *Service) AdvanceStatus(orderID uuid.UUID, target iface.OrderStatus, act
 	return s.publish(&o)
 }
 
-// Cancel cancels an order and returns its stock, in one transaction with the audit entry. A BA may
-// cancel only their own order while it is NEW (others' orders are a 404); warehouse and admin may
-// cancel any order that is NEW or PACKING. Anything else is a 409.
-func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole useriface.Role, reason *string) (*iface.WarehouseOrderView, error) {
+// Cancel cancels an order and returns its stock, in one transaction with the audit entry naming the
+// cashier and the approving supervisor. From the cashier's history only a NEW order can be cancelled;
+// the pickup board (packing) may also cancel a PACKING one. Anything else is a 409.
+func (s *Service) Cancel(orderID, actorID uuid.UUID, approvedBy string, reason *string, packing bool) (*iface.WarehouseOrderView, error) {
 	var o repository.Order
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		if err := lockOrder(tx, orderID, &o); err != nil {
 			return err
 		}
-		isBa := actorRole == useriface.RoleBA
-		if isBa && o.BaUserID != actorID {
-			return common.NewAppError(http.StatusNotFound, "Order not found")
-		}
-		if !o.Status.CanCancel() || (isBa && o.Status != iface.StatusNew) {
+		if !o.Status.CanCancel() || (!packing && o.Status != iface.StatusNew) {
 			return common.NewAppError(http.StatusConflict, "Order "+o.ReferenceID+" is "+string(o.Status)+" and can no longer be cancelled")
 		}
 		for _, it := range o.Items {
@@ -303,7 +297,7 @@ func (s *Service) Cancel(orderID, actorID uuid.UUID, actorRole useriface.Role, r
 			return err
 		}
 		o.Status = iface.StatusCancelled
-		return s.audit.RecordCancelled(tx, o.EventID, o.ID, o.ReferenceID, string(from), &actorID, reason)
+		return s.audit.RecordCancelled(tx, o.EventID, o.ID, o.ReferenceID, string(from), &actorID, reason, approvedBy)
 	})
 	if err != nil {
 		return nil, err
@@ -336,12 +330,12 @@ func (s *Service) publish(o *repository.Order) (*iface.WarehouseOrderView, error
 	return view, nil
 }
 
-// ---- BA history / detail ----
+// ---- cashier history / detail ----
 
-func (s *Service) History(eventID, baUserID uuid.UUID) ([]iface.OrderSummary, error) {
+func (s *Service) History(eventID uuid.UUID, deviceID string) ([]iface.OrderSummary, error) {
 	var orders []repository.Order
 	if err := s.db.Preload("Items").
-		Where("event_id = ? AND ba_user_id = ?", eventID, baUserID).
+		Where("event_id = ? AND device_id = ?", eventID, deviceID).
 		Order("created_at DESC").Find(&orders).Error; err != nil {
 		return nil, err
 	}
@@ -492,9 +486,14 @@ func (s *Service) advanceSequence(tx *gorm.DB, eventID uuid.UUID, dateKey string
 }
 
 func (s *Service) toWarehouseView(o *repository.Order) (*iface.WarehouseOrderView, error) {
-	baName := "BA"
-	if u, err := s.users.FindByID(o.BaUserID); err == nil && u != nil {
-		baName = u.FullName
+	baName, actor := "Kasir", o.StaffID
+	if actor == nil {
+		actor = o.BaUserID
+	}
+	if actor != nil {
+		if name, err := s.names.NameOf(s.db, *actor); err == nil {
+			baName = name
+		}
 	}
 	items := make([]iface.WarehouseItem, 0, len(o.Items))
 	for _, it := range o.Items {
@@ -529,10 +528,10 @@ func (s *Service) toConfirmation(o *repository.Order, duplicate bool) (*iface.Or
 	}, nil
 }
 
-func (s *Service) ForReceipt(tx database.Tx, orderID, baUserID uuid.UUID) (*iface.ReceiptOrder, error) {
+func (s *Service) ForReceipt(tx database.Tx, orderID, locationID uuid.UUID) (*iface.ReceiptOrder, error) {
 	var o repository.Order
-	err := tx.Select("id", "event_id", "reference_id", "ba_user_id").
-		Where("id = ? AND ba_user_id = ?", orderID, baUserID).Take(&o).Error
+	err := tx.Select("id", "event_id", "reference_id").
+		Where("id = ? AND event_id = ?", orderID, locationID).Take(&o).Error
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	}

@@ -17,12 +17,6 @@ export default defineConfig({
         target: proxyTarget,
         changeOrigin: true,
       },
-      // Native WebSocket endpoint for the real-time warehouse board (needs websocket upgrade)
-      "/ws": {
-        target: proxyTarget,
-        changeOrigin: true,
-        ws: true,
-      },
     },
   },
 });

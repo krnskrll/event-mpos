@@ -44,28 +44,6 @@ func (e *Event) BeforeCreate(_ *gorm.DB) error {
 	return nil
 }
 
-// BaEventAssignment maps a BA (user) to the event they are working. At most one assignment is
-// active at a time — the active one is what the Android app loads after login.
-type BaEventAssignment struct {
-	ID         uuid.UUID `gorm:"type:uuid;primaryKey"`
-	UserID     uuid.UUID `gorm:"column:user_id;type:uuid;not null;index"`
-	EventID    uuid.UUID `gorm:"column:event_id;type:uuid;not null;index"`
-	Active     bool      `gorm:"not null;default:true"`
-	AssignedAt time.Time `gorm:"column:assigned_at;not null"`
-}
-
-func (BaEventAssignment) TableName() string { return "ba_event_assignments" }
-
-func (a *BaEventAssignment) BeforeCreate(_ *gorm.DB) error {
-	if a.ID == uuid.Nil {
-		a.ID = uuid.New()
-	}
-	if a.AssignedAt.IsZero() {
-		a.AssignedAt = time.Now().UTC()
-	}
-	return nil
-}
-
 func (e *Event) ToResponse() iface.EventResponse {
 	return iface.EventResponse{
 		ID:        e.ID,

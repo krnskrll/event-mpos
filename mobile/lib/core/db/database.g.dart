@@ -1810,6 +1810,15 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _staffIdMeta = const VerificationMeta('staffId');
+  @override
+  late final GeneratedColumn<String> staffId = GeneratedColumn<String>(
+    'staff_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     idempotencyKey,
@@ -1830,6 +1839,7 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
     subtotal,
     discount,
     promotionName,
+    staffId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1918,6 +1928,9 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
         promotionName.isAcceptableOrUnknown(data['promotion_name']!, _promotionNameMeta),
       );
     }
+    if (data.containsKey('staff_id')) {
+      context.handle(_staffIdMeta, staffId.isAcceptableOrUnknown(data['staff_id']!, _staffIdMeta));
+    }
     return context;
   }
 
@@ -1951,6 +1964,7 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
       subtotal: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}subtotal']),
       discount: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}discount']),
       promotionName: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}promotion_name']),
+      staffId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}staff_id']),
     );
   }
 
@@ -1979,6 +1993,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
   final double? subtotal;
   final double? discount;
   final String? promotionName;
+  final String? staffId;
   const PendingOrderRow({
     required this.idempotencyKey,
     required this.eventId,
@@ -1998,6 +2013,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     this.subtotal,
     this.discount,
     this.promotionName,
+    this.staffId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2044,6 +2060,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     if (!nullToAbsent || promotionName != null) {
       map['promotion_name'] = Variable<String>(promotionName);
     }
+    if (!nullToAbsent || staffId != null) {
+      map['staff_id'] = Variable<String>(staffId);
+    }
     return map;
   }
 
@@ -2067,6 +2086,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       subtotal: subtotal == null && nullToAbsent ? const Value.absent() : Value(subtotal),
       discount: discount == null && nullToAbsent ? const Value.absent() : Value(discount),
       promotionName: promotionName == null && nullToAbsent ? const Value.absent() : Value(promotionName),
+      staffId: staffId == null && nullToAbsent ? const Value.absent() : Value(staffId),
     );
   }
 
@@ -2091,6 +2111,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       subtotal: serializer.fromJson<double?>(json['subtotal']),
       discount: serializer.fromJson<double?>(json['discount']),
       promotionName: serializer.fromJson<String?>(json['promotionName']),
+      staffId: serializer.fromJson<String?>(json['staffId']),
     );
   }
   @override
@@ -2115,6 +2136,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       'subtotal': serializer.toJson<double?>(subtotal),
       'discount': serializer.toJson<double?>(discount),
       'promotionName': serializer.toJson<String?>(promotionName),
+      'staffId': serializer.toJson<String?>(staffId),
     };
   }
 
@@ -2137,6 +2159,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     Value<double?> subtotal = const Value.absent(),
     Value<double?> discount = const Value.absent(),
     Value<String?> promotionName = const Value.absent(),
+    Value<String?> staffId = const Value.absent(),
   }) => PendingOrderRow(
     idempotencyKey: idempotencyKey ?? this.idempotencyKey,
     eventId: eventId ?? this.eventId,
@@ -2156,6 +2179,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     subtotal: subtotal.present ? subtotal.value : this.subtotal,
     discount: discount.present ? discount.value : this.discount,
     promotionName: promotionName.present ? promotionName.value : this.promotionName,
+    staffId: staffId.present ? staffId.value : this.staffId,
   );
   PendingOrderRow copyWithCompanion(PendingOrdersCompanion data) {
     return PendingOrderRow(
@@ -2177,6 +2201,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       subtotal: data.subtotal.present ? data.subtotal.value : this.subtotal,
       discount: data.discount.present ? data.discount.value : this.discount,
       promotionName: data.promotionName.present ? data.promotionName.value : this.promotionName,
+      staffId: data.staffId.present ? data.staffId.value : this.staffId,
     );
   }
 
@@ -2200,7 +2225,8 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
           ..write('claimedAt: $claimedAt, ')
           ..write('subtotal: $subtotal, ')
           ..write('discount: $discount, ')
-          ..write('promotionName: $promotionName')
+          ..write('promotionName: $promotionName, ')
+          ..write('staffId: $staffId')
           ..write(')'))
         .toString();
   }
@@ -2225,6 +2251,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     subtotal,
     discount,
     promotionName,
+    staffId,
   );
   @override
   bool operator ==(Object other) =>
@@ -2247,7 +2274,8 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
           other.claimedAt == this.claimedAt &&
           other.subtotal == this.subtotal &&
           other.discount == this.discount &&
-          other.promotionName == this.promotionName);
+          other.promotionName == this.promotionName &&
+          other.staffId == this.staffId);
 }
 
 class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
@@ -2269,6 +2297,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
   final Value<double?> subtotal;
   final Value<double?> discount;
   final Value<String?> promotionName;
+  final Value<String?> staffId;
   final Value<int> rowid;
   const PendingOrdersCompanion({
     this.idempotencyKey = const Value.absent(),
@@ -2289,6 +2318,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     this.subtotal = const Value.absent(),
     this.discount = const Value.absent(),
     this.promotionName = const Value.absent(),
+    this.staffId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PendingOrdersCompanion.insert({
@@ -2310,6 +2340,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     this.subtotal = const Value.absent(),
     this.discount = const Value.absent(),
     this.promotionName = const Value.absent(),
+    this.staffId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : idempotencyKey = Value(idempotencyKey),
        eventId = Value(eventId),
@@ -2336,6 +2367,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     Expression<double>? subtotal,
     Expression<double>? discount,
     Expression<String>? promotionName,
+    Expression<String>? staffId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2357,6 +2389,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
       if (subtotal != null) 'subtotal': subtotal,
       if (discount != null) 'discount': discount,
       if (promotionName != null) 'promotion_name': promotionName,
+      if (staffId != null) 'staff_id': staffId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2380,6 +2413,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     Value<double?>? subtotal,
     Value<double?>? discount,
     Value<String?>? promotionName,
+    Value<String?>? staffId,
     Value<int>? rowid,
   }) {
     return PendingOrdersCompanion(
@@ -2401,6 +2435,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
       subtotal: subtotal ?? this.subtotal,
       discount: discount ?? this.discount,
       promotionName: promotionName ?? this.promotionName,
+      staffId: staffId ?? this.staffId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2462,6 +2497,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     if (promotionName.present) {
       map['promotion_name'] = Variable<String>(promotionName.value);
     }
+    if (staffId.present) {
+      map['staff_id'] = Variable<String>(staffId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2489,6 +2527,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
           ..write('subtotal: $subtotal, ')
           ..write('discount: $discount, ')
           ..write('promotionName: $promotionName, ')
+          ..write('staffId: $staffId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3603,6 +3642,314 @@ class NumberBlocksCompanion extends UpdateCompanion<NumberBlockRow> {
   }
 }
 
+class $StaffMembersTable extends StaffMembers with TableInfo<$StaffMembersTable, StaffRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $StaffMembersTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _roleMeta = const VerificationMeta('role');
+  @override
+  late final GeneratedColumn<String> role = GeneratedColumn<String>(
+    'role',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _pinHashMeta = const VerificationMeta('pinHash');
+  @override
+  late final GeneratedColumn<String> pinHash = GeneratedColumn<String>(
+    'pin_hash',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _positionMeta = const VerificationMeta('position');
+  @override
+  late final GeneratedColumn<int> position = GeneratedColumn<int>(
+    'position',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, role, pinHash, position];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'staff';
+  @override
+  VerificationContext validateIntegrity(Insertable<StaffRow> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(_nameMeta, name.isAcceptableOrUnknown(data['name']!, _nameMeta));
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('role')) {
+      context.handle(_roleMeta, role.isAcceptableOrUnknown(data['role']!, _roleMeta));
+    } else if (isInserting) {
+      context.missing(_roleMeta);
+    }
+    if (data.containsKey('pin_hash')) {
+      context.handle(_pinHashMeta, pinHash.isAcceptableOrUnknown(data['pin_hash']!, _pinHashMeta));
+    } else if (isInserting) {
+      context.missing(_pinHashMeta);
+    }
+    if (data.containsKey('position')) {
+      context.handle(_positionMeta, position.isAcceptableOrUnknown(data['position']!, _positionMeta));
+    } else if (isInserting) {
+      context.missing(_positionMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  StaffRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return StaffRow(
+      id: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}id'])!,
+      name: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}name'])!,
+      role: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}role'])!,
+      pinHash: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}pin_hash'])!,
+      position: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}position'])!,
+    );
+  }
+
+  @override
+  $StaffMembersTable createAlias(String alias) {
+    return $StaffMembersTable(attachedDatabase, alias);
+  }
+}
+
+class StaffRow extends DataClass implements Insertable<StaffRow> {
+  final String id;
+  final String name;
+  final String role;
+  final String pinHash;
+  final int position;
+  const StaffRow({
+    required this.id,
+    required this.name,
+    required this.role,
+    required this.pinHash,
+    required this.position,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['role'] = Variable<String>(role);
+    map['pin_hash'] = Variable<String>(pinHash);
+    map['position'] = Variable<int>(position);
+    return map;
+  }
+
+  StaffMembersCompanion toCompanion(bool nullToAbsent) {
+    return StaffMembersCompanion(
+      id: Value(id),
+      name: Value(name),
+      role: Value(role),
+      pinHash: Value(pinHash),
+      position: Value(position),
+    );
+  }
+
+  factory StaffRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return StaffRow(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      role: serializer.fromJson<String>(json['role']),
+      pinHash: serializer.fromJson<String>(json['pinHash']),
+      position: serializer.fromJson<int>(json['position']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'role': serializer.toJson<String>(role),
+      'pinHash': serializer.toJson<String>(pinHash),
+      'position': serializer.toJson<int>(position),
+    };
+  }
+
+  StaffRow copyWith({String? id, String? name, String? role, String? pinHash, int? position}) => StaffRow(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    role: role ?? this.role,
+    pinHash: pinHash ?? this.pinHash,
+    position: position ?? this.position,
+  );
+  StaffRow copyWithCompanion(StaffMembersCompanion data) {
+    return StaffRow(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      role: data.role.present ? data.role.value : this.role,
+      pinHash: data.pinHash.present ? data.pinHash.value : this.pinHash,
+      position: data.position.present ? data.position.value : this.position,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StaffRow(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('role: $role, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('position: $position')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, role, pinHash, position);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is StaffRow &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.role == this.role &&
+          other.pinHash == this.pinHash &&
+          other.position == this.position);
+}
+
+class StaffMembersCompanion extends UpdateCompanion<StaffRow> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> role;
+  final Value<String> pinHash;
+  final Value<int> position;
+  final Value<int> rowid;
+  const StaffMembersCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.role = const Value.absent(),
+    this.pinHash = const Value.absent(),
+    this.position = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  StaffMembersCompanion.insert({
+    required String id,
+    required String name,
+    required String role,
+    required String pinHash,
+    required int position,
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       role = Value(role),
+       pinHash = Value(pinHash),
+       position = Value(position);
+  static Insertable<StaffRow> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? role,
+    Expression<String>? pinHash,
+    Expression<int>? position,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (role != null) 'role': role,
+      if (pinHash != null) 'pin_hash': pinHash,
+      if (position != null) 'position': position,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  StaffMembersCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? role,
+    Value<String>? pinHash,
+    Value<int>? position,
+    Value<int>? rowid,
+  }) {
+    return StaffMembersCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      role: role ?? this.role,
+      pinHash: pinHash ?? this.pinHash,
+      position: position ?? this.position,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (role.present) {
+      map['role'] = Variable<String>(role.value);
+    }
+    if (pinHash.present) {
+      map['pin_hash'] = Variable<String>(pinHash.value);
+    }
+    if (position.present) {
+      map['position'] = Variable<int>(position.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('StaffMembersCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('role: $role, ')
+          ..write('pinHash: $pinHash, ')
+          ..write('position: $position, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3614,6 +3961,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $ReceiptsTable receipts = $ReceiptsTable(this);
   late final $CartDraftsTable cartDrafts = $CartDraftsTable(this);
   late final $NumberBlocksTable numberBlocks = $NumberBlocksTable(this);
+  late final $StaffMembersTable staffMembers = $StaffMembersTable(this);
   late final Index idxProductEvent = Index('idx_product_event', 'CREATE INDEX idx_product_event ON product (event_id)');
   late final Index idxPromotionEvent = Index(
     'idx_promotion_event',
@@ -3635,6 +3983,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     receipts,
     cartDrafts,
     numberBlocks,
+    staffMembers,
     idxProductEvent,
     idxPromotionEvent,
     idxCartDraftEvent,
@@ -4448,6 +4797,7 @@ typedef $$PendingOrdersTableCreateCompanionBuilder = PendingOrdersCompanion Func
   Value<double?> subtotal,
   Value<double?> discount,
   Value<String?> promotionName,
+  Value<String?> staffId,
   Value<int> rowid,
 });
 typedef $$PendingOrdersTableUpdateCompanionBuilder = PendingOrdersCompanion Function({
@@ -4469,6 +4819,7 @@ typedef $$PendingOrdersTableUpdateCompanionBuilder = PendingOrdersCompanion Func
   Value<double?> subtotal,
   Value<double?> discount,
   Value<String?> promotionName,
+  Value<String?> staffId,
   Value<int> rowid,
 });
 
@@ -4533,6 +4884,9 @@ class $$PendingOrdersTableFilterComposer extends Composer<_$AppDatabase, $Pendin
 
   ColumnFilters<String> get promotionName =>
       $composableBuilder(column: $table.promotionName, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get staffId =>
+      $composableBuilder(column: $table.staffId, builder: (column) => ColumnFilters(column));
 }
 
 class $$PendingOrdersTableOrderingComposer extends Composer<_$AppDatabase, $PendingOrdersTable> {
@@ -4596,6 +4950,9 @@ class $$PendingOrdersTableOrderingComposer extends Composer<_$AppDatabase, $Pend
 
   ColumnOrderings<String> get promotionName =>
       $composableBuilder(column: $table.promotionName, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get staffId =>
+      $composableBuilder(column: $table.staffId, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PendingOrdersTableAnnotationComposer extends Composer<_$AppDatabase, $PendingOrdersTable> {
@@ -4649,6 +5006,8 @@ class $$PendingOrdersTableAnnotationComposer extends Composer<_$AppDatabase, $Pe
 
   GeneratedColumn<String> get promotionName =>
       $composableBuilder(column: $table.promotionName, builder: (column) => column);
+
+  GeneratedColumn<String> get staffId => $composableBuilder(column: $table.staffId, builder: (column) => column);
 }
 
 class $$PendingOrdersTableTableManager
@@ -4694,6 +5053,7 @@ class $$PendingOrdersTableTableManager
                 Value<double?> subtotal = const Value.absent(),
                 Value<double?> discount = const Value.absent(),
                 Value<String?> promotionName = const Value.absent(),
+                Value<String?> staffId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingOrdersCompanion(
                 idempotencyKey: idempotencyKey,
@@ -4714,6 +5074,7 @@ class $$PendingOrdersTableTableManager
                 subtotal: subtotal,
                 discount: discount,
                 promotionName: promotionName,
+                staffId: staffId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4736,6 +5097,7 @@ class $$PendingOrdersTableTableManager
                 Value<double?> subtotal = const Value.absent(),
                 Value<double?> discount = const Value.absent(),
                 Value<String?> promotionName = const Value.absent(),
+                Value<String?> staffId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingOrdersCompanion.insert(
                 idempotencyKey: idempotencyKey,
@@ -4756,6 +5118,7 @@ class $$PendingOrdersTableTableManager
                 subtotal: subtotal,
                 discount: discount,
                 promotionName: promotionName,
+                staffId: staffId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -5341,6 +5704,168 @@ typedef $$NumberBlocksTableProcessedTableManager =
       NumberBlockRow,
       PrefetchHooks Function()
     >;
+typedef $$StaffMembersTableCreateCompanionBuilder = StaffMembersCompanion Function({
+  required String id,
+  required String name,
+  required String role,
+  required String pinHash,
+  required int position,
+  Value<int> rowid,
+});
+typedef $$StaffMembersTableUpdateCompanionBuilder = StaffMembersCompanion Function({
+  Value<String> id,
+  Value<String> name,
+  Value<String> role,
+  Value<String> pinHash,
+  Value<int> position,
+  Value<int> rowid,
+});
+
+class $$StaffMembersTableFilterComposer extends Composer<_$AppDatabase, $StaffMembersTable> {
+  $$StaffMembersTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get name => $composableBuilder(column: $table.name, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get role => $composableBuilder(column: $table.role, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get pinHash =>
+      $composableBuilder(column: $table.pinHash, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => ColumnFilters(column));
+}
+
+class $$StaffMembersTableOrderingComposer extends Composer<_$AppDatabase, $StaffMembersTable> {
+  $$StaffMembersTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(column: $table.id, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get role =>
+      $composableBuilder(column: $table.role, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get pinHash =>
+      $composableBuilder(column: $table.pinHash, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<int> get position =>
+      $composableBuilder(column: $table.position, builder: (column) => ColumnOrderings(column));
+}
+
+class $$StaffMembersTableAnnotationComposer extends Composer<_$AppDatabase, $StaffMembersTable> {
+  $$StaffMembersTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id => $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name => $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get role => $composableBuilder(column: $table.role, builder: (column) => column);
+
+  GeneratedColumn<String> get pinHash => $composableBuilder(column: $table.pinHash, builder: (column) => column);
+
+  GeneratedColumn<int> get position => $composableBuilder(column: $table.position, builder: (column) => column);
+}
+
+class $$StaffMembersTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $StaffMembersTable,
+          StaffRow,
+          $$StaffMembersTableFilterComposer,
+          $$StaffMembersTableOrderingComposer,
+          $$StaffMembersTableAnnotationComposer,
+          $$StaffMembersTableCreateCompanionBuilder,
+          $$StaffMembersTableUpdateCompanionBuilder,
+          (StaffRow, BaseReferences<_$AppDatabase, $StaffMembersTable, StaffRow>),
+          StaffRow,
+          PrefetchHooks Function()
+        > {
+  $$StaffMembersTableTableManager(_$AppDatabase db, $StaffMembersTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$StaffMembersTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$StaffMembersTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$StaffMembersTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> role = const Value.absent(),
+                Value<String> pinHash = const Value.absent(),
+                Value<int> position = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => StaffMembersCompanion(
+                id: id,
+                name: name,
+                role: role,
+                pinHash: pinHash,
+                position: position,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String role,
+                required String pinHash,
+                required int position,
+                Value<int> rowid = const Value.absent(),
+              }) => StaffMembersCompanion.insert(
+                id: id,
+                name: name,
+                role: role,
+                pinHash: pinHash,
+                position: position,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$StaffMembersTable, StaffRow>(table),
+                  BaseReferences<_$AppDatabase, $StaffMembersTable, StaffRow>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$StaffMembersTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $StaffMembersTable,
+      StaffRow,
+      $$StaffMembersTableFilterComposer,
+      $$StaffMembersTableOrderingComposer,
+      $$StaffMembersTableAnnotationComposer,
+      $$StaffMembersTableCreateCompanionBuilder,
+      $$StaffMembersTableUpdateCompanionBuilder,
+      (StaffRow, BaseReferences<_$AppDatabase, $StaffMembersTable, StaffRow>),
+      StaffRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5353,4 +5878,5 @@ class $AppDatabaseManager {
   $$ReceiptsTableTableManager get receipts => $$ReceiptsTableTableManager(_db, _db.receipts);
   $$CartDraftsTableTableManager get cartDrafts => $$CartDraftsTableTableManager(_db, _db.cartDrafts);
   $$NumberBlocksTableTableManager get numberBlocks => $$NumberBlocksTableTableManager(_db, _db.numberBlocks);
+  $$StaffMembersTableTableManager get staffMembers => $$StaffMembersTableTableManager(_db, _db.staffMembers);
 }

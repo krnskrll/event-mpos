@@ -18,8 +18,8 @@ type AppliedPromotion struct {
 }
 
 // BestPromotion evaluates every active+in-window promotion and returns the one with the largest
-// discount (ties broken by higher priority, then higher name). One promotion per order. Mirrors the
-// Kotlin PromotionEngine — keep the Android copy identical.
+// discount (ties broken by higher priority, then higher name). One promotion per order. The Flutter
+// app has a copy — keep them identical.
 func BestPromotion(lines []iface.CartLine, promotions []repository.Promotion, now time.Time) *AppliedPromotion {
 	var best *AppliedPromotion
 	for i := range promotions {

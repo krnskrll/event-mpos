@@ -58,12 +58,17 @@ type Page struct {
 	Total int64                `json:"total"`
 }
 
+// Names resolves an actor id (an admin user or a staff member) to a display name.
+type Names interface {
+	NameOf(tx database.Tx, id uuid.UUID) (string, error)
+}
+
 // Audit is the audit module's contract. Record* write inside the caller's tx.
 type Audit interface {
 	RecordOrderCreated(tx database.Tx, eventID, orderID uuid.UUID, orderReference string, actorUserID *uuid.UUID, detail string) error
 	RecordStatusChange(tx database.Tx, eventID, orderID uuid.UUID, orderReference, from, to string, actorUserID *uuid.UUID) error
 	RecordReceiptPrinted(tx database.Tx, eventID, orderID uuid.UUID, orderReference string, actorUserID *uuid.UUID, printCount int) error
-	RecordCancelled(tx database.Tx, eventID, orderID uuid.UUID, orderReference, from string, actorUserID *uuid.UUID, reason *string) error
+	RecordCancelled(tx database.Tx, eventID, orderID uuid.UUID, orderReference, from string, actorUserID *uuid.UUID, reason *string, approvedBy string) error
 	Search(q Query) (*Page, error)
 	ForEvent(eventID uuid.UUID) ([]AuditEntryResponse, error)
 	ForOrder(orderID uuid.UUID) ([]AuditEntryResponse, error)

@@ -14,7 +14,7 @@ import (
 )
 
 // TestPromotionParityFixture runs the shared fixture at testdata/promotion-cases.json (repo root).
-// The Android PromotionParityTest runs the same file against the client engine, so a change to only
+// The Flutter promotion_parity_test runs the same file against the app's engine, so a change to only
 // one of the two engines fails CI.
 
 type fixtureLine struct {

@@ -8,7 +8,6 @@ import '../../app/widgets.dart';
 import '../../core/format/money.dart';
 import '../../core/network/api_failure.dart';
 import '../../core/printer/sunmi.dart';
-import '../../core/secure/token_storage.dart';
 import '../../data/cart/cart_notifier.dart';
 import '../../data/event/event_repository.dart';
 import '../../data/product/product_repository.dart';
@@ -154,7 +153,7 @@ class _Header extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final name = ref.watch(tokenStorageProvider).userName ?? 'Cashier';
+    final name = ref.watch(signedInProvider)?.name ?? '';
     final event = ref.watch(sessionEventProvider)?.name ?? '';
     const avatar = UserAvatar(radius: 21);
     final search = Expanded(

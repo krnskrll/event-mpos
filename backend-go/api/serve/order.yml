@@ -11,31 +11,31 @@ paths:
     get:
       tags: [order]
       operationId: listWarehouseOrders
-      summary: "Order board, optionally by status"
-      security: [{ bearerAuth: [] }]
+      summary: "Pickup board of the device's location, optionally by status"
+      security: [{ deviceToken: [] }]
       parameters:
         - { name: status, in: query, required: false, schema: { type: string } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/WarehouseOrderView' } } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Another location, staff not allowed or supervisor PIN refused, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/warehouse/orders/{orderId}/status:
     parameters:
       - { name: orderId, in: path, required: true, schema: { type: string } }
     patch:
       tags: [order]
       operationId: advanceOrderStatus
-      summary: "Advance NEW → PACKING → READY → COLLECTED"
-      security: [{ bearerAuth: [] }]
+      summary: "Advance NEW → PACKING → READY → COLLECTED; X-Staff-Id required"
+      security: [{ deviceToken: [] }]
       requestBody:
         required: true
         content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/AdvanceStatusRequest' } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/WarehouseOrderView' } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Another location, staff not allowed or supervisor PIN refused, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/warehouse/orders/{orderId}/cancel:
@@ -44,16 +44,16 @@ paths:
     post:
       tags: [order]
       operationId: cancelOrderWarehouse
-      summary: "Cancel an order (NEW or PACKING)"
-      security: [{ bearerAuth: [] }]
+      summary: "Cancel from the pickup board (NEW or PACKING); a supervisor of the location approves with their PIN"
+      security: [{ deviceToken: [] }]
       requestBody:
-        required: false
+        required: true
         content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CancelOrderRequest' } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/WarehouseOrderView' } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Another location, staff not allowed or supervisor PIN refused, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/me/orders/{orderId}/cancel:
@@ -61,17 +61,17 @@ paths:
       - { name: orderId, in: path, required: true, schema: { type: string } }
     post:
       tags: [order]
-      operationId: cancelOrderBa
-      summary: "BA cancels their own order (NEW or PACKING)"
-      security: [{ bearerAuth: [] }]
+      operationId: cancelOrderCashier
+      summary: "Cancel from the cashier's history (NEW only); a supervisor of the location approves with their PIN"
+      security: [{ deviceToken: [] }]
       requestBody:
-        required: false
+        required: true
         content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/CancelOrderRequest' } } }
       responses:
         '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/WarehouseOrderView' } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Not allowed for this role, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Another location, staff not allowed or supervisor PIN refused, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /ws/events/{eventId}/orders:
@@ -80,13 +80,14 @@ paths:
     get:
       tags: [order]
       operationId: orderBoardSocket
-      summary: "WebSocket: pushes WarehouseOrderView after each order change; JWT in ?token"
+      summary: "WebSocket: pushes WarehouseOrderView after each order change; device token in ?token, own location only"
       x-websocket: true
       parameters:
         - { name: token, in: query, required: true, schema: { type: string } }
       responses:
         '101': { description: Switching protocols }
-        '401': { description: Missing or invalid token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Another location, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
 components:
   securitySchemes:
-    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+    deviceToken: { type: apiKey, in: header, name: Authorization, description: "Device <token>" }

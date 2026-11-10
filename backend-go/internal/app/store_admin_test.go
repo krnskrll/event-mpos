@@ -12,7 +12,7 @@ import (
 func TestCreateStoreAdmin(t *testing.T) {
 	a := testutil.NewApp(t)
 	bhoomyStore := uuid.New()
-	owner, cashier := uuid.NewString()+"@toko.id", uuid.NewString()+"@toko.id"
+	owner := uuid.NewString() + "@toko.id"
 	if _, err := a.CreateStoreAdmin(bhoomyStore, owner, "Rina", "short"); err == nil {
 		t.Error("short password accepted")
 	}
@@ -25,10 +25,9 @@ func TestCreateStoreAdmin(t *testing.T) {
 	}
 	login := ok[J](t, a.Do(http.MethodPost, "/api/auth/login", J{"email": owner, "password": "rahasia123"}, ""), http.StatusOK)
 	token, _ := login["accessToken"].(string)
-	ok[J](t, a.Do(http.MethodPost, "/api/admin/users", J{"email": cashier, "password": "rahasia123", "fullName": "Budi", "role": "BA"}, token), http.StatusCreated)
-	users := ok[[]J](t, a.Do(http.MethodGet, "/api/admin/users", nil, token), http.StatusOK)
-	if len(users) != 2 {
-		t.Errorf("store users %v, want the admin and the new cashier only", users)
+	ev := a.ActiveEventIn(u.StoreID)
+	if events := ok[[]J](t, a.Do(http.MethodGet, "/api/admin/events", nil, token), http.StatusOK); len(events) != 1 || events[0]["id"] != ev.ID.String() {
+		t.Errorf("store events %v, want only its own location", events)
 	}
 	if _, err := a.CreateStoreAdmin(uuid.New(), owner, "Rina", "rahasia123"); err == nil {
 		t.Error("same email twice accepted")

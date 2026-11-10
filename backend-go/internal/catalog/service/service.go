@@ -113,6 +113,13 @@ func (s *Service) StoreFor(bhoomyStoreID uuid.UUID, name string) (id uuid.UUID, 
 	return row.ID, row.Inserted, err
 }
 
+// StoreName is the POS store's name ("" when unknown).
+func (s *Service) StoreName(id uuid.UUID) string {
+	var name string
+	s.db.Raw("SELECT name FROM pos_stores WHERE id = ?", id).Scan(&name)
+	return name
+}
+
 func (s *Service) Products(storeID uuid.UUID, ids []uuid.UUID) ([]iface.Product, error) {
 	q := s.db.Where("store_id = ?", storeID)
 	if ids != nil {

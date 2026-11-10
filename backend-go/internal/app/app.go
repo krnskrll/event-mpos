@@ -6,6 +6,7 @@ package app
 import (
 	"context"
 	"errors"
+	"net/http"
 	"strings"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
 	cataloghandler "github.com/krnskrll/event-mpos/internal/catalog/handler"
 	catalogsvc "github.com/krnskrll/event-mpos/internal/catalog/service"
+	devicehandler "github.com/krnskrll/event-mpos/internal/device/handler"
+	devicesvc "github.com/krnskrll/event-mpos/internal/device/service"
 	eventhandler "github.com/krnskrll/event-mpos/internal/event/handler"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventsvc "github.com/krnskrll/event-mpos/internal/event/service"
@@ -32,6 +35,7 @@ import (
 	ordersvc "github.com/krnskrll/event-mpos/internal/order/service"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/config"
+	"github.com/krnskrll/event-mpos/internal/platform/database"
 	"github.com/krnskrll/event-mpos/internal/platform/media"
 	"github.com/krnskrll/event-mpos/internal/platform/realtime"
 	producthandler "github.com/krnskrll/event-mpos/internal/product/handler"
@@ -41,11 +45,13 @@ import (
 	receiptsvc "github.com/krnskrll/event-mpos/internal/receipt/service"
 	reporthandler "github.com/krnskrll/event-mpos/internal/report/handler"
 	reportsvc "github.com/krnskrll/event-mpos/internal/report/service"
+	staffhandler "github.com/krnskrll/event-mpos/internal/staff/handler"
+	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
+	staffsvc "github.com/krnskrll/event-mpos/internal/staff/service"
 	stockhandler "github.com/krnskrll/event-mpos/internal/stock/handler"
 	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
 	synchandler "github.com/krnskrll/event-mpos/internal/syncconfig/handler"
 	syncsvc "github.com/krnskrll/event-mpos/internal/syncconfig/service"
-	userhandler "github.com/krnskrll/event-mpos/internal/user/handler"
 	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 	usersvc "github.com/krnskrll/event-mpos/internal/user/service"
 )
@@ -74,6 +80,8 @@ type App struct {
 	Media       *media.Store
 	Catalog     *catalogsvc.Service
 	CatalogSync *bhoomy.CatalogSync
+	Staff       *staffsvc.Service
+	Devices     *devicesvc.Service
 }
 
 // New builds services, handlers and routes on an already-migrated database. It starts the WebSocket
@@ -91,7 +99,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	refreshService := authsvc.NewRefreshService(db, cfg.RefreshTokenTTLDays)
 	a.Users = usersvc.NewService(db)
 	a.Auth = authsvc.NewService(a.Users, jwtService, refreshService)
-	a.Events = eventsvc.NewService(db, a.Users)
+	a.Events = eventsvc.NewService(db)
 	a.Media = media.NewStore(cfg.MediaDir, cfg.MediaBaseURL)
 	a.Products = productsvc.NewService(db, a.Media)
 	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
@@ -99,13 +107,20 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Catalog = catalogsvc.NewService(db)
 	a.Products.SetSource(a.Catalog)
 	a.CatalogSync = bhoomy.NewCatalogSync(a.Bhoomy, a.Catalog, a.Products)
+	a.Staff = staffsvc.NewService(db, a.Events)
+	a.Devices = devicesvc.NewService(db, a.Events, a.Catalog.StoreName)
+	// A closed location sells nothing: its devices keep the late-sync window, then stop working.
+	a.Events.SetOnClose(func(tx database.Tx, locationID uuid.UUID, closedAt time.Time) error {
+		return a.Devices.ScheduleRemoval(tx, locationID, closedAt.Add(24*time.Hour))
+	})
 	a.Members = membersvc.NewService(db)
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
 	a.Stock = stocksvc.NewService(db, a.Events, a.Products)
 	a.Promotions = promotionsvc.NewService(db, a.Products, a.Events)
-	a.Audit = auditsvc.NewService(db, a.Users)
-	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, a.Users)
+	names := actorNames{a.Staff, a.Users}
+	a.Audit = auditsvc.NewService(db, names)
+	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, names)
 	a.Receipts = receiptsvc.NewService(db, a.Orders, a.Audit)
 
 	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.
@@ -138,7 +153,6 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 
 func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.Engine {
 	authHandler := authhandler.NewHandler(a.Auth)
-	userHandler := userhandler.NewHandler(a.Users)
 	eventHandler := eventhandler.NewHandler(a.Events)
 	productHandler := producthandler.NewHandler(a.Products, a.Events)
 	catalogHandler := cataloghandler.NewHandler(a.Catalog, func(storeID uuid.UUID) error {
@@ -147,27 +161,26 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		return a.CatalogSync.RunStore(ctx, storeID)
 	})
 	memberHandler := memberhandler.NewHandler(a.Members)
-	memberSyncHandler := membersrc.NewHandler(a.MemberSync)
 	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock, a.Events)
 	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
 	promotionHandler := promotionhandler.NewHandler(a.Promotions)
-	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders, a.Events)
+	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders, a.Staff)
 	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit, a.Events)
-	syncConfigHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.MemberSync)
+	memberSyncHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.MemberSync, func() { a.MemberSync.Sync() })
+	staffHandler := staffhandler.NewHandler(a.Staff)
+	deviceHandler := devicehandler.NewHandler(a.Devices, a.Staff)
 	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
-	_ = r.SetTrustedProxies(nil)
+	// Caddy reaches POS over the private network; trust its X-Forwarded-For so per-client limits work.
+	_ = r.SetTrustedProxies([]string{"10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "127.0.0.1/32"})
 	r.Use(common.AccessLogger(), gin.Recovery(), common.CORS(cfg.CORSOrigins))
 
 	common.RegisterHealth(r)
 
-	// Real-time warehouse board WebSocket (JWT validated inside the handler via ?token=).
-	wsHandler := realtime.NewHandler(a.Hub, jwtService, func(storeID uuid.UUID, eventID string) bool {
-		id, err := uuid.Parse(eventID)
-		return err == nil && a.Events.RequireInStore(storeID, id) == nil
-	})
+	// Real-time pickup board WebSocket (device token validated inside the handler via ?token=).
+	wsHandler := realtime.NewHandler(a.Hub, a.boardAccess)
 	r.GET("/ws/events/:eventId/orders", wsHandler.ServeWS)
 	r.GET("/media/:file", a.Media.Serve)
 
@@ -176,45 +189,49 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		// Public
 		api.POST("/auth/login", authHandler.Login)
 		api.POST("/auth/refresh", authHandler.Refresh)
+		api.POST("/device/pair", common.RateLimit(10, time.Minute), deviceHandler.Pair)
+
+		// Cashier app on a paired device (Authorization: Device <token>; X-Staff-Id when acting for a person).
+		device := api.Group("")
+		device.Use(devicehandler.Auth(a.Devices, a.Staff))
+		device.GET("/device", deviceHandler.Me)
+		device.GET("/device/staff", deviceHandler.Staff)
+		scoped := device.Group("", devicehandler.Scope(a.Orders.LocationOf))
+		me := scoped.Group("/me")
+		me.GET("/event", meHandler.MyEvent)
+		me.GET("/events", meHandler.MyEvents)
+		me.GET("/events/:eventId/snapshot", meHandler.Snapshot)
+		me.GET("/events/:eventId/snapshot/hash", meHandler.SnapshotHash)
+		me.GET("/events/:eventId/products/by-barcode/:barcode", meHandler.ProductByBarcode)
+		me.GET("/members", meHandler.Members)
+		me.GET("/members/by-qr/:qrCode", meHandler.MemberByQr)
+		me.GET("/events/:eventId/stock", meHandler.Stock)
+		me.POST("/events/:eventId/promotions/quote", meHandler.Quote)
+		me.POST("/events/:eventId/orders", meHandler.SubmitOrder)
+		me.POST("/events/:eventId/number-blocks", meHandler.IssueNumberBlock)
+		me.GET("/events/:eventId/orders", meHandler.OrderHistory)
+		me.GET("/orders/:orderId", meHandler.Order)
+		me.POST("/orders/:orderId/receipts", devicehandler.RequireStaff, meHandler.LogReceipt)
+		me.POST("/orders/:orderId/cancel", devicehandler.RequireStaff, warehouseOrderHandler.CashierCancel)
+		// Pickup board: any staff on the location's devices.
+		board := scoped.Group("/warehouse")
+		board.GET("/events", warehouseStockHandler.Events)
+		board.GET("/events/:eventId/stock", warehouseStockHandler.Levels)
+		board.GET("/events/:eventId/orders", warehouseOrderHandler.Orders)
+		board.PATCH("/orders/:orderId/status", devicehandler.RequireStaff, warehouseOrderHandler.Advance)
+		board.POST("/orders/:orderId/cancel", devicehandler.RequireStaff, warehouseOrderHandler.BoardCancel)
 
 		// Authenticated (any valid token)
 		authed := api.Group("")
 		authed.Use(authhandler.JWTMiddleware(jwtService))
 		authed.POST("/auth/logout", authHandler.Logout)
 
-		// BA-facing "me" surface (role enforced per-handler)
-		meGroup := authed.Group("/me")
-		meGroup.GET("", meHandler.Me)
-		meGroup.GET("/event", meHandler.MyEvent)
-		meGroup.GET("/events", meHandler.MyEvents)
-		meGroup.GET("/events/:eventId/snapshot", meHandler.Snapshot)
-		meGroup.GET("/events/:eventId/snapshot/hash", meHandler.SnapshotHash)
-		meGroup.GET("/events/:eventId/products/by-barcode/:barcode", meHandler.ProductByBarcode)
-		meGroup.GET("/members", meHandler.Members)
-		meGroup.GET("/members/by-qr/:qrCode", meHandler.MemberByQr)
-		meGroup.GET("/events/:eventId/stock", meHandler.Stock)
-		meGroup.POST("/events/:eventId/promotions/quote", meHandler.Quote)
-		meGroup.POST("/events/:eventId/orders", meHandler.SubmitOrder)
-		meGroup.POST("/events/:eventId/number-blocks", meHandler.IssueNumberBlock)
-		meGroup.GET("/events/:eventId/orders", meHandler.OrderHistory)
-		meGroup.GET("/orders/:orderId", meHandler.Order)
-		meGroup.POST("/orders/:orderId/receipts", meHandler.LogReceipt)
-		meGroup.POST("/orders/:orderId/cancel", authhandler.RequireRole(useriface.RoleBA), warehouseOrderHandler.Cancel)
-
-		// Admin-only: what Bhoomy does not own yet (accounts, cashier assignment, stock, member sync).
+		// Old dashboard (ADMIN only) until Phase 6: the location list, stock allocation, Produk Toko pull.
 		admin := authed.Group("/admin")
 		admin.Use(authhandler.RequireRole(useriface.RoleAdmin))
-		admin.GET("/users", userHandler.List)
-		admin.POST("/users", userHandler.Create)
-		admin.PATCH("/users/:id", userHandler.Update)
 		admin.GET("/events", eventHandler.List)
-		admin.POST("/assignments", eventHandler.AssignBa)
 		admin.GET("/catalog/sync", catalogHandler.SyncStatus)
 		admin.POST("/catalog/sync", catalogHandler.Sync)
-		admin.POST("/members/sync", memberSyncHandler.SyncNow)
-		admin.GET("/members/sync/status", memberSyncHandler.Status)
-		admin.GET("/sync", syncConfigHandler.Overview)
-		admin.PUT("/sync/:type", syncConfigHandler.Update)
 		admin.GET("/events/:id/stock", stockAdminHandler.Allocations)
 		admin.PUT("/events/:id/stock/:productId", stockAdminHandler.SetAllocation)
 
@@ -246,17 +263,47 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		back.PUT("/promotions/:id", promotionHandler.StoreUpdate)
 		back.DELETE("/promotions/:id", promotionHandler.Delete)
 		back.GET("/members", memberHandler.StoreList)
+		back.GET("/members/sync", memberSyncHandler.Status)
+		back.POST("/members/sync", memberSyncHandler.SyncNow)
+		back.PUT("/members/sync/schedule", memberSyncHandler.Schedule)
+		back.GET("/staff", staffHandler.List)
+		back.POST("/staff", staffHandler.Create)
+		back.GET("/staff/:id", staffHandler.Get)
+		back.PUT("/staff/:id", staffHandler.Update)
+		back.GET("/locations/:id/devices", deviceHandler.List)
+		back.POST("/locations/:id/pairing-code", deviceHandler.NewCode)
+		back.PATCH("/devices/:id", deviceHandler.Rename)
+		back.DELETE("/devices/:id", deviceHandler.Remove)
 
-		// Warehouse-only
-		warehouse := authed.Group("/warehouse")
-		warehouse.Use(authhandler.RequireRole(useriface.RoleWarehouse, useriface.RoleAdmin))
-		warehouse.GET("/events", warehouseStockHandler.Events)
-		warehouse.GET("/events/:eventId/stock", warehouseStockHandler.Levels)
-		warehouse.GET("/events/:eventId/orders", warehouseOrderHandler.Orders)
-		warehouse.PATCH("/orders/:orderId/status", warehouseOrderHandler.Advance)
-		warehouse.POST("/orders/:orderId/cancel", warehouseOrderHandler.Cancel)
 	}
 	return r
+}
+
+// boardAccess lets a device watch only its own location's pickup board.
+func (a *App) boardAccess(token, eventID string) int {
+	d, err := a.Devices.Authenticate(token)
+	switch {
+	case err != nil:
+		return http.StatusInternalServerError
+	case d == nil:
+		return http.StatusUnauthorized
+	case d.LocationID.String() != eventID:
+		return http.StatusForbidden
+	}
+	return 0
+}
+
+// actorNames names an audit actor: a staff member, or an admin user for older entries.
+type actorNames struct {
+	staff staffiface.Staff
+	users useriface.Users
+}
+
+func (n actorNames) NameOf(tx database.Tx, id uuid.UUID) (string, error) {
+	if name, err := n.staff.NameOf(tx, id); err == nil {
+		return name, nil
+	}
+	return n.users.NameOf(tx, id)
 }
 
 // storeFor finds the POS store of a Bhoomy store; a new one pulls its Produk Toko copy right away.
@@ -274,8 +321,8 @@ func (a *App) storeFor(pull bool) func(uuid.UUID, string) (uuid.UUID, error) {
 	}
 }
 
-// CreateStoreAdmin adds a POS admin to a Bhoomy store, so the old dashboard can set up its cashiers
-// until Phase 5 moves accounts to Bhoomy.
+// CreateStoreAdmin adds a POS admin to a Bhoomy store, for the old dashboard's stock allocation
+// until Phase 6 moves stock to Bhoomy.
 func (a *App) CreateStoreAdmin(bhoomyStore uuid.UUID, email, name, password string) (*useriface.UserResponse, error) {
 	if len(password) < 8 || strings.TrimSpace(name) == "" {
 		return nil, errors.New("name required, password at least 8 characters")

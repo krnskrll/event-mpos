@@ -2,14 +2,10 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mpos/core/db/database.dart';
-import 'package:mpos/core/secure/token_storage.dart';
+import 'package:mpos/core/secure/device_storage.dart';
 import 'package:mpos/data/cart/cart_notifier.dart';
-import 'package:mpos/data/session/session.dart';
-import 'package:mpos/domain/event.dart';
 
 import '../../support/fakes.dart';
-
-const _event = AssignedEvent(id: 'EV01', code: 'EV01', name: 'Roadshow', status: EventStatus.active);
 
 void main() {
   late AppDatabase db;
@@ -19,12 +15,8 @@ void main() {
 
   Future<ProviderContainer> session() async {
     final container = ProviderContainer(
-      overrides: [
-        databaseProvider.overrideWithValue(db),
-        tokenStorageProvider.overrideWithValue(await fakeTokens(access: 'a', refresh: 'r')),
-      ],
+      overrides: [databaseProvider.overrideWithValue(db), deviceStorageProvider.overrideWithValue(await fakeDevice())],
     );
-    container.read(sessionEventProvider.notifier).start(_event);
     container.read(cartProvider);
     return container;
   }

@@ -10,6 +10,7 @@ import '../../data/product/product_repository.dart';
 import '../../domain/order.dart';
 import '../../domain/product.dart';
 import '../receipt/receipt_paper.dart';
+import '../staff/supervisor_sheet.dart';
 import 'orders_screen.dart';
 
 /// Phone: one order full screen. Tablets show [OrderDetail] beside the list instead.
@@ -58,29 +59,16 @@ class _OrderDetailState extends ConsumerState<OrderDetail> {
 
   Future<void> _cancel() async {
     final order = widget.order;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Cancel order ${order.orderNumberDisplay}?'),
-        content: Text(
-          "${order.customerName}'s order is cancelled and its stock goes back on sale. "
-          'Only possible before the warehouse starts packing.',
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Keep')),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Brand.errorInk),
-            child: const Text('Cancel order'),
-          ),
-        ],
-      ),
-    );
-    if (ok != true || !mounted) return;
     final messenger = ScaffoldMessenger.of(context);
-    final error = await ref.read(orderRepositoryProvider).cancel(order.key);
+    final supervisor = await showSupervisorSheet(
+      context,
+      subtitle: 'Cancel order ${order.orderNumberDisplay ?? ''} · ${rupiah(order.total ?? 0)}',
+      approve: (reason, supervisor, pin) =>
+          ref.read(orderRepositoryProvider).cancel(order.key, reason: reason, supervisorId: supervisor.id, pin: pin),
+    );
+    if (supervisor == null) return;
     ref.invalidate(receiptLinesProvider(order.key));
-    messenger.showSnackBar(SnackBar(content: Text(error ?? 'Order cancelled, stock returned')));
+    messenger.showSnackBar(SnackBar(content: Text('Order cancelled, approved by ${supervisor.name}. Stock returned.')));
   }
 
   @override

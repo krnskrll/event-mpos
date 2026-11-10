@@ -10,17 +10,12 @@ import 'package:workmanager/workmanager.dart';
 import '../../core/db/database.dart';
 import '../../core/format/money.dart';
 import '../../core/network/api_client.dart';
+import '../../core/network/device_interceptor.dart';
 import '../../core/notifications.dart';
 import '../receipt/receipt_service.dart';
-import 'order_numbers.dart';
 
 final orderUploaderProvider = Provider(
-  (ref) => OrderUploader(
-    ref.watch(dioProvider),
-    ref.watch(databaseProvider),
-    ref.watch(receiptServiceProvider),
-    ref.watch(orderNumbersProvider),
-  ),
+  (ref) => OrderUploader(ref.watch(dioProvider), ref.watch(databaseProvider), ref.watch(receiptServiceProvider)),
 );
 
 const uploadTask = 'submit-orders';
@@ -29,9 +24,11 @@ const uploadTask = 'submit-orders';
 /// retry duplicate-free. Outcome per order:
 ///  - success              -> CONFIRMED (server id kept for cancel and receipt logging)
 ///  - network error / 5xx  -> stays PENDING, retried later
-///  - other 4xx            -> FAILED with the reason (needs the BA)
+///  - 401 (device removed) -> stays PENDING; nothing more can be sent from this pairing
+///  - other 4xx            -> FAILED with the reason (needs the cashier)
+/// Each order uploads as the staff member who sold it, whoever is signed in now.
 class OrderUploader {
-  OrderUploader(this._dio, this._db, this._receipts, this._numbers, {this.notify = notifyOrder});
+  OrderUploader(this._dio, this._db, this._receipts, {this.notify = notifyOrder});
 
   /// An upload claim older than this is considered abandoned (the app was killed mid-upload).
   static const _claimTimeout = Duration(minutes: 2);
@@ -39,7 +36,6 @@ class OrderUploader {
   final Dio _dio;
   final AppDatabase _db;
   final ReceiptService _receipts;
-  final OrderNumbers _numbers;
   final Future<void> Function(String key, String title, String body) notify;
 
   /// Uploads now, and on Android also queues a WorkManager job that retries in the background.
@@ -92,10 +88,10 @@ class OrderUploader {
           'idempotencyKey': order.idempotencyKey,
           'customer': {'name': order.customerName, 'qrCode': order.customerQr, 'tier': order.customerTier},
           'lines': jsonDecode(order.linesJson),
-          'deviceId': _numbers.deviceId,
           'orderNumber': order.orderNumber,
           'clientCreatedAt': order.createdAt.toUtc().toIso8601String(),
         },
+        options: Options(headers: {staffHeader: ?order.staffId}),
       );
       final o = res.data;
       await _set(
@@ -109,16 +105,17 @@ class OrderUploader {
           errorMessage: const Value(null),
         ),
       );
-      await _receipts.linkServerOrder(order.idempotencyKey, o['id']);
+      await _receipts.linkServerOrder(order.idempotencyKey, o['id'], staffId: order.staffId);
       await notify(order.idempotencyKey, 'Order confirmed', '${o['orderNumberDisplay']} · ${rupiah(o['total'])}');
       return true;
     } on DioException catch (e) {
       final status = e.response?.statusCode;
-      if (status == null || status >= 500) {
+      if (status == null || status >= 500 || status == 401) {
         await _set(order.idempotencyKey, const PendingOrdersCompanion(status: Value('PENDING')));
-        return false;
+        return status == 401;
       }
-      final reason = 'Rejected ($status)';
+      final data = e.response?.data;
+      final reason = (data is Map ? data['message'] as String? : null) ?? 'Rejected ($status)';
       await _set(
         order.idempotencyKey,
         PendingOrdersCompanion(status: const Value('FAILED'), errorMessage: Value(reason)),

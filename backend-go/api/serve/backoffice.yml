@@ -2,7 +2,7 @@ openapi: 3.0.3
 info:
   title: POS back office API
   version: "1.0.0"
-  description: Katalog POS, Outlet & Event, Promosi, Member POS and Laporan POS for the Bhoomy web app. Called only by the Bhoomy backend (service token + X-Bhoomy-Store-Id); not exposed publicly.
+  description: Katalog POS, Outlet & Event, Promosi, Member POS, Laporan POS, Staf POS and Perangkat for the Bhoomy web app. Called only by the Bhoomy backend (service token + X-Bhoomy-Store-Id); not exposed publicly.
 tags:
   - name: backoffice
 paths:
@@ -318,6 +318,134 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/MemberResponse' } } } } }
         '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/staff:
+    get:
+      tags: [backoffice]
+      operationId: listStaff
+      summary: "Staf POS"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/StaffResponse' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    post:
+      tags: [backoffice]
+      operationId: createStaff
+      summary: "Add a staff member (PIN 4-6 digits, never returned)"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/StaffRequest' } } }
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/StaffResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/staff/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [backoffice]
+      operationId: getStaff
+      summary: "One staff member"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/StaffResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    put:
+      tags: [backoffice]
+      operationId: updateStaff
+      summary: "Change a staff member; pin resets the PIN"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/StaffRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/StaffResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/locations/{id}/devices:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [backoffice]
+      operationId: listDevices
+      summary: "Perangkat of a location"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/DeviceView' } } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/locations/{id}/pairing-code:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    post:
+      tags: [backoffice]
+      operationId: newPairingCode
+      summary: "New 6-digit pairing code (10 min, many devices); replaces the previous one"
+      security: [{ serviceToken: [] }]
+      responses:
+        '201': { description: Created, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/PairingCode' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/devices/{id}:
+    parameters:
+      - { name: id, in: path, required: true, schema: { type: string } }
+    patch:
+      tags: [backoffice]
+      operationId: renameDevice
+      summary: "Rename a device"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/RenameDeviceRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/DeviceView' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    delete:
+      tags: [backoffice]
+      operationId: removeDevice
+      summary: "Remove a device; its token stops working"
+      security: [{ serviceToken: [] }]
+      responses:
+        '204': { description: Removed }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/members/sync:
+    get:
+      tags: [backoffice]
+      operationId: getMemberSync
+      summary: "Member POS sync bar: schedule and last run"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberSync' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    post:
+      tags: [backoffice]
+      operationId: runMemberSync
+      summary: "Sinkron sekarang: run the member sync, answer with the new status"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberSync' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/members/sync/schedule:
+    put:
+      tags: [backoffice]
+      operationId: setMemberSyncSchedule
+      summary: "Daily member sync on or off at a WIB time"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberScheduleRequest' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/MemberSync' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
 components:
   securitySchemes:
     serviceToken: { type: http, scheme: bearer }
