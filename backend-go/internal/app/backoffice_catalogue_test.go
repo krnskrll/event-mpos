@@ -109,7 +109,7 @@ func TestBackOfficeAccess(t *testing.T) {
 	pt.put(product, "", "PRD-1", true, "active", nil)
 	pt.sync(t)
 	item := ok[productiface.AddItemsResponse](t, a.Back(http.MethodPost, "/items", J{"productIds": []uuid.UUID{product}}, bhoomyStore), http.StatusCreated).IDs[0]
-	loc := ok[J](t, a.Back(http.MethodPost, "/locations", J{"type": "outlet", "name": "Kemang", "address": "Jl. Kemang"}, bhoomyStore), http.StatusCreated)["id"].(string)
+	loc := outletOf(t, a, bhoomyStore)["id"].(string)
 	other := uuid.New()
 	for path, method := range map[string]string{
 		"/items/" + item.String():      http.MethodGet,
@@ -167,7 +167,7 @@ func TestKatalogPOS(t *testing.T) {
 	if item.Variants[0].Name == "Coral" {
 		rose, coral = coral, rose
 	}
-	loc := ok[J](t, a.Back(http.MethodPost, "/locations", J{"type": "outlet", "name": "Outlet Kelapa Gading", "address": "Mal Kelapa Gading 3"}, store), http.StatusCreated)
+	loc := outletOf(t, a, store)
 	locID := loc["id"].(string)
 	update := J{"displayName": "Velvet Lipstick", "status": "active", "basePrice": nil,
 		"variants":  []J{{"id": rose, "sellInPos": false}, {"id": coral, "sellInPos": true, "price": 89000}},
@@ -215,7 +215,7 @@ func TestKatalogPOS(t *testing.T) {
 		t.Error("a new Produk Toko barcode must change the cashier snapshot version")
 	}
 	locs := ok[[]J](t, a.Back(http.MethodGet, "/locations", nil, store), http.StatusOK)
-	if len(locs) != 1 || locs[0]["items"] != float64(1) || locs[0]["code"] != "OUT-KG" {
+	if len(locs) != 1 || locs[0]["items"] != float64(1) || locs[0]["id"] != locID {
 		t.Errorf("locations: %v", locs)
 	}
 }
@@ -229,21 +229,16 @@ func TestLocationCodes(t *testing.T) {
 		code, _ := got["code"].(string)
 		return code
 	}
-	outlet := J{"type": "outlet", "name": "Outlet Kelapa Gading", "address": "Mal Kelapa Gading 3"}
 	event := J{"type": "event", "name": "Pop-up Senayan City", "startDate": "2027-04-05", "endDate": "2027-04-12"}
-	for i, want := range []string{"OUT-KG", "OUT-KG-2", "OUT-KG-3"} {
-		if got := create(outlet, http.StatusCreated); got != want {
-			t.Errorf("outlet %d: code %s, want %s", i+1, got, want)
+	for i, want := range []string{"EV-SC27", "EV-SC27-2", "EV-SC27-3"} {
+		if got := create(event, http.StatusCreated); got != want {
+			t.Errorf("event %d: code %s, want %s", i+1, got, want)
 		}
-	}
-	if got := create(event, http.StatusCreated); got != "EV-SC27" {
-		t.Errorf("event code %s, want EV-SC27", got)
 	}
 	create(J{"type": "event", "name": "No dates"}, http.StatusBadRequest)
 	create(J{"type": "event", "name": "Backwards", "startDate": "2027-04-12", "endDate": "2027-04-05"}, http.StatusBadRequest)
-	create(J{"type": "outlet", "name": "No address"}, http.StatusBadRequest)
-	if rec := a.Back(http.MethodPost, "/locations", J{"type": "outlet", "name": "Outlet Kelapa Gading", "address": "x"}, uuid.New()); ok[J](t, rec, http.StatusCreated)["code"] != "OUT-KG" {
-		t.Error("codes are per store: another store starts again at OUT-KG")
+	if rec := a.Back(http.MethodPost, "/locations", event, uuid.New()); ok[J](t, rec, http.StatusCreated)["code"] != "EV-SC27" {
+		t.Error("codes are per store: another store starts again at EV-SC27")
 	}
 }
 

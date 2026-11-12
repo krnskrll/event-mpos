@@ -26,7 +26,13 @@ func TestCreateStoreAdmin(t *testing.T) {
 	login := ok[J](t, a.Do(http.MethodPost, "/api/auth/login", J{"email": owner, "password": "rahasia123"}, ""), http.StatusOK)
 	token, _ := login["accessToken"].(string)
 	ev := a.ActiveEventIn(u.StoreID)
-	if events := ok[[]J](t, a.Do(http.MethodGet, "/api/admin/events", nil, token), http.StatusOK); len(events) != 1 || events[0]["id"] != ev.ID.String() {
+	var own []J
+	for _, e := range ok[[]J](t, a.Do(http.MethodGet, "/api/admin/events", nil, token), http.StatusOK) {
+		if e["type"] != "outlet" { // the Cabang's own outlet comes with the store
+			own = append(own, e)
+		}
+	}
+	if events := own; len(events) != 1 || events[0]["id"] != ev.ID.String() {
 		t.Errorf("store events %v, want only its own location", events)
 	}
 	if _, err := a.CreateStoreAdmin(uuid.New(), owner, "Rina", "rahasia123"); err == nil {

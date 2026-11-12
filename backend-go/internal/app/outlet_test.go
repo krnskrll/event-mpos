@@ -16,32 +16,27 @@ func TestOutletRules(t *testing.T) {
 	store := posStore(t, a, bhoomyStore)
 	admin := a.CreateUserIn(store, useriface.RoleAdmin, "Passw0rd!")
 	tok := login(t, a, admin.Email, "Passw0rd!").AccessToken
-	create := func(body J) (int, J) {
-		body["name"] = "Outlet Kemang"
-		rec := a.Back(http.MethodPost, "/locations", body, bhoomyStore)
-		if rec.Code != http.StatusCreated {
-			return rec.Code, nil
-		}
-		return rec.Code, testutil.Decode[J](t, rec)
+	if code := a.Back(http.MethodPost, "/locations", J{"type": "kiosk", "name": "Kios"}, bhoomyStore).Code; code != http.StatusBadRequest {
+		t.Errorf("unknown type: got %d, want 400", code)
+	}
+	ev := ok[J](t, a.Back(http.MethodPost, "/locations", J{"type": "event", "name": "Bazaar", "startDate": "2027-01-01", "endDate": "2027-01-07"}, bhoomyStore), http.StatusCreated)
+	if ev["storeId"] != store.String() {
+		t.Fatalf("event: %v", ev)
 	}
 
-	for name, body := range map[string]J{
-		"outlet without address": {"type": "outlet"},
-		"outlet with end date":   {"type": "outlet", "address": "Jl. Kemang 1", "endDate": "2026-12-31"},
-		"unknown type":           {"type": "kiosk"},
-	} {
-		if code, _ := create(body); code != http.StatusBadRequest {
-			t.Errorf("%s: got %d, want 400", name, code)
-		}
+	// The outlet comes with the Cabang; editing it still needs an address and no end date.
+	shop := outletOf(t, a, bhoomyStore)
+	put := func(body J) int {
+		return a.Back(http.MethodPut, "/locations/"+shop["id"].(string), body, bhoomyStore).Code
 	}
-
-	code, ev := create(J{"type": "event", "startDate": "2027-01-01", "endDate": "2027-01-07"})
-	if code != http.StatusCreated || ev["type"] != "event" || ev["storeId"] != store.String() {
-		t.Fatalf("event: %d %v", code, ev)
+	if got := put(J{"endDate": "2026-12-31", "address": "Jl. Kemang 1"}); got != http.StatusBadRequest {
+		t.Errorf("outlet with end date: got %d, want 400", got)
 	}
-	code, shop := create(J{"type": "outlet", "address": " Jl. Kemang 1 "})
-	if code != http.StatusCreated || shop["type"] != "outlet" || shop["address"] != "Jl. Kemang 1" {
-		t.Fatalf("shop: %d %v", code, shop)
+	if got := put(J{"address": " Jl. Kemang 1 "}); got != http.StatusOK {
+		t.Fatalf("outlet address: got %d", got)
+	}
+	if shop = outletOf(t, a, bhoomyStore); shop["address"] != "Jl. Kemang 1" {
+		t.Errorf("address = %v", shop["address"])
 	}
 
 	// Stock: an active event is locked; an active outlet keeps restocking until it closes.

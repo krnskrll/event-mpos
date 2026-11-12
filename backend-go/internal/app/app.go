@@ -310,6 +310,12 @@ func (n actorNames) NameOf(tx database.Tx, id uuid.UUID) (string, error) {
 func (a *App) storeFor(pull bool) func(uuid.UUID, string) (uuid.UUID, error) {
 	return func(bhoomyStore uuid.UUID, name string) (uuid.UUID, error) {
 		id, created, err := a.Catalog.StoreFor(bhoomyStore, name)
+		if err != nil {
+			return id, err
+		}
+		if err := a.Events.EnsureOutlet(id, a.Catalog.StoreName(id)); err != nil {
+			return id, err
+		}
 		if created && pull {
 			go func() {
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)

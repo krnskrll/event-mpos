@@ -212,7 +212,7 @@ func TestClosingRemovesDevicesAfter24h(t *testing.T) {
 	a := testutil.NewApp(t)
 	bhoomyStore := uuid.New()
 	store := posStore(t, a, bhoomyStore)
-	outlet := ok[J](t, a.Back(http.MethodPost, "/locations", J{"type": "outlet", "name": "Toko", "address": "Jl. Mawar 1"}, bhoomyStore), http.StatusCreated)
+	outlet := outletOf(t, a, bhoomyStore)
 	for _, id := range []uuid.UUID{a.ActiveEventIn(store).ID, uuid.MustParse(outlet["id"].(string))} {
 		dev, still := a.PairDevice(id), a.PairDevice(id)
 		ok[J](t, a.Back(http.MethodPatch, "/locations/"+id.String()+"/status", J{"status": "CLOSED"}, bhoomyStore), http.StatusOK)
