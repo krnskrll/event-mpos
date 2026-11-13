@@ -247,6 +247,7 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		back.PUT("/items/:id", productHandler.CatalogueUpdate)
 		back.POST("/items/:id/photo", productHandler.UploadPhoto)
 		back.GET("/locations", productHandler.Locations)
+		back.GET("/outlet", eventHandler.Outlet)
 		back.POST("/locations", eventHandler.CreateLocation)
 		back.GET("/locations/:id", eventHandler.GetLocation)
 		back.PUT("/locations/:id", eventHandler.Update)
@@ -307,13 +308,13 @@ func (n actorNames) NameOf(tx database.Tx, id uuid.UUID) (string, error) {
 }
 
 // storeFor finds the POS store of a Bhoomy store; a new one pulls its Produk Toko copy right away.
-func (a *App) storeFor(pull bool) func(uuid.UUID, string) (uuid.UUID, error) {
-	return func(bhoomyStore uuid.UUID, name string) (uuid.UUID, error) {
+func (a *App) storeFor(pull bool) func(uuid.UUID, string, string) (uuid.UUID, error) {
+	return func(bhoomyStore uuid.UUID, name, address string) (uuid.UUID, error) {
 		id, created, err := a.Catalog.StoreFor(bhoomyStore, name)
 		if err != nil {
 			return id, err
 		}
-		if err := a.Events.EnsureOutlet(id, a.Catalog.StoreName(id)); err != nil {
+		if err := a.Events.EnsureOutlet(id, a.Catalog.StoreName(id), address); err != nil {
 			return id, err
 		}
 		if created && pull {
@@ -333,7 +334,7 @@ func (a *App) CreateStoreAdmin(bhoomyStore uuid.UUID, email, name, password stri
 	if len(password) < 8 || strings.TrimSpace(name) == "" {
 		return nil, errors.New("name required, password at least 8 characters")
 	}
-	id, err := a.storeFor(false)(bhoomyStore, "")
+	id, err := a.storeFor(false)(bhoomyStore, "", "")
 	if err != nil {
 		return nil, err
 	}

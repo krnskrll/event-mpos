@@ -59,8 +59,8 @@ func TestOutletRules(t *testing.T) {
 	if got := allocate(shop["id"].(string)); got != http.StatusOK {
 		t.Errorf("active shop allocation: got %d, want 200", got)
 	}
-	status(shop["id"].(string), "CLOSED")
-	if got := allocate(shop["id"].(string)); got != http.StatusConflict {
-		t.Errorf("closed shop allocation: got %d, want 409", got)
+	status(shop["id"].(string), "DRAFT") // paused, not closed: the outlet is the Cabang
+	if got := allocate(shop["id"].(string)); got != http.StatusOK {
+		t.Errorf("paused shop allocation: got %d, want 200", got)
 	}
 }

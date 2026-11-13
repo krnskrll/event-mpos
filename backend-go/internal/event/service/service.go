@@ -132,7 +132,7 @@ func (s *Service) ChangeStatus(storeID, id uuid.UUID, target iface.EventStatus) 
 	if err != nil {
 		return nil, err
 	}
-	if err := e.Status.AssertCanTransitionTo(target); err != nil {
+	if err := assertTransition(e, target); err != nil {
 		return nil, err
 	}
 	e.Status = target
@@ -154,6 +154,18 @@ func (s *Service) ChangeStatus(storeID, id uuid.UUID, target iface.EventStatus) 
 	}
 	resp := e.ToResponse()
 	return &resp, nil
+}
+
+// assertTransition: an event runs Draf → Aktif → Tutup. The outlet is the Cabang, so it never closes
+// here; it pauses (Aktif → Draf) and starts again.
+func assertTransition(e *repository.Event, target iface.EventStatus) error {
+	if e.Type != iface.TypeOutlet {
+		return e.Status.AssertCanTransitionTo(target)
+	}
+	if (e.Status == iface.StatusDraft && target == iface.StatusActive) || (e.Status == iface.StatusActive && target == iface.StatusDraft) {
+		return nil
+	}
+	return common.NewAppError(http.StatusConflict, "an outlet is the Cabang: pause selling instead of closing it")
 }
 
 // ---- snapshot ----

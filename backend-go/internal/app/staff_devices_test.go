@@ -212,8 +212,15 @@ func TestClosingRemovesDevicesAfter24h(t *testing.T) {
 	a := testutil.NewApp(t)
 	bhoomyStore := uuid.New()
 	store := posStore(t, a, bhoomyStore)
+	// Pausing the outlet keeps its devices: only a closed event starts the 24 hours.
 	outlet := outletOf(t, a, bhoomyStore)
-	for _, id := range []uuid.UUID{a.ActiveEventIn(store).ID, uuid.MustParse(outlet["id"].(string))} {
+	paired := a.PairDevice(uuid.MustParse(outlet["id"].(string)))
+	ok[J](t, a.Back(http.MethodPatch, "/locations/"+outlet["id"].(string)+"/status", J{"status": "ACTIVE"}, bhoomyStore), http.StatusOK)
+	ok[J](t, a.Back(http.MethodPatch, "/locations/"+outlet["id"].(string)+"/status", J{"status": "DRAFT"}, bhoomyStore), http.StatusOK)
+	if me := ok[deviceiface.DeviceResponse](t, a.DeviceDo(http.MethodGet, "/api/device", nil, paired, uuid.Nil), http.StatusOK); me.Device.RemovesAt != nil {
+		t.Errorf("paused outlet: removesAt %v, want none", me.Device.RemovesAt)
+	}
+	for _, id := range []uuid.UUID{a.ActiveEventIn(store).ID} {
 		dev, still := a.PairDevice(id), a.PairDevice(id)
 		ok[J](t, a.Back(http.MethodPatch, "/locations/"+id.String()+"/status", J{"status": "CLOSED"}, bhoomyStore), http.StatusOK)
 		me := ok[deviceiface.DeviceResponse](t, a.DeviceDo(http.MethodGet, "/api/device", nil, dev, uuid.Nil), http.StatusOK)
