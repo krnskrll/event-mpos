@@ -277,7 +277,7 @@ func (s *Service) LocationRows(storeID, locationID uuid.UUID) ([]iface.LocationR
 				catalog = v.Price
 			}
 			out = append(out, iface.LocationRow{ItemID: p.ID, VariantID: v.ID, ItemName: p.DisplayName, VariantName: v.Name,
-				CatalogPrice: catalog, Sold: li.Active, Price: li.PriceOverride})
+				CatalogPrice: catalog, Sold: li.Active, Price: li.PriceOverride, BhoomyVariantID: v.BhoomyVariantID})
 		}
 	}
 	return out, nil

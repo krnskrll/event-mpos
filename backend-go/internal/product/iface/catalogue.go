@@ -112,6 +112,8 @@ type LocationRow struct {
 	CatalogPrice *decimal.Decimal `json:"catalogPrice"`
 	Sold         bool             `json:"sold"`
 	Price        *decimal.Decimal `json:"price"`
+	// BhoomyVariantID is the Produk Toko variant, so Bhoomy stock can be matched to the row (6b).
+	BhoomyVariantID *uuid.UUID `json:"bhoomyVariantId"`
 }
 
 type LocationRowInput struct {
