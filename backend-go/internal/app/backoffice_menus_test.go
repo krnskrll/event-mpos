@@ -59,7 +59,7 @@ func TestPromosi(t *testing.T) {
 		t.Fatalf("categories: %+v", cats)
 	}
 	newLocation := func(name string) uuid.UUID {
-		loc := ok[J](t, a.Back(http.MethodPost, "/locations", J{"type": "outlet", "name": name, "address": "Jakarta"}, store), http.StatusCreated)
+		loc := ok[J](t, a.Back(http.MethodPost, "/locations", J{"type": "event", "name": name, "startDate": "2027-01-01", "endDate": "2027-01-07"}, store), http.StatusCreated)
 		return uuid.MustParse(loc["id"].(string))
 	}
 	kemang, bintaro := newLocation("Outlet Kemang"), newLocation("Outlet Bintaro")

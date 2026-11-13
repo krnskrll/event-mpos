@@ -16,6 +16,7 @@ GET /api/backoffice/locations/:id/items
 GET /api/backoffice/locations/:id/report
 GET /api/backoffice/members
 GET /api/backoffice/members/sync
+GET /api/backoffice/outlet
 GET /api/backoffice/promotions
 GET /api/backoffice/promotions/:id
 GET /api/backoffice/staff

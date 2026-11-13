@@ -17,7 +17,7 @@ import (
 // ServiceMiddleware admits the Bhoomy backend, which has already checked the owner or manager's
 // login and POS access: the shared service token plus the Bhoomy store they work in. storeFor
 // finds the POS store, creating it on the store's first visit.
-func ServiceMiddleware(token string, storeFor func(bhoomyStoreID uuid.UUID, name string) (uuid.UUID, error)) gin.HandlerFunc {
+func ServiceMiddleware(token string, storeFor func(bhoomyStoreID uuid.UUID, name, address string) (uuid.UUID, error)) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		got := strings.TrimPrefix(c.GetHeader("Authorization"), "Bearer ")
 		if token == "" || subtle.ConstantTimeCompare([]byte(got), []byte(token)) != 1 {
@@ -30,7 +30,8 @@ func ServiceMiddleware(token string, storeFor func(bhoomyStoreID uuid.UUID, name
 			return
 		}
 		name, _ := url.QueryUnescape(c.GetHeader("X-Bhoomy-Store-Name"))
-		store, err := storeFor(bhoomyStore, strings.TrimSpace(name))
+		address, _ := url.QueryUnescape(c.GetHeader("X-Bhoomy-Store-Address"))
+		store, err := storeFor(bhoomyStore, strings.TrimSpace(name), strings.TrimSpace(address))
 		if err != nil {
 			common.Fail(c, err)
 			return

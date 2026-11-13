@@ -84,6 +84,16 @@ func (h *Handler) CreateLocation(c *gin.Context) {
 	c.JSON(http.StatusCreated, resp)
 }
 
+// Outlet is GET /outlet: the store's one open outlet.
+func (h *Handler) Outlet(c *gin.Context) {
+	resp, err := h.svc.Outlet(authiface.StoreOf(c))
+	if err != nil {
+		common.Fail(c, err)
+		return
+	}
+	c.JSON(http.StatusOK, resp)
+}
+
 func (h *Handler) GetLocation(c *gin.Context) {
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {

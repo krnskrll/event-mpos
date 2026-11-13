@@ -103,6 +103,16 @@ paths:
         '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/outlet:
+    get:
+      tags: [backoffice]
+      operationId: getOutlet
+      summary: "The Cabang's one open outlet, created as a draft on the first visit (named and addressed from X-Bhoomy-Store-Name / -Address)"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/backoffice/locations:
     get:
       tags: [backoffice]
@@ -115,7 +125,7 @@ paths:
     post:
       tags: [backoffice]
       operationId: createLocation
-      summary: "Create a draft outlet or event; POS makes the code"
+      summary: "Create a draft event; POS makes the code. The outlet comes with the Cabang (409 for type outlet)"
       security: [{ serviceToken: [] }]
       requestBody:
         required: true
@@ -124,6 +134,7 @@ paths:
         '201': { description: Created, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
         '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/backoffice/locations/{id}:
     parameters:
       - { name: id, in: path, required: true, schema: { type: string } }
@@ -156,7 +167,7 @@ paths:
     patch:
       tags: [backoffice]
       operationId: changeLocationStatus
-      summary: "Move DRAFT → ACTIVE → CLOSED"
+      summary: "Event: DRAFT → ACTIVE → CLOSED. Outlet (the Cabang): DRAFT ↔ ACTIVE, never CLOSED"
       security: [{ serviceToken: [] }]
       requestBody:
         required: true

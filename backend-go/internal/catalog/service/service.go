@@ -108,7 +108,8 @@ func (s *Service) StoreFor(bhoomyStoreID uuid.UUID, name string) (id uuid.UUID, 
 		Inserted bool
 	}{}
 	err = s.db.Raw(`INSERT INTO pos_stores (id, name, bhoomy_store_id) VALUES (?, ?, ?)
-		ON CONFLICT (bhoomy_store_id) DO UPDATE SET name = pos_stores.name
+		ON CONFLICT (bhoomy_store_id) DO UPDATE
+		SET name = CASE WHEN EXCLUDED.name LIKE 'Bhoomy %' THEN pos_stores.name ELSE EXCLUDED.name END
 		RETURNING id, (xmax = 0) AS inserted`, uuid.New(), name, bhoomyStoreID).Scan(&row).Error
 	return row.ID, row.Inserted, err
 }
