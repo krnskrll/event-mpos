@@ -200,6 +200,11 @@ func TestKatalogPOS(t *testing.T) {
 	}
 
 	rows := ok[[]productiface.LocationRow](t, a.Back(http.MethodGet, "/locations/"+locID+"/items", nil, store), http.StatusOK)
+	for _, r := range rows { // 6b: the web matches Bhoomy stock to rows by the Produk Toko variant
+		if r.BhoomyVariantID == nil {
+			t.Fatalf("row %s %s has no bhoomyVariantId", r.ItemName, r.VariantName)
+		}
+	}
 	if len(rows) != 2 || rows[1].VariantName != "Coral" || !rows[1].Sold || rows[1].CatalogPrice.String() != "89000" {
 		t.Fatalf("location rows: %+v, want the base row and Coral", rows)
 	}

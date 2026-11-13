@@ -576,6 +576,7 @@ components:
         catalogPrice: { type: integer, format: int64, nullable: true }
         sold: { type: boolean }
         price: { type: integer, format: int64, nullable: true }
+        bhoomyVariantId: { type: string, format: uuid, nullable: true, description: "Produk Toko variant, to match Bhoomy stock (6b)" }
     SaveLocationRowsRequest:
       type: object
       required: [rows]
