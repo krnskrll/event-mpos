@@ -17,6 +17,7 @@ part 'database.g.dart';
     CartDrafts,
     NumberBlocks,
     StaffMembers,
+    EventStocks,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -25,7 +26,7 @@ class AppDatabase extends _$AppDatabase {
     : super(executor ?? driftDatabase(name: 'mpos', native: const DriftNativeOptions(shareAcrossIsolates: true)));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -39,6 +40,12 @@ class AppDatabase extends _$AppDatabase {
       if (from < 4) {
         await m.addColumn(pendingOrders, pendingOrders.staffId);
         await m.createTable(staffMembers);
+      }
+      if (from < 5) {
+        await m.addColumn(products, products.stockTracked);
+        await m.addColumn(products, products.variantStockJson);
+        await m.addColumn(pendingOrders, pendingOrders.stockPlaceId);
+        await m.createTable(eventStocks);
       }
     },
   );

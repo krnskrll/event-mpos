@@ -28,8 +28,10 @@ class Products extends Table {
   RealColumn get price => real()();
   TextColumn get imageUrl => text().nullable()();
   TextColumn get barcodes => text()(); // newline-joined
-  IntColumn get remainingStock => integer()();
+  IntColumn get remainingStock => integer()(); // 6c: available at the place (products without options)
   TextColumn get variantsJson => text().withDefault(const Constant('[]'))();
+  BoolColumn get stockTracked => boolean().withDefault(const Constant(false))(); // v5: false = no limits
+  TextColumn get variantStockJson => text().withDefault(const Constant('{}'))(); // v5: {variantId: available}
 
   @override
   Set<Column> get primaryKey => {eventId, id};
@@ -96,6 +98,7 @@ class PendingOrders extends Table {
   RealColumn get discount => real().nullable()();
   TextColumn get promotionName => text().nullable()();
   TextColumn get staffId => text().nullable()(); // v4: who sold it; the upload acts as them
+  TextColumn get stockPlaceId => text().nullable()(); // v5: the storage place it sold from; null = untracked
 
   @override
   Set<Column> get primaryKey => {idempotencyKey};
@@ -149,6 +152,21 @@ class NumberBlocks extends Table {
 
   @override
   Set<Column> get primaryKey => {eventId, rangeStart};
+}
+
+/// Where the location sells from (v5, 6c), from the last stock read: kept so offline sales keep it.
+@DataClassName('EventStockRow')
+class EventStocks extends Table {
+  @override
+  String get tableName => 'event_stock';
+
+  TextColumn get eventId => text()();
+  BoolColumn get tracked => boolean()();
+  TextColumn get placeId => text().nullable()();
+  DateTimeColumn get refreshedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {eventId};
 }
 
 /// The location's active staff with PIN hashes, so the lock screen works offline (v4).

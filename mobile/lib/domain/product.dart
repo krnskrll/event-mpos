@@ -21,6 +21,8 @@ class Product {
     required this.barcodes,
     required this.remainingStock,
     this.variants = const [],
+    this.stockTracked = false,
+    this.variantStock = const {},
   });
 
   final String id;
@@ -33,6 +35,23 @@ class Product {
   final int remainingStock;
   final List<ProductVariant> variants;
 
-  bool get outOfStock => remainingStock <= 0;
-  bool get lowStock => remainingStock > 0 && remainingStock <= 10;
+  /// 6c: false = the location does not track stock, so there are no limits at all.
+  final bool stockTracked;
+
+  /// Available per variant id, for products with options.
+  final Map<String, int> variantStock;
+
+  /// What may still be sold of [variantId] (null = the product itself); null = no limit.
+  int? available(String? variantId) =>
+      !stockTracked ? null : (variantId == null ? remainingStock : variantStock[variantId] ?? 0);
+
+  /// The number on the product badge: the product's, or its options' total; null = untracked.
+  int? get shownStock => !stockTracked
+      ? null
+      : variants.isEmpty
+      ? remainingStock
+      : variants.fold<int>(0, (sum, v) => sum + (variantStock[v.id] ?? 0).clamp(0, 1 << 30));
+
+  bool get outOfStock => (shownStock ?? 1) <= 0;
+  bool get lowStock => (shownStock ?? 11) > 0 && (shownStock ?? 11) <= 10;
 }

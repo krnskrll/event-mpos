@@ -371,6 +371,27 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, ProductRow>
     requiredDuringInsert: false,
     defaultValue: const Constant('[]'),
   );
+  static const VerificationMeta _stockTrackedMeta = const VerificationMeta('stockTracked');
+  @override
+  late final GeneratedColumn<bool> stockTracked = GeneratedColumn<bool>(
+    'stock_tracked',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("stock_tracked" IN (0, 1))'),
+    defaultValue: const Constant(false),
+  );
+  static const VerificationMeta _variantStockJsonMeta = const VerificationMeta('variantStockJson');
+  @override
+  late final GeneratedColumn<String> variantStockJson = GeneratedColumn<String>(
+    'variant_stock_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('{}'),
+  );
   @override
   List<GeneratedColumn> get $columns => [
     eventId,
@@ -383,6 +404,8 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, ProductRow>
     barcodes,
     remainingStock,
     variantsJson,
+    stockTracked,
+    variantStockJson,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -440,6 +463,15 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, ProductRow>
     if (data.containsKey('variants_json')) {
       context.handle(_variantsJsonMeta, variantsJson.isAcceptableOrUnknown(data['variants_json']!, _variantsJsonMeta));
     }
+    if (data.containsKey('stock_tracked')) {
+      context.handle(_stockTrackedMeta, stockTracked.isAcceptableOrUnknown(data['stock_tracked']!, _stockTrackedMeta));
+    }
+    if (data.containsKey('variant_stock_json')) {
+      context.handle(
+        _variantStockJsonMeta,
+        variantStockJson.isAcceptableOrUnknown(data['variant_stock_json']!, _variantStockJsonMeta),
+      );
+    }
     return context;
   }
 
@@ -459,6 +491,11 @@ class $ProductsTable extends Products with TableInfo<$ProductsTable, ProductRow>
       barcodes: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}barcodes'])!,
       remainingStock: attachedDatabase.typeMapping.read(DriftSqlType.int, data['${effectivePrefix}remaining_stock'])!,
       variantsJson: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}variants_json'])!,
+      stockTracked: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}stock_tracked'])!,
+      variantStockJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}variant_stock_json'],
+      )!,
     );
   }
 
@@ -479,6 +516,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
   final String barcodes;
   final int remainingStock;
   final String variantsJson;
+  final bool stockTracked;
+  final String variantStockJson;
   const ProductRow({
     required this.eventId,
     required this.id,
@@ -490,6 +529,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     required this.barcodes,
     required this.remainingStock,
     required this.variantsJson,
+    required this.stockTracked,
+    required this.variantStockJson,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -508,6 +549,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     map['barcodes'] = Variable<String>(barcodes);
     map['remaining_stock'] = Variable<int>(remainingStock);
     map['variants_json'] = Variable<String>(variantsJson);
+    map['stock_tracked'] = Variable<bool>(stockTracked);
+    map['variant_stock_json'] = Variable<String>(variantStockJson);
     return map;
   }
 
@@ -523,6 +566,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       barcodes: Value(barcodes),
       remainingStock: Value(remainingStock),
       variantsJson: Value(variantsJson),
+      stockTracked: Value(stockTracked),
+      variantStockJson: Value(variantStockJson),
     );
   }
 
@@ -539,6 +584,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       barcodes: serializer.fromJson<String>(json['barcodes']),
       remainingStock: serializer.fromJson<int>(json['remainingStock']),
       variantsJson: serializer.fromJson<String>(json['variantsJson']),
+      stockTracked: serializer.fromJson<bool>(json['stockTracked']),
+      variantStockJson: serializer.fromJson<String>(json['variantStockJson']),
     );
   }
   @override
@@ -555,6 +602,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       'barcodes': serializer.toJson<String>(barcodes),
       'remainingStock': serializer.toJson<int>(remainingStock),
       'variantsJson': serializer.toJson<String>(variantsJson),
+      'stockTracked': serializer.toJson<bool>(stockTracked),
+      'variantStockJson': serializer.toJson<String>(variantStockJson),
     };
   }
 
@@ -569,6 +618,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     String? barcodes,
     int? remainingStock,
     String? variantsJson,
+    bool? stockTracked,
+    String? variantStockJson,
   }) => ProductRow(
     eventId: eventId ?? this.eventId,
     id: id ?? this.id,
@@ -580,6 +631,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
     barcodes: barcodes ?? this.barcodes,
     remainingStock: remainingStock ?? this.remainingStock,
     variantsJson: variantsJson ?? this.variantsJson,
+    stockTracked: stockTracked ?? this.stockTracked,
+    variantStockJson: variantStockJson ?? this.variantStockJson,
   );
   ProductRow copyWithCompanion(ProductsCompanion data) {
     return ProductRow(
@@ -593,6 +646,8 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
       barcodes: data.barcodes.present ? data.barcodes.value : this.barcodes,
       remainingStock: data.remainingStock.present ? data.remainingStock.value : this.remainingStock,
       variantsJson: data.variantsJson.present ? data.variantsJson.value : this.variantsJson,
+      stockTracked: data.stockTracked.present ? data.stockTracked.value : this.stockTracked,
+      variantStockJson: data.variantStockJson.present ? data.variantStockJson.value : this.variantStockJson,
     );
   }
 
@@ -608,14 +663,28 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           ..write('imageUrl: $imageUrl, ')
           ..write('barcodes: $barcodes, ')
           ..write('remainingStock: $remainingStock, ')
-          ..write('variantsJson: $variantsJson')
+          ..write('variantsJson: $variantsJson, ')
+          ..write('stockTracked: $stockTracked, ')
+          ..write('variantStockJson: $variantStockJson')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(eventId, id, sku, name, brand, price, imageUrl, barcodes, remainingStock, variantsJson);
+  int get hashCode => Object.hash(
+    eventId,
+    id,
+    sku,
+    name,
+    brand,
+    price,
+    imageUrl,
+    barcodes,
+    remainingStock,
+    variantsJson,
+    stockTracked,
+    variantStockJson,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -629,7 +698,9 @@ class ProductRow extends DataClass implements Insertable<ProductRow> {
           other.imageUrl == this.imageUrl &&
           other.barcodes == this.barcodes &&
           other.remainingStock == this.remainingStock &&
-          other.variantsJson == this.variantsJson);
+          other.variantsJson == this.variantsJson &&
+          other.stockTracked == this.stockTracked &&
+          other.variantStockJson == this.variantStockJson);
 }
 
 class ProductsCompanion extends UpdateCompanion<ProductRow> {
@@ -643,6 +714,8 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
   final Value<String> barcodes;
   final Value<int> remainingStock;
   final Value<String> variantsJson;
+  final Value<bool> stockTracked;
+  final Value<String> variantStockJson;
   final Value<int> rowid;
   const ProductsCompanion({
     this.eventId = const Value.absent(),
@@ -655,6 +728,8 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     this.barcodes = const Value.absent(),
     this.remainingStock = const Value.absent(),
     this.variantsJson = const Value.absent(),
+    this.stockTracked = const Value.absent(),
+    this.variantStockJson = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   ProductsCompanion.insert({
@@ -668,6 +743,8 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     required String barcodes,
     required int remainingStock,
     this.variantsJson = const Value.absent(),
+    this.stockTracked = const Value.absent(),
+    this.variantStockJson = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : eventId = Value(eventId),
        id = Value(id),
@@ -687,6 +764,8 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     Expression<String>? barcodes,
     Expression<int>? remainingStock,
     Expression<String>? variantsJson,
+    Expression<bool>? stockTracked,
+    Expression<String>? variantStockJson,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -700,6 +779,8 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
       if (barcodes != null) 'barcodes': barcodes,
       if (remainingStock != null) 'remaining_stock': remainingStock,
       if (variantsJson != null) 'variants_json': variantsJson,
+      if (stockTracked != null) 'stock_tracked': stockTracked,
+      if (variantStockJson != null) 'variant_stock_json': variantStockJson,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -715,6 +796,8 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     Value<String>? barcodes,
     Value<int>? remainingStock,
     Value<String>? variantsJson,
+    Value<bool>? stockTracked,
+    Value<String>? variantStockJson,
     Value<int>? rowid,
   }) {
     return ProductsCompanion(
@@ -728,6 +811,8 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
       barcodes: barcodes ?? this.barcodes,
       remainingStock: remainingStock ?? this.remainingStock,
       variantsJson: variantsJson ?? this.variantsJson,
+      stockTracked: stockTracked ?? this.stockTracked,
+      variantStockJson: variantStockJson ?? this.variantStockJson,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -765,6 +850,12 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
     if (variantsJson.present) {
       map['variants_json'] = Variable<String>(variantsJson.value);
     }
+    if (stockTracked.present) {
+      map['stock_tracked'] = Variable<bool>(stockTracked.value);
+    }
+    if (variantStockJson.present) {
+      map['variant_stock_json'] = Variable<String>(variantStockJson.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -784,6 +875,8 @@ class ProductsCompanion extends UpdateCompanion<ProductRow> {
           ..write('barcodes: $barcodes, ')
           ..write('remainingStock: $remainingStock, ')
           ..write('variantsJson: $variantsJson, ')
+          ..write('stockTracked: $stockTracked, ')
+          ..write('variantStockJson: $variantStockJson, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -1819,6 +1912,15 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _stockPlaceIdMeta = const VerificationMeta('stockPlaceId');
+  @override
+  late final GeneratedColumn<String> stockPlaceId = GeneratedColumn<String>(
+    'stock_place_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     idempotencyKey,
@@ -1840,6 +1942,7 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
     discount,
     promotionName,
     staffId,
+    stockPlaceId,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -1931,6 +2034,9 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
     if (data.containsKey('staff_id')) {
       context.handle(_staffIdMeta, staffId.isAcceptableOrUnknown(data['staff_id']!, _staffIdMeta));
     }
+    if (data.containsKey('stock_place_id')) {
+      context.handle(_stockPlaceIdMeta, stockPlaceId.isAcceptableOrUnknown(data['stock_place_id']!, _stockPlaceIdMeta));
+    }
     return context;
   }
 
@@ -1965,6 +2071,7 @@ class $PendingOrdersTable extends PendingOrders with TableInfo<$PendingOrdersTab
       discount: attachedDatabase.typeMapping.read(DriftSqlType.double, data['${effectivePrefix}discount']),
       promotionName: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}promotion_name']),
       staffId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}staff_id']),
+      stockPlaceId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}stock_place_id']),
     );
   }
 
@@ -1994,6 +2101,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
   final double? discount;
   final String? promotionName;
   final String? staffId;
+  final String? stockPlaceId;
   const PendingOrderRow({
     required this.idempotencyKey,
     required this.eventId,
@@ -2014,6 +2122,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     this.discount,
     this.promotionName,
     this.staffId,
+    this.stockPlaceId,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -2063,6 +2172,9 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     if (!nullToAbsent || staffId != null) {
       map['staff_id'] = Variable<String>(staffId);
     }
+    if (!nullToAbsent || stockPlaceId != null) {
+      map['stock_place_id'] = Variable<String>(stockPlaceId);
+    }
     return map;
   }
 
@@ -2087,6 +2199,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       discount: discount == null && nullToAbsent ? const Value.absent() : Value(discount),
       promotionName: promotionName == null && nullToAbsent ? const Value.absent() : Value(promotionName),
       staffId: staffId == null && nullToAbsent ? const Value.absent() : Value(staffId),
+      stockPlaceId: stockPlaceId == null && nullToAbsent ? const Value.absent() : Value(stockPlaceId),
     );
   }
 
@@ -2112,6 +2225,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       discount: serializer.fromJson<double?>(json['discount']),
       promotionName: serializer.fromJson<String?>(json['promotionName']),
       staffId: serializer.fromJson<String?>(json['staffId']),
+      stockPlaceId: serializer.fromJson<String?>(json['stockPlaceId']),
     );
   }
   @override
@@ -2137,6 +2251,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       'discount': serializer.toJson<double?>(discount),
       'promotionName': serializer.toJson<String?>(promotionName),
       'staffId': serializer.toJson<String?>(staffId),
+      'stockPlaceId': serializer.toJson<String?>(stockPlaceId),
     };
   }
 
@@ -2160,6 +2275,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     Value<double?> discount = const Value.absent(),
     Value<String?> promotionName = const Value.absent(),
     Value<String?> staffId = const Value.absent(),
+    Value<String?> stockPlaceId = const Value.absent(),
   }) => PendingOrderRow(
     idempotencyKey: idempotencyKey ?? this.idempotencyKey,
     eventId: eventId ?? this.eventId,
@@ -2180,6 +2296,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     discount: discount.present ? discount.value : this.discount,
     promotionName: promotionName.present ? promotionName.value : this.promotionName,
     staffId: staffId.present ? staffId.value : this.staffId,
+    stockPlaceId: stockPlaceId.present ? stockPlaceId.value : this.stockPlaceId,
   );
   PendingOrderRow copyWithCompanion(PendingOrdersCompanion data) {
     return PendingOrderRow(
@@ -2202,6 +2319,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
       discount: data.discount.present ? data.discount.value : this.discount,
       promotionName: data.promotionName.present ? data.promotionName.value : this.promotionName,
       staffId: data.staffId.present ? data.staffId.value : this.staffId,
+      stockPlaceId: data.stockPlaceId.present ? data.stockPlaceId.value : this.stockPlaceId,
     );
   }
 
@@ -2226,7 +2344,8 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
           ..write('subtotal: $subtotal, ')
           ..write('discount: $discount, ')
           ..write('promotionName: $promotionName, ')
-          ..write('staffId: $staffId')
+          ..write('staffId: $staffId, ')
+          ..write('stockPlaceId: $stockPlaceId')
           ..write(')'))
         .toString();
   }
@@ -2252,6 +2371,7 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
     discount,
     promotionName,
     staffId,
+    stockPlaceId,
   );
   @override
   bool operator ==(Object other) =>
@@ -2275,7 +2395,8 @@ class PendingOrderRow extends DataClass implements Insertable<PendingOrderRow> {
           other.subtotal == this.subtotal &&
           other.discount == this.discount &&
           other.promotionName == this.promotionName &&
-          other.staffId == this.staffId);
+          other.staffId == this.staffId &&
+          other.stockPlaceId == this.stockPlaceId);
 }
 
 class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
@@ -2298,6 +2419,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
   final Value<double?> discount;
   final Value<String?> promotionName;
   final Value<String?> staffId;
+  final Value<String?> stockPlaceId;
   final Value<int> rowid;
   const PendingOrdersCompanion({
     this.idempotencyKey = const Value.absent(),
@@ -2319,6 +2441,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     this.discount = const Value.absent(),
     this.promotionName = const Value.absent(),
     this.staffId = const Value.absent(),
+    this.stockPlaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   PendingOrdersCompanion.insert({
@@ -2341,6 +2464,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     this.discount = const Value.absent(),
     this.promotionName = const Value.absent(),
     this.staffId = const Value.absent(),
+    this.stockPlaceId = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : idempotencyKey = Value(idempotencyKey),
        eventId = Value(eventId),
@@ -2368,6 +2492,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     Expression<double>? discount,
     Expression<String>? promotionName,
     Expression<String>? staffId,
+    Expression<String>? stockPlaceId,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -2390,6 +2515,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
       if (discount != null) 'discount': discount,
       if (promotionName != null) 'promotion_name': promotionName,
       if (staffId != null) 'staff_id': staffId,
+      if (stockPlaceId != null) 'stock_place_id': stockPlaceId,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -2414,6 +2540,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     Value<double?>? discount,
     Value<String?>? promotionName,
     Value<String?>? staffId,
+    Value<String?>? stockPlaceId,
     Value<int>? rowid,
   }) {
     return PendingOrdersCompanion(
@@ -2436,6 +2563,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
       discount: discount ?? this.discount,
       promotionName: promotionName ?? this.promotionName,
       staffId: staffId ?? this.staffId,
+      stockPlaceId: stockPlaceId ?? this.stockPlaceId,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -2500,6 +2628,9 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
     if (staffId.present) {
       map['staff_id'] = Variable<String>(staffId.value);
     }
+    if (stockPlaceId.present) {
+      map['stock_place_id'] = Variable<String>(stockPlaceId.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -2528,6 +2659,7 @@ class PendingOrdersCompanion extends UpdateCompanion<PendingOrderRow> {
           ..write('discount: $discount, ')
           ..write('promotionName: $promotionName, ')
           ..write('staffId: $staffId, ')
+          ..write('stockPlaceId: $stockPlaceId, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -3950,6 +4082,277 @@ class StaffMembersCompanion extends UpdateCompanion<StaffRow> {
   }
 }
 
+class $EventStocksTable extends EventStocks with TableInfo<$EventStocksTable, EventStockRow> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $EventStocksTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _eventIdMeta = const VerificationMeta('eventId');
+  @override
+  late final GeneratedColumn<String> eventId = GeneratedColumn<String>(
+    'event_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _trackedMeta = const VerificationMeta('tracked');
+  @override
+  late final GeneratedColumn<bool> tracked = GeneratedColumn<bool>(
+    'tracked',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways('CHECK ("tracked" IN (0, 1))'),
+  );
+  static const VerificationMeta _placeIdMeta = const VerificationMeta('placeId');
+  @override
+  late final GeneratedColumn<String> placeId = GeneratedColumn<String>(
+    'place_id',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _refreshedAtMeta = const VerificationMeta('refreshedAt');
+  @override
+  late final GeneratedColumn<DateTime> refreshedAt = GeneratedColumn<DateTime>(
+    'refreshed_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [eventId, tracked, placeId, refreshedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'event_stock';
+  @override
+  VerificationContext validateIntegrity(Insertable<EventStockRow> instance, {bool isInserting = false}) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('event_id')) {
+      context.handle(_eventIdMeta, eventId.isAcceptableOrUnknown(data['event_id']!, _eventIdMeta));
+    } else if (isInserting) {
+      context.missing(_eventIdMeta);
+    }
+    if (data.containsKey('tracked')) {
+      context.handle(_trackedMeta, tracked.isAcceptableOrUnknown(data['tracked']!, _trackedMeta));
+    } else if (isInserting) {
+      context.missing(_trackedMeta);
+    }
+    if (data.containsKey('place_id')) {
+      context.handle(_placeIdMeta, placeId.isAcceptableOrUnknown(data['place_id']!, _placeIdMeta));
+    }
+    if (data.containsKey('refreshed_at')) {
+      context.handle(_refreshedAtMeta, refreshedAt.isAcceptableOrUnknown(data['refreshed_at']!, _refreshedAtMeta));
+    } else if (isInserting) {
+      context.missing(_refreshedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {eventId};
+  @override
+  EventStockRow map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return EventStockRow(
+      eventId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}event_id'])!,
+      tracked: attachedDatabase.typeMapping.read(DriftSqlType.bool, data['${effectivePrefix}tracked'])!,
+      placeId: attachedDatabase.typeMapping.read(DriftSqlType.string, data['${effectivePrefix}place_id']),
+      refreshedAt: attachedDatabase.typeMapping.read(DriftSqlType.dateTime, data['${effectivePrefix}refreshed_at'])!,
+    );
+  }
+
+  @override
+  $EventStocksTable createAlias(String alias) {
+    return $EventStocksTable(attachedDatabase, alias);
+  }
+}
+
+class EventStockRow extends DataClass implements Insertable<EventStockRow> {
+  final String eventId;
+  final bool tracked;
+  final String? placeId;
+  final DateTime refreshedAt;
+  const EventStockRow({required this.eventId, required this.tracked, this.placeId, required this.refreshedAt});
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['event_id'] = Variable<String>(eventId);
+    map['tracked'] = Variable<bool>(tracked);
+    if (!nullToAbsent || placeId != null) {
+      map['place_id'] = Variable<String>(placeId);
+    }
+    map['refreshed_at'] = Variable<DateTime>(refreshedAt);
+    return map;
+  }
+
+  EventStocksCompanion toCompanion(bool nullToAbsent) {
+    return EventStocksCompanion(
+      eventId: Value(eventId),
+      tracked: Value(tracked),
+      placeId: placeId == null && nullToAbsent ? const Value.absent() : Value(placeId),
+      refreshedAt: Value(refreshedAt),
+    );
+  }
+
+  factory EventStockRow.fromJson(Map<String, dynamic> json, {ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return EventStockRow(
+      eventId: serializer.fromJson<String>(json['eventId']),
+      tracked: serializer.fromJson<bool>(json['tracked']),
+      placeId: serializer.fromJson<String?>(json['placeId']),
+      refreshedAt: serializer.fromJson<DateTime>(json['refreshedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'eventId': serializer.toJson<String>(eventId),
+      'tracked': serializer.toJson<bool>(tracked),
+      'placeId': serializer.toJson<String?>(placeId),
+      'refreshedAt': serializer.toJson<DateTime>(refreshedAt),
+    };
+  }
+
+  EventStockRow copyWith({
+    String? eventId,
+    bool? tracked,
+    Value<String?> placeId = const Value.absent(),
+    DateTime? refreshedAt,
+  }) => EventStockRow(
+    eventId: eventId ?? this.eventId,
+    tracked: tracked ?? this.tracked,
+    placeId: placeId.present ? placeId.value : this.placeId,
+    refreshedAt: refreshedAt ?? this.refreshedAt,
+  );
+  EventStockRow copyWithCompanion(EventStocksCompanion data) {
+    return EventStockRow(
+      eventId: data.eventId.present ? data.eventId.value : this.eventId,
+      tracked: data.tracked.present ? data.tracked.value : this.tracked,
+      placeId: data.placeId.present ? data.placeId.value : this.placeId,
+      refreshedAt: data.refreshedAt.present ? data.refreshedAt.value : this.refreshedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EventStockRow(')
+          ..write('eventId: $eventId, ')
+          ..write('tracked: $tracked, ')
+          ..write('placeId: $placeId, ')
+          ..write('refreshedAt: $refreshedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(eventId, tracked, placeId, refreshedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is EventStockRow &&
+          other.eventId == this.eventId &&
+          other.tracked == this.tracked &&
+          other.placeId == this.placeId &&
+          other.refreshedAt == this.refreshedAt);
+}
+
+class EventStocksCompanion extends UpdateCompanion<EventStockRow> {
+  final Value<String> eventId;
+  final Value<bool> tracked;
+  final Value<String?> placeId;
+  final Value<DateTime> refreshedAt;
+  final Value<int> rowid;
+  const EventStocksCompanion({
+    this.eventId = const Value.absent(),
+    this.tracked = const Value.absent(),
+    this.placeId = const Value.absent(),
+    this.refreshedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  EventStocksCompanion.insert({
+    required String eventId,
+    required bool tracked,
+    this.placeId = const Value.absent(),
+    required DateTime refreshedAt,
+    this.rowid = const Value.absent(),
+  }) : eventId = Value(eventId),
+       tracked = Value(tracked),
+       refreshedAt = Value(refreshedAt);
+  static Insertable<EventStockRow> custom({
+    Expression<String>? eventId,
+    Expression<bool>? tracked,
+    Expression<String>? placeId,
+    Expression<DateTime>? refreshedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (eventId != null) 'event_id': eventId,
+      if (tracked != null) 'tracked': tracked,
+      if (placeId != null) 'place_id': placeId,
+      if (refreshedAt != null) 'refreshed_at': refreshedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  EventStocksCompanion copyWith({
+    Value<String>? eventId,
+    Value<bool>? tracked,
+    Value<String?>? placeId,
+    Value<DateTime>? refreshedAt,
+    Value<int>? rowid,
+  }) {
+    return EventStocksCompanion(
+      eventId: eventId ?? this.eventId,
+      tracked: tracked ?? this.tracked,
+      placeId: placeId ?? this.placeId,
+      refreshedAt: refreshedAt ?? this.refreshedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (eventId.present) {
+      map['event_id'] = Variable<String>(eventId.value);
+    }
+    if (tracked.present) {
+      map['tracked'] = Variable<bool>(tracked.value);
+    }
+    if (placeId.present) {
+      map['place_id'] = Variable<String>(placeId.value);
+    }
+    if (refreshedAt.present) {
+      map['refreshed_at'] = Variable<DateTime>(refreshedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('EventStocksCompanion(')
+          ..write('eventId: $eventId, ')
+          ..write('tracked: $tracked, ')
+          ..write('placeId: $placeId, ')
+          ..write('refreshedAt: $refreshedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -3962,6 +4365,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CartDraftsTable cartDrafts = $CartDraftsTable(this);
   late final $NumberBlocksTable numberBlocks = $NumberBlocksTable(this);
   late final $StaffMembersTable staffMembers = $StaffMembersTable(this);
+  late final $EventStocksTable eventStocks = $EventStocksTable(this);
   late final Index idxProductEvent = Index('idx_product_event', 'CREATE INDEX idx_product_event ON product (event_id)');
   late final Index idxPromotionEvent = Index(
     'idx_promotion_event',
@@ -3984,6 +4388,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     cartDrafts,
     numberBlocks,
     staffMembers,
+    eventStocks,
     idxProductEvent,
     idxPromotionEvent,
     idxCartDraftEvent,
@@ -4156,6 +4561,8 @@ typedef $$ProductsTableCreateCompanionBuilder = ProductsCompanion Function({
   required String barcodes,
   required int remainingStock,
   Value<String> variantsJson,
+  Value<bool> stockTracked,
+  Value<String> variantStockJson,
   Value<int> rowid,
 });
 typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
@@ -4169,6 +4576,8 @@ typedef $$ProductsTableUpdateCompanionBuilder = ProductsCompanion Function({
   Value<String> barcodes,
   Value<int> remainingStock,
   Value<String> variantsJson,
+  Value<bool> stockTracked,
+  Value<String> variantStockJson,
   Value<int> rowid,
 });
 
@@ -4206,6 +4615,12 @@ class $$ProductsTableFilterComposer extends Composer<_$AppDatabase, $ProductsTab
 
   ColumnFilters<String> get variantsJson =>
       $composableBuilder(column: $table.variantsJson, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get stockTracked =>
+      $composableBuilder(column: $table.stockTracked, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get variantStockJson =>
+      $composableBuilder(column: $table.variantStockJson, builder: (column) => ColumnFilters(column));
 }
 
 class $$ProductsTableOrderingComposer extends Composer<_$AppDatabase, $ProductsTable> {
@@ -4244,6 +4659,12 @@ class $$ProductsTableOrderingComposer extends Composer<_$AppDatabase, $ProductsT
 
   ColumnOrderings<String> get variantsJson =>
       $composableBuilder(column: $table.variantsJson, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get stockTracked =>
+      $composableBuilder(column: $table.stockTracked, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get variantStockJson =>
+      $composableBuilder(column: $table.variantStockJson, builder: (column) => ColumnOrderings(column));
 }
 
 class $$ProductsTableAnnotationComposer extends Composer<_$AppDatabase, $ProductsTable> {
@@ -4275,6 +4696,12 @@ class $$ProductsTableAnnotationComposer extends Composer<_$AppDatabase, $Product
 
   GeneratedColumn<String> get variantsJson =>
       $composableBuilder(column: $table.variantsJson, builder: (column) => column);
+
+  GeneratedColumn<bool> get stockTracked =>
+      $composableBuilder(column: $table.stockTracked, builder: (column) => column);
+
+  GeneratedColumn<String> get variantStockJson =>
+      $composableBuilder(column: $table.variantStockJson, builder: (column) => column);
 }
 
 class $$ProductsTableTableManager
@@ -4312,6 +4739,8 @@ class $$ProductsTableTableManager
                 Value<String> barcodes = const Value.absent(),
                 Value<int> remainingStock = const Value.absent(),
                 Value<String> variantsJson = const Value.absent(),
+                Value<bool> stockTracked = const Value.absent(),
+                Value<String> variantStockJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion(
                 eventId: eventId,
@@ -4324,6 +4753,8 @@ class $$ProductsTableTableManager
                 barcodes: barcodes,
                 remainingStock: remainingStock,
                 variantsJson: variantsJson,
+                stockTracked: stockTracked,
+                variantStockJson: variantStockJson,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -4338,6 +4769,8 @@ class $$ProductsTableTableManager
                 required String barcodes,
                 required int remainingStock,
                 Value<String> variantsJson = const Value.absent(),
+                Value<bool> stockTracked = const Value.absent(),
+                Value<String> variantStockJson = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => ProductsCompanion.insert(
                 eventId: eventId,
@@ -4350,6 +4783,8 @@ class $$ProductsTableTableManager
                 barcodes: barcodes,
                 remainingStock: remainingStock,
                 variantsJson: variantsJson,
+                stockTracked: stockTracked,
+                variantStockJson: variantStockJson,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -4798,6 +5233,7 @@ typedef $$PendingOrdersTableCreateCompanionBuilder = PendingOrdersCompanion Func
   Value<double?> discount,
   Value<String?> promotionName,
   Value<String?> staffId,
+  Value<String?> stockPlaceId,
   Value<int> rowid,
 });
 typedef $$PendingOrdersTableUpdateCompanionBuilder = PendingOrdersCompanion Function({
@@ -4820,6 +5256,7 @@ typedef $$PendingOrdersTableUpdateCompanionBuilder = PendingOrdersCompanion Func
   Value<double?> discount,
   Value<String?> promotionName,
   Value<String?> staffId,
+  Value<String?> stockPlaceId,
   Value<int> rowid,
 });
 
@@ -4887,6 +5324,9 @@ class $$PendingOrdersTableFilterComposer extends Composer<_$AppDatabase, $Pendin
 
   ColumnFilters<String> get staffId =>
       $composableBuilder(column: $table.staffId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get stockPlaceId =>
+      $composableBuilder(column: $table.stockPlaceId, builder: (column) => ColumnFilters(column));
 }
 
 class $$PendingOrdersTableOrderingComposer extends Composer<_$AppDatabase, $PendingOrdersTable> {
@@ -4953,6 +5393,9 @@ class $$PendingOrdersTableOrderingComposer extends Composer<_$AppDatabase, $Pend
 
   ColumnOrderings<String> get staffId =>
       $composableBuilder(column: $table.staffId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get stockPlaceId =>
+      $composableBuilder(column: $table.stockPlaceId, builder: (column) => ColumnOrderings(column));
 }
 
 class $$PendingOrdersTableAnnotationComposer extends Composer<_$AppDatabase, $PendingOrdersTable> {
@@ -5008,6 +5451,9 @@ class $$PendingOrdersTableAnnotationComposer extends Composer<_$AppDatabase, $Pe
       $composableBuilder(column: $table.promotionName, builder: (column) => column);
 
   GeneratedColumn<String> get staffId => $composableBuilder(column: $table.staffId, builder: (column) => column);
+
+  GeneratedColumn<String> get stockPlaceId =>
+      $composableBuilder(column: $table.stockPlaceId, builder: (column) => column);
 }
 
 class $$PendingOrdersTableTableManager
@@ -5054,6 +5500,7 @@ class $$PendingOrdersTableTableManager
                 Value<double?> discount = const Value.absent(),
                 Value<String?> promotionName = const Value.absent(),
                 Value<String?> staffId = const Value.absent(),
+                Value<String?> stockPlaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingOrdersCompanion(
                 idempotencyKey: idempotencyKey,
@@ -5075,6 +5522,7 @@ class $$PendingOrdersTableTableManager
                 discount: discount,
                 promotionName: promotionName,
                 staffId: staffId,
+                stockPlaceId: stockPlaceId,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -5098,6 +5546,7 @@ class $$PendingOrdersTableTableManager
                 Value<double?> discount = const Value.absent(),
                 Value<String?> promotionName = const Value.absent(),
                 Value<String?> staffId = const Value.absent(),
+                Value<String?> stockPlaceId = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => PendingOrdersCompanion.insert(
                 idempotencyKey: idempotencyKey,
@@ -5119,6 +5568,7 @@ class $$PendingOrdersTableTableManager
                 discount: discount,
                 promotionName: promotionName,
                 staffId: staffId,
+                stockPlaceId: stockPlaceId,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
@@ -5866,6 +6316,159 @@ typedef $$StaffMembersTableProcessedTableManager =
       StaffRow,
       PrefetchHooks Function()
     >;
+typedef $$EventStocksTableCreateCompanionBuilder = EventStocksCompanion Function({
+  required String eventId,
+  required bool tracked,
+  Value<String?> placeId,
+  required DateTime refreshedAt,
+  Value<int> rowid,
+});
+typedef $$EventStocksTableUpdateCompanionBuilder = EventStocksCompanion Function({
+  Value<String> eventId,
+  Value<bool> tracked,
+  Value<String?> placeId,
+  Value<DateTime> refreshedAt,
+  Value<int> rowid,
+});
+
+class $$EventStocksTableFilterComposer extends Composer<_$AppDatabase, $EventStocksTable> {
+  $$EventStocksTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<bool> get tracked =>
+      $composableBuilder(column: $table.tracked, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<String> get placeId =>
+      $composableBuilder(column: $table.placeId, builder: (column) => ColumnFilters(column));
+
+  ColumnFilters<DateTime> get refreshedAt =>
+      $composableBuilder(column: $table.refreshedAt, builder: (column) => ColumnFilters(column));
+}
+
+class $$EventStocksTableOrderingComposer extends Composer<_$AppDatabase, $EventStocksTable> {
+  $$EventStocksTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get eventId =>
+      $composableBuilder(column: $table.eventId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<bool> get tracked =>
+      $composableBuilder(column: $table.tracked, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<String> get placeId =>
+      $composableBuilder(column: $table.placeId, builder: (column) => ColumnOrderings(column));
+
+  ColumnOrderings<DateTime> get refreshedAt =>
+      $composableBuilder(column: $table.refreshedAt, builder: (column) => ColumnOrderings(column));
+}
+
+class $$EventStocksTableAnnotationComposer extends Composer<_$AppDatabase, $EventStocksTable> {
+  $$EventStocksTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get eventId => $composableBuilder(column: $table.eventId, builder: (column) => column);
+
+  GeneratedColumn<bool> get tracked => $composableBuilder(column: $table.tracked, builder: (column) => column);
+
+  GeneratedColumn<String> get placeId => $composableBuilder(column: $table.placeId, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get refreshedAt =>
+      $composableBuilder(column: $table.refreshedAt, builder: (column) => column);
+}
+
+class $$EventStocksTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $EventStocksTable,
+          EventStockRow,
+          $$EventStocksTableFilterComposer,
+          $$EventStocksTableOrderingComposer,
+          $$EventStocksTableAnnotationComposer,
+          $$EventStocksTableCreateCompanionBuilder,
+          $$EventStocksTableUpdateCompanionBuilder,
+          (EventStockRow, BaseReferences<_$AppDatabase, $EventStocksTable, EventStockRow>),
+          EventStockRow,
+          PrefetchHooks Function()
+        > {
+  $$EventStocksTableTableManager(_$AppDatabase db, $EventStocksTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () => $$EventStocksTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () => $$EventStocksTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () => $$EventStocksTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<String> eventId = const Value.absent(),
+                Value<bool> tracked = const Value.absent(),
+                Value<String?> placeId = const Value.absent(),
+                Value<DateTime> refreshedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => EventStocksCompanion(
+                eventId: eventId,
+                tracked: tracked,
+                placeId: placeId,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String eventId,
+                required bool tracked,
+                Value<String?> placeId = const Value.absent(),
+                required DateTime refreshedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => EventStocksCompanion.insert(
+                eventId: eventId,
+                tracked: tracked,
+                placeId: placeId,
+                refreshedAt: refreshedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$EventStocksTable, EventStockRow>(table),
+                  BaseReferences<_$AppDatabase, $EventStocksTable, EventStockRow>(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$EventStocksTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $EventStocksTable,
+      EventStockRow,
+      $$EventStocksTableFilterComposer,
+      $$EventStocksTableOrderingComposer,
+      $$EventStocksTableAnnotationComposer,
+      $$EventStocksTableCreateCompanionBuilder,
+      $$EventStocksTableUpdateCompanionBuilder,
+      (EventStockRow, BaseReferences<_$AppDatabase, $EventStocksTable, EventStockRow>),
+      EventStockRow,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -5879,4 +6482,5 @@ class $AppDatabaseManager {
   $$CartDraftsTableTableManager get cartDrafts => $$CartDraftsTableTableManager(_db, _db.cartDrafts);
   $$NumberBlocksTableTableManager get numberBlocks => $$NumberBlocksTableTableManager(_db, _db.numberBlocks);
   $$StaffMembersTableTableManager get staffMembers => $$StaffMembersTableTableManager(_db, _db.staffMembers);
+  $$EventStocksTableTableManager get eventStocks => $$EventStocksTableTableManager(_db, _db.eventStocks);
 }

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
+import '../../core/connectivity.dart';
 import '../../core/format/money.dart';
 import '../../data/cart/cart_notifier.dart';
 import '../../domain/product.dart';
@@ -51,6 +52,10 @@ class _ProductSheetState extends ConsumerState<ProductSheet> {
     final product = widget.product;
     final inOrder = ref.watch(cartProvider.select((c) => c.qtyOf(product.id)));
     final price = _variant?.price ?? product.price;
+    // 6c: online, the cashier stops at what Bhoomy has (minus this device's unsent sales).
+    // Offline, or where stock is not tracked, every sale is accepted.
+    final limit = ref.isOnline ? product.available(product.variants.isEmpty ? null : _variant?.id) : null;
+    final soldOut = limit != null && limit <= 0;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 8, 20, 20),
@@ -67,7 +72,7 @@ class _ProductSheetState extends ConsumerState<ProductSheet> {
                 fit: StackFit.expand,
                 children: [
                   ProductImage(product.imageUrl),
-                  Positioned(top: 12, left: 12, child: StockBadge(product.remainingStock)),
+                  if (product.shownStock != null) Positioned(top: 12, left: 12, child: StockBadge(product.shownStock!)),
                   if (inOrder > 0)
                     Positioned(
                       bottom: 12,
@@ -121,16 +126,16 @@ class _ProductSheetState extends ConsumerState<ProductSheet> {
               QtyStepper(
                 qty: _qty,
                 onMinus: _qty > 1 ? () => setState(() => _qty--) : null,
-                onPlus: _qty < product.remainingStock ? () => setState(() => _qty++) : null,
+                onPlus: limit == null || _qty < limit ? () => setState(() => _qty++) : null,
               ),
               const SizedBox(width: 12),
-              Text(product.outOfStock ? 'Unavailable' : 'max ${product.remainingStock}', style: AppText.caption),
+              if (limit != null) Text(soldOut ? 'Unavailable' : 'max $limit', style: AppText.caption),
             ],
           ),
           const SizedBox(height: 24),
           BrandButton(
-            text: product.outOfStock ? 'Sold out' : 'Add to order · ${rupiah(price * _qty)}',
-            onPressed: product.outOfStock ? null : _add,
+            text: soldOut ? 'Sold out' : 'Add to order · ${rupiah(price * _qty)}',
+            onPressed: soldOut ? null : _add,
           ),
         ],
       ),

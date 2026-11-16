@@ -51,6 +51,8 @@ class OrderRepository {
     final reference = 'ORD-$businessDate-${event.code}-$padded';
     final key = const Uuid().v4();
     final now = DateTime.now();
+    // 6c: the sale keeps the place it sold from, even if it uploads after the location moves.
+    final place = await _products.stockPlace(event.id);
     final lines = [
       for (final MapEntry(:key, value: qty) in cart.items.entries)
         {'productId': parseCartKey(key).productId, 'qty': qty, 'variantId': parseCartKey(key).variantId},
@@ -76,10 +78,16 @@ class OrderRepository {
             discount: Value(priced.discount.toDouble()),
             promotionName: Value(priced.promotionName),
             staffId: Value(staffId),
+            stockPlaceId: Value(place),
           ),
         );
     for (final line in lines) {
-      await _products.adjustStock(event.id, line['productId'] as String, -(line['qty'] as int));
+      await _products.adjustStock(
+        event.id,
+        line['productId'] as String,
+        line['variantId'] as String?,
+        -(line['qty'] as int),
+      );
     }
     _uploader.kick();
     unawaited(_numbers.topUp(event.id));
@@ -143,7 +151,7 @@ class OrderRepository {
     )..where((o) => o.idempotencyKey.equals(key))).write(const PendingOrdersCompanion(status: Value('CANCELLED')));
     await _receipts.markCancelled(key);
     for (final line in jsonDecode(order.linesJson)) {
-      await _products.adjustStock(order.eventId, line['productId'], line['qty']);
+      await _products.adjustStock(order.eventId, line['productId'], line['variantId'], line['qty']);
     }
     return null;
   }

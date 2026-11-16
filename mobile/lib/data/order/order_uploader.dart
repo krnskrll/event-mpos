@@ -90,6 +90,8 @@ class OrderUploader {
           'lines': jsonDecode(order.linesJson),
           'orderNumber': order.orderNumber,
           'clientCreatedAt': order.createdAt.toUtc().toIso8601String(),
+          'stockPlaceId': order.stockPlaceId,
+          'stockKnown': true,
         },
         options: Options(headers: {staffHeader: ?order.staffId}),
       );
