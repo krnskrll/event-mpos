@@ -1,7 +1,6 @@
 package app_test
 
 import (
-	"net/http"
 	"strings"
 	"testing"
 
@@ -27,7 +26,7 @@ func line(productID uuid.UUID, qty int) orderiface.OrderLineRequest {
 
 func dec(s string) decimal.Decimal { return decimal.RequireFromString(s) }
 
-func TestSubmitCreatesNumberedOrderAndDecrementsStock(t *testing.T) {
+func TestSubmitCreatesNumberedOrderForBhoomy(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("100.00")
 	a.Allocate(ev.ID, p.ID, 10)
@@ -45,8 +44,11 @@ func TestSubmitCreatesNumberedOrderAndDecrementsStock(t *testing.T) {
 	if !conf.Subtotal.Equal(dec("300")) {
 		t.Errorf("subtotal = %s, want 300", conf.Subtotal)
 	}
-	if got := a.Remaining(ev.ID, p.ID); got != 7 {
-		t.Errorf("remaining = %d, want 7", got)
+	// 6c: POS no longer counts stock; the order waits for the job that sends it to Bhoomy.
+	var state string
+	a.DB.Raw("SELECT sync_state FROM orders WHERE id = ?", conf.ID).Scan(&state)
+	if state != "pending" {
+		t.Errorf("sync_state = %q, want pending", state)
 	}
 }
 
@@ -67,8 +69,10 @@ func TestIdempotentSubmitReturnsOriginalOrder(t *testing.T) {
 	if first.ID != second.ID || !second.Duplicate {
 		t.Errorf("retry created a new order: first=%s second=%s duplicate=%v", first.ID, second.ID, second.Duplicate)
 	}
-	if got := a.Remaining(ev.ID, p.ID); got != 8 {
-		t.Errorf("remaining = %d, want 8 (decremented once)", got)
+	var n int64
+	a.DB.Raw("SELECT count(*) FROM orders WHERE idempotency_key = ?", key).Scan(&n)
+	if n != 1 {
+		t.Errorf("orders = %d, want 1", n)
 	}
 }
 
@@ -97,29 +101,14 @@ func TestDailyNumberIncrementsPerEvent(t *testing.T) {
 	}
 }
 
-func TestOversellIsRejectedAndWholeOrderRollsBack(t *testing.T) {
+// 6c: stock is Bhoomy's. POS never refuses a sale for stock; a shortfall becomes a Konflik stok there.
+func TestStockNeverRefusesASale(t *testing.T) {
 	a := testutil.NewApp(t)
-	ev, p1, p2 := a.ActiveEvent(), a.Product("100.00"), a.Product("50.00")
-	a.Allocate(ev.ID, p1.ID, 10)
-	a.Allocate(ev.ID, p2.ID, 2)
-
-	// Line 1 fits, line 2 oversells: nothing may be decremented and no number consumed.
-	_, err := submit(a, ev.ID, uuid.NewString(), line(p1.ID, 3), line(p2.ID, 5))
-	if testutil.StatusOf(err) != http.StatusConflict {
-		t.Fatalf("oversell: got %v, want 409", err)
-	}
-	if got := a.Remaining(ev.ID, p1.ID); got != 10 {
-		t.Errorf("p1 remaining = %d, want 10 (rolled back)", got)
-	}
-	if got := a.Remaining(ev.ID, p2.ID); got != 2 {
-		t.Errorf("p2 remaining = %d, want 2", got)
-	}
-	conf, err := submit(a, ev.ID, uuid.NewString(), line(p1.ID, 1))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if conf.OrderNumber != 1 {
-		t.Errorf("number after rollback = %d, want 1 (failed order must not consume one)", conf.OrderNumber)
+	ev, p := a.ActiveEvent(), a.Product("100.00")
+	a.Allocate(ev.ID, p.ID, 2)
+	conf, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 5))
+	if err != nil || conf.OrderNumber != 1 {
+		t.Fatalf("got %+v, %v", conf, err)
 	}
 }
 

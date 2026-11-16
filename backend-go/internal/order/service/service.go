@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"sort"
 	"strings"
 	"time"
 
@@ -37,6 +36,8 @@ type Service struct {
 	jakarta    *time.Location
 	// broadcast pushes an order change to the warehouse board after commit; nil is a no-op.
 	broadcast func(eventID uuid.UUID, view iface.WarehouseOrderView)
+	// placeOf is the location's linked storage place now, for apps from before 6c; nil = untracked.
+	placeOf func(eventID uuid.UUID) *uuid.UUID
 }
 
 func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, promotions promotioniface.Promotions, aud auditiface.Audit, names auditiface.Names) *Service {
@@ -51,8 +52,12 @@ func (s *Service) SetBroadcaster(fn func(eventID uuid.UUID, view iface.Warehouse
 	s.broadcast = fn
 }
 
+// SetPlaceLookup answers where an older app's sale was made from (6c).
+func (s *Service) SetPlaceLookup(fn func(eventID uuid.UUID) *uuid.UUID) { s.placeOf = fn }
+
 type draftItem struct {
 	productID   uuid.UUID
+	bhoomyID    *uuid.UUID
 	variantID   *uuid.UUID
 	variantName *string
 	sku, name   string
@@ -61,9 +66,10 @@ type draftItem struct {
 	lineTotal   decimal.Decimal
 }
 
-// Submit creates an order ATOMICALLY: idempotency → validate → decrement stock (row locks) → apply
-// best promotion → allocate the daily number → persist + audit. Any failure rolls the whole thing
-// back. A retried submit with the same idempotency key returns the original order.
+// Submit creates an order ATOMICALLY: idempotency → validate → apply best promotion → allocate the
+// daily number → persist + audit. Any failure rolls the whole thing back. A retried submit with the
+// same idempotency key returns the original order. Stock is Bhoomy's (6c): the order is sent there
+// afterwards and a shortfall becomes a Konflik stok, so POS never refuses a sale for stock.
 func (s *Service) Submit(eventID, staffID uuid.UUID, req iface.SubmitOrderRequest) (*iface.OrderConfirmation, error) {
 	// 1) idempotency fast-path
 	if existing, err := s.findByIdempotencyKey(req.IdempotencyKey); err != nil {
@@ -104,6 +110,7 @@ func (s *Service) Submit(eventID, staffID uuid.UUID, req iface.SubmitOrderReques
 			return nil, common.NewAppError(http.StatusBadRequest, "Unknown product "+line.ProductID.String())
 		}
 		unitPrice := p.Price
+		bhoomyID := p.BhoomyVariantID
 		var variantID *uuid.UUID
 		var variantName *string
 		if line.VariantID != nil {
@@ -119,6 +126,7 @@ func (s *Service) Submit(eventID, staffID uuid.UUID, req iface.SubmitOrderReques
 					"Unknown variant "+line.VariantID.String()+" for product "+p.SKU)
 			}
 			unitPrice = found.Price
+			bhoomyID = found.BhoomyVariantID
 			variantID = &found.ID
 			name := found.Name
 			variantName = &name
@@ -126,7 +134,7 @@ func (s *Service) Submit(eventID, staffID uuid.UUID, req iface.SubmitOrderReques
 		lineTotal := unitPrice.Mul(decimal.NewFromInt(int64(line.Qty)))
 		cartLines = append(cartLines, promotioniface.CartLine{ProductID: p.ID, UnitPrice: unitPrice, Qty: line.Qty})
 		drafts = append(drafts, draftItem{
-			productID: p.ID, variantID: variantID, variantName: variantName, sku: p.SKU, name: p.Name,
+			productID: p.ID, bhoomyID: bhoomyID, variantID: variantID, variantName: variantName, sku: p.SKU, name: p.Name,
 			unitPrice: unitPrice, qty: line.Qty, lineTotal: lineTotal,
 		})
 	}
@@ -163,25 +171,14 @@ func (s *Service) Submit(eventID, staffID uuid.UUID, req iface.SubmitOrderReques
 		CustomerTier: req.Customer.Tier, Subtotal: subtotal, Discount: discount, Total: total,
 		PromotionID: promoID, PromotionName: promoName, Status: iface.StatusNew,
 		DeviceID: req.DeviceID, ClientCreatedAt: req.ClientCreatedAt, LateSynced: lateSynced,
+		BhoomyPlaceID: req.StockPlaceID,
+	}
+	if !req.StockKnown && s.placeOf != nil {
+		order.BhoomyPlaceID = s.placeOf(eventID)
 	}
 
-	// 3+5+6) atomic tx: stock decrement (row locks) → daily number → persist + audit
-	// Lock allocation rows in a fixed (product id) order so two multi-line orders can't each hold
-	// one row and wait on the other.
-	lockOrder := append([]iface.OrderLineRequest(nil), lines...)
-	sort.Slice(lockOrder, func(i, j int) bool { return lockOrder[i].ProductID.String() < lockOrder[j].ProductID.String() })
+	// 3+5+6) atomic tx: daily number → persist + audit
 	txErr := s.db.Transaction(func(tx *gorm.DB) error {
-		for _, line := range lockOrder {
-			if req.OrderNumber != nil { // already confirmed on the device: never reject, flag oversells
-				oversold, err := s.stock.Reserve(tx, eventID, line.ProductID, line.Qty)
-				if err != nil {
-					return err
-				}
-				order.StockConflict = order.StockConflict || oversold
-			} else if err := s.stock.Decrement(tx, eventID, line.ProductID, line.Qty); err != nil {
-				return err
-			}
-		}
 		number, businessDate, err := s.orderNumber(tx, eventID, dateKey, req)
 		if err != nil {
 			return err
@@ -190,7 +187,7 @@ func (s *Service) Submit(eventID, staffID uuid.UUID, req iface.SubmitOrderReques
 		order.ReferenceID = fmt.Sprintf("ORD-%s-%s-%03d", businessDate, ev.Code, number)
 		for _, d := range drafts {
 			order.Items = append(order.Items, repository.OrderItem{
-				ProductID: d.productID, VariantID: d.variantID, VariantName: d.variantName,
+				ProductID: d.productID, VariantID: d.variantID, VariantName: d.variantName, BhoomyVariantID: d.bhoomyID,
 				SKU: d.sku, Name: d.name, UnitPrice: d.unitPrice, Qty: d.qty, LineTotal: d.lineTotal,
 			})
 		}
@@ -211,7 +208,6 @@ func (s *Service) Submit(eventID, staffID uuid.UUID, req iface.SubmitOrderReques
 		return nil, txErr
 	}
 
-	s.stock.InvalidateSummary(eventID)
 	if s.broadcast != nil {
 		if view, err := s.toWarehouseView(&order); err == nil {
 			s.broadcast(eventID, *view)
@@ -275,8 +271,8 @@ func (s *Service) AdvanceStatus(orderID uuid.UUID, target iface.OrderStatus, act
 	return s.publish(&o)
 }
 
-// Cancel cancels an order and returns its stock, in one transaction with the audit entry naming the
-// cashier and the approving supervisor. From the cashier's history only a NEW order can be cancelled;
+// Cancel cancels an order, in one transaction with the audit entry naming the cashier and the
+// approving supervisor; the cancel is then sent to Bhoomy, which puts the stock back (6c). From the cashier's history only a NEW order can be cancelled;
 // the pickup board (packing) may also cancel a PACKING one. Anything else is a 409.
 func (s *Service) Cancel(orderID, actorID uuid.UUID, approvedBy string, reason *string, packing bool) (*iface.WarehouseOrderView, error) {
 	var o repository.Order
@@ -287,13 +283,12 @@ func (s *Service) Cancel(orderID, actorID uuid.UUID, approvedBy string, reason *
 		if !o.Status.CanCancel() || (!packing && o.Status != iface.StatusNew) {
 			return common.NewAppError(http.StatusConflict, "Order "+o.ReferenceID+" is "+string(o.Status)+" and can no longer be cancelled")
 		}
-		for _, it := range o.Items {
-			if err := s.stock.Restore(tx, o.EventID, it.ProductID, it.Qty); err != nil {
-				return err
-			}
-		}
 		from := o.Status
 		if err := tx.Model(&o).Update("status", iface.StatusCancelled).Error; err != nil {
+			return err
+		}
+		if err := tx.Model(&o).Where("sync_state <> ?", repository.SyncSkipped).
+			Updates(map[string]any{"sync_state": repository.SyncPending, "next_sync_at": time.Now().UTC(), "sync_attempts": 0}).Error; err != nil {
 			return err
 		}
 		o.Status = iface.StatusCancelled
@@ -302,7 +297,6 @@ func (s *Service) Cancel(orderID, actorID uuid.UUID, approvedBy string, reason *
 	if err != nil {
 		return nil, err
 	}
-	s.stock.InvalidateSummary(o.EventID)
 	return s.publish(&o)
 }
 

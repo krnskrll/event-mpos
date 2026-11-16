@@ -81,6 +81,10 @@ type SubmitOrderRequest struct {
 	DeviceID        *string    `json:"deviceId"`
 	OrderNumber     *int       `json:"orderNumber"`
 	ClientCreatedAt *time.Time `json:"clientCreatedAt"`
+	// 6c: the storage place the app sold from (from its last stock read; nil = untracked).
+	// StockKnown is false for apps from before 6c: POS then uses the location's current link.
+	StockPlaceID *uuid.UUID `json:"stockPlaceId"`
+	StockKnown   bool       `json:"stockKnown"`
 }
 
 // ---- response DTOs ----
@@ -185,6 +189,39 @@ type SoldItem struct {
 	VariantName *string
 	Qty         int
 	LineTotal   decimal.Decimal
+}
+
+// SyncOrder is an order as Bhoomy receives it (6c).
+type SyncOrder struct {
+	ID          uuid.UUID
+	EventID     uuid.UUID
+	ReferenceID string
+	PlaceID     *uuid.UUID
+	SoldBy      string
+	Total       decimal.Decimal
+	SoldAt      time.Time
+	Cancelled   bool
+	Sent        bool // the sale itself reached Bhoomy before
+	Attempts    int
+	Lines       []SyncLine
+}
+
+type SyncLine struct {
+	ID              uuid.UUID
+	BhoomyVariantID *uuid.UUID
+	SKU, Name       string
+	Qty             int
+	UnitPrice       decimal.Decimal
+	LineTotal       decimal.Decimal
+}
+
+// Sync is what the job that sends sales and cancels to Bhoomy needs (6c).
+type Sync interface {
+	DueForSync(limit int) ([]SyncOrder, error)
+	// MarkSynced records Bhoomy's answer; an order cancelled meanwhile stays due for its cancel.
+	MarkSynced(id uuid.UUID, cancelled bool, stockStatus string) error
+	MarkSyncRetry(id uuid.UUID, attempts int, msg string) error
+	MarkSyncDone(id uuid.UUID, state, msg string) error // failed or skipped
 }
 
 type Orders interface {

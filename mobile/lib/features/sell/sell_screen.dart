@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../app/status.dart';
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
+import '../../core/connectivity.dart';
 import '../../core/format/money.dart';
 import '../../core/network/api_failure.dart';
 import '../../core/printer/sunmi.dart';
@@ -249,7 +250,7 @@ class _ProductCard extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final soldOut = product.outOfStock;
+    final soldOut = ref.isOnline && product.outOfStock;
     void add() => product.variants.isNotEmpty
         ? showProductSheet(context, product)
         : ref.read(cartProvider.notifier).add(product.id);
@@ -277,7 +278,8 @@ class _ProductCard extends ConsumerWidget {
                       fit: StackFit.expand,
                       children: [
                         Opacity(opacity: soldOut ? 0.45 : 1, child: ProductImage(product.imageUrl)),
-                        Positioned(top: 8, left: 8, child: StockBadge(product.remainingStock)),
+                        if (product.shownStock != null)
+                          Positioned(top: 8, left: 8, child: StockBadge(product.shownStock!)),
                         if (inOrder > 0)
                           Positioned(
                             bottom: 8,

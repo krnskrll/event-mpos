@@ -80,6 +80,8 @@ type App struct {
 	Media       *media.Store
 	Catalog     *catalogsvc.Service
 	CatalogSync *bhoomy.CatalogSync
+	SalesSync   *bhoomy.SalesSync
+	StockReader *bhoomy.StockReader
 	Staff       *staffsvc.Service
 	Devices     *devicesvc.Service
 }
@@ -122,6 +124,10 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Audit = auditsvc.NewService(db, names)
 	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, names)
 	a.Receipts = receiptsvc.NewService(db, a.Orders, a.Audit)
+	// 6c: sales go to Bhoomy's stock; the app reads Bhoomy's numbers (30 s in memory).
+	a.StockReader = bhoomy.NewStockReader(a.Bhoomy, a.Catalog, a.Events, a.Products)
+	a.SalesSync = bhoomy.NewSalesSync(a.Bhoomy, a.Orders, a.Events, a.Catalog)
+	a.Orders.SetPlaceLookup(a.StockReader.PlaceOf)
 
 	// Real-time warehouse board: run the WebSocket hub and push order changes to it after commit.
 	a.Hub = realtime.NewHub()
@@ -170,6 +176,7 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	staffHandler := staffhandler.NewHandler(a.Staff)
 	deviceHandler := devicehandler.NewHandler(a.Devices, a.Staff)
 	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
+	meHandler.SetStockLevels(func(ctx context.Context, id uuid.UUID) (any, error) { return a.StockReader.Levels(ctx, id) })
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.New()
@@ -206,6 +213,7 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		me.GET("/members", meHandler.Members)
 		me.GET("/members/by-qr/:qrCode", meHandler.MemberByQr)
 		me.GET("/events/:eventId/stock", meHandler.Stock)
+		me.GET("/events/:eventId/stock-levels", meHandler.StockLevels)
 		me.POST("/events/:eventId/promotions/quote", meHandler.Quote)
 		me.POST("/events/:eventId/orders", meHandler.SubmitOrder)
 		me.POST("/events/:eventId/number-blocks", meHandler.IssueNumberBlock)

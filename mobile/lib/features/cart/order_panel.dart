@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../app/theme.dart';
 import '../../app/widgets.dart';
+import '../../core/connectivity.dart';
 import '../../core/format/money.dart';
 import '../../data/cart/cart_notifier.dart';
 import '../../data/order/order_repository.dart';
@@ -76,6 +77,7 @@ class _OrderPanelState extends ConsumerState<OrderPanel> {
     final priced = ref.watch(pricedCartProvider);
     final drafts = ref.watch(draftsProvider).value?.length ?? 0;
     final notifier = ref.read(cartProvider.notifier);
+    final online = ref.isOnline;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -119,10 +121,11 @@ class _OrderPanelState extends ConsumerState<OrderPanel> {
                   separatorBuilder: (_, _) => const Divider(),
                   itemBuilder: (_, i) {
                     final item = priced.items[i];
+                    final limit = online ? item.product.available(item.variant?.id) : null;
                     return _OrderLine(
                       item,
                       onMinus: () => notifier.adjust(item.key, -1),
-                      onPlus: item.qty < item.product.remainingStock ? () => notifier.adjust(item.key, 1) : null,
+                      onPlus: limit == null || item.qty < limit ? () => notifier.adjust(item.key, 1) : null,
                     );
                   },
                 ),

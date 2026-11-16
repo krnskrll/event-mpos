@@ -42,6 +42,7 @@ void main() {
             createdAt: DateTime(2026, 10, 31, 10),
             orderNumber: const Value(7),
             staffId: Value(budi.id),
+            stockPlaceId: const Value('place-1'),
           ),
         );
   });
@@ -60,6 +61,8 @@ void main() {
     expect(server.requests.first.data['lines'], [
       {'productId': 'p1', 'qty': 1},
     ]);
+    // 6c: the sale carries the place it sold from, even when it uploads late.
+    expect((server.requests.first.data['stockPlaceId'], server.requests.first.data['stockKnown']), ('place-1', true));
 
     await (db.update(db.pendingOrders)).write(const PendingOrdersCompanion(status: Value('PENDING')));
     server.routes[_path] = (409, {});

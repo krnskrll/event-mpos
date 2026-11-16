@@ -21,6 +21,7 @@ void main() {
       'cart_draft',
       'number_block',
       'staff',
+      'event_stock',
     });
   });
 

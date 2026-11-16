@@ -57,6 +57,7 @@ func main() {
 	syncCtx, stopSync := context.WithCancel(context.Background())
 	if cfg.BhoomyMode == "http" {
 		go syncCatalog(syncCtx, a, time.Duration(cfg.BhoomySyncMinutes)*time.Minute)
+		go syncSales(syncCtx, a, 15*time.Second)
 	}
 
 	srv := &http.Server{Addr: ":" + cfg.Port, Handler: a.Router}
@@ -98,6 +99,22 @@ func syncCatalog(ctx context.Context, a *app.App, every time.Duration) {
 	defer t.Stop()
 	for {
 		a.CatalogSync.RunAll(ctx)
+		select {
+		case <-ctx.Done():
+			return
+		case <-t.C:
+		}
+	}
+}
+
+// syncSales sends unsent sales and cancels to Bhoomy every interval (6c); a full batch goes again
+// at once.
+func syncSales(ctx context.Context, a *app.App, every time.Duration) {
+	t := time.NewTicker(every)
+	defer t.Stop()
+	for {
+		for a.SalesSync.RunOnce(ctx) == 100 && ctx.Err() == nil { // a full batch: more are waiting
+		}
 		select {
 		case <-ctx.Done():
 			return

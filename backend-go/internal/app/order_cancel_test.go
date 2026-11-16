@@ -72,8 +72,11 @@ func TestCancelOrder(t *testing.T) {
 		t.Errorf("cancel without X-Staff-Id: %d, want 400", rec.Code)
 	}
 
-	if got := a.Remaining(ev.ID, p.ID); got != 9 { // only the READY order (1 unit) is still sold
-		t.Errorf("remaining = %d, want 9", got)
+	// 6c: the cancel goes to Bhoomy next, which puts the stock back.
+	var state string
+	a.DB.Raw("SELECT sync_state FROM orders WHERE id = ?", newOrder).Scan(&state)
+	if state != "pending" {
+		t.Errorf("cancelled order sync_state = %q, want pending", state)
 	}
 	if _, err := a.Orders.AdvanceStatus(packing, orderiface.StatusReady, &kasir.ID); testutil.StatusOf(err) != http.StatusConflict {
 		t.Errorf("advancing a cancelled order: %v, want 409", err)

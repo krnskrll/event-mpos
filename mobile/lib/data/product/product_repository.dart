@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/db/database.dart';
 import '../../core/network/api_client.dart';
+import '../../domain/cart.dart';
 import '../../domain/product.dart';
 import '../session/session.dart';
 
@@ -47,30 +48,97 @@ class ProductRepository {
         products.where((p) => c.isNotEmpty && p.name.toLowerCase().contains(c)).firstOrNull;
   }
 
-  /// Local best guess after a sale (negative) or a cancel (positive); the server decides.
-  Future<void> adjustStock(String eventId, String productId, int delta) => _db.customUpdate(
-    'UPDATE product SET remaining_stock = remaining_stock + ? WHERE event_id = ? AND id = ?',
-    variables: [Variable(delta), Variable(eventId), Variable(productId)],
-    updates: {_db.products},
-  );
+  /// Local best guess after a sale (negative) or a cancel (positive) until the next read.
+  Future<void> adjustStock(String eventId, String productId, String? variantId, int delta) async {
+    final row = await (_db.select(
+      _db.products,
+    )..where((p) => p.eventId.equals(eventId) & p.id.equals(productId))).getSingleOrNull();
+    if (row == null || !row.stockTracked) return;
+    if (variantId == null) {
+      await (_db.update(_db.products)..where((p) => p.eventId.equals(eventId) & p.id.equals(productId))).write(
+        ProductsCompanion(remainingStock: Value(row.remainingStock + delta)),
+      );
+      return;
+    }
+    final stock = Map<String, dynamic>.from(jsonDecode(row.variantStockJson));
+    stock[variantId] = ((stock[variantId] as int?) ?? 0) + delta;
+    await (_db.update(_db.products)..where((p) => p.eventId.equals(eventId) & p.id.equals(productId))).write(
+      ProductsCompanion(variantStockJson: Value(jsonEncode(stock))),
+    );
+  }
 
-  /// Pulls live remaining stock. Best effort: offline keeps the last known levels.
+  /// The place this location sells from (null = untracked), as of the last stock read.
+  Future<String?> stockPlace(String eventId) async =>
+      (await (_db.select(_db.eventStocks)..where((s) => s.eventId.equals(eventId))).getSingleOrNull())?.placeId;
+
+  /// Reads what this location may sell from Bhoomy (6c): per product or variant, minus this
+  /// device's sales Bhoomy may not have yet. Best effort: offline keeps the last numbers.
   Future<void> refreshStock(String eventId) async {
-    final List levels;
+    final Map<String, dynamic> body;
     try {
-      levels = (await _dio.get<List>('api/me/events/$eventId/stock')).data!;
+      body = (await _dio.get<Map<String, dynamic>>('api/me/events/$eventId/stock-levels')).data!;
     } on DioException {
       return;
     }
+    final tracked = body['tracked'] == true;
+    final unsent = await _unsent(eventId);
+    final product = <String, int>{};
+    final variants = <String, Map<String, int>>{};
+    for (final l in (body['levels'] as List? ?? [])) {
+      final p = l['productId'] as String, v = l['variantId'] as String?;
+      final left = (l['available'] as int? ?? 0) - (unsent[cartKey(p, v)] ?? 0);
+      if (v == null) {
+        product[p] = left;
+      } else {
+        (variants[p] ??= {})[v] = left;
+      }
+    }
+    final rows = await (_db.select(_db.products)..where((p) => p.eventId.equals(eventId))).get();
     await _db.batch((b) {
-      for (final level in levels) {
+      b.insert(
+        _db.eventStocks,
+        EventStocksCompanion.insert(
+          eventId: eventId,
+          tracked: tracked,
+          placeId: Value(body['placeId'] as String?),
+          refreshedAt: DateTime.now(),
+        ),
+        mode: InsertMode.insertOrReplace,
+      );
+      for (final r in rows) {
         b.update(
           _db.products,
-          ProductsCompanion(remainingStock: Value(level['remaining'] ?? 0)),
-          where: (p) => p.eventId.equals(eventId) & p.id.equals(level['productId']),
+          ProductsCompanion(
+            stockTracked: Value(tracked),
+            remainingStock: Value(product[r.id] ?? 0),
+            variantStockJson: Value(jsonEncode(variants[r.id] ?? {})),
+          ),
+          where: (p) => p.eventId.equals(eventId) & p.id.equals(r.id),
         );
       }
     });
+  }
+
+  /// Quantities sold on this device that Bhoomy may not count yet: not uploaded, or uploaded
+  /// within the last minute (POS sends every 15 s, the stock read is up to 30 s old).
+  Future<Map<String, int>> _unsent(String eventId) async {
+    final since = DateTime.now().subtract(const Duration(minutes: 1));
+    final orders =
+        await (_db.select(_db.pendingOrders)..where(
+              (o) =>
+                  o.eventId.equals(eventId) &
+                  o.status.isNotIn(['CANCELLED']) &
+                  (o.status.isNotIn(['CONFIRMED']) | o.createdAt.isBiggerThanValue(since)),
+            ))
+            .get();
+    final out = <String, int>{};
+    for (final o in orders) {
+      for (final l in jsonDecode(o.linesJson) as List) {
+        final k = cartKey(l['productId'] as String, l['variantId'] as String?);
+        out[k] = (out[k] ?? 0) + (l['qty'] as int);
+      }
+    }
+    return out;
   }
 
   static Product _toDomain(ProductRow r) => Product(
@@ -83,5 +151,7 @@ class ProductRepository {
     barcodes: r.barcodes.split('\n').where((b) => b.isNotEmpty).toList(),
     remainingStock: r.remainingStock,
     variants: [for (final v in jsonDecode(r.variantsJson)) ProductVariant.fromJson(v)],
+    stockTracked: r.stockTracked,
+    variantStock: Map<String, int>.from(jsonDecode(r.variantStockJson)),
   );
 }

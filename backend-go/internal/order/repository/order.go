@@ -35,6 +35,14 @@ type Order struct {
 	StockConflict   bool       `gorm:"column:stock_conflict;not null;default:false"` // sold past the allocation
 	LateSynced      bool       `gorm:"column:late_synced;not null;default:false"`    // uploaded after the event closed
 	CreatedAt       time.Time  `gorm:"column:created_at;not null"`
+	// 6c: the storage place it sold from (nil = untracked) and its sending status to Bhoomy.
+	BhoomyPlaceID *uuid.UUID `gorm:"column:bhoomy_place_id;type:uuid"`
+	StockStatus   *string    `gorm:"column:stock_status"`
+	SyncState     string     `gorm:"column:sync_state;not null"`
+	SyncAttempts  int        `gorm:"column:sync_attempts;not null"`
+	NextSyncAt    time.Time  `gorm:"column:next_sync_at;not null"`
+	SyncError     *string    `gorm:"column:sync_error"`
+	SyncedAt      *time.Time `gorm:"column:synced_at"`
 }
 
 func (Order) TableName() string { return "orders" }
@@ -46,8 +54,19 @@ func (o *Order) BeforeCreate(_ *gorm.DB) error {
 	if o.CreatedAt.IsZero() {
 		o.CreatedAt = time.Now().UTC()
 	}
+	if o.SyncState == "" {
+		o.SyncState, o.NextSyncAt = SyncPending, o.CreatedAt
+	}
 	return nil
 }
+
+// Sending states of an order to Bhoomy (6c).
+const (
+	SyncPending = "pending"
+	SyncSent    = "sent"
+	SyncFailed  = "failed"  // Bhoomy refused it for good (422)
+	SyncSkipped = "skipped" // never sent: sold before 6c, or the store is not on Bhoomy
+)
 
 // OrderItem is a line on an order — snapshots name/price/variant at purchase time.
 type OrderItem struct {
@@ -61,6 +80,8 @@ type OrderItem struct {
 	UnitPrice   decimal.Decimal `gorm:"column:unit_price;type:bigint;not null"`
 	Qty         int             `gorm:"not null"`
 	LineTotal   decimal.Decimal `gorm:"column:line_total;type:bigint;not null"`
+	// BhoomyVariantID is the Produk Toko variant, frozen at sale (6c).
+	BhoomyVariantID *uuid.UUID `gorm:"column:bhoomy_variant_id;type:uuid"`
 }
 
 func (OrderItem) TableName() string { return "order_items" }
