@@ -191,6 +191,31 @@ func (s *Service) FindAt(locationID, id uuid.UUID) (*iface.SaleProduct, error) {
 	return &sale, nil
 }
 
+func (s *Service) VariantLinks(locationID uuid.UUID) ([]iface.VariantLink, error) {
+	products, err := s.availableSnapshotEntities(locationID)
+	if err != nil {
+		return nil, err
+	}
+	var out []iface.VariantLink
+	for i := range products {
+		p := &products[i]
+		options := p.Options()
+		if len(options) == 0 {
+			if d := p.Default(); d != nil && d.BhoomyVariantID != nil {
+				out = append(out, iface.VariantLink{ProductID: p.ID, BhoomyVariantID: *d.BhoomyVariantID})
+			}
+			continue
+		}
+		for _, v := range options {
+			if v.BhoomyVariantID != nil {
+				id := v.ID
+				out = append(out, iface.VariantLink{ProductID: p.ID, VariantID: &id, BhoomyVariantID: *v.BhoomyVariantID})
+			}
+		}
+	}
+	return out, nil
+}
+
 func (s *Service) All(storeID uuid.UUID) ([]iface.SaleProduct, error) {
 	var products []repository.Product
 	if err := s.db.Preload("Variants").Where("store_id = ?", storeID).Order("sku").Find(&products).Error; err != nil {

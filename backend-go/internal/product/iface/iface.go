@@ -78,14 +78,25 @@ type SaleProduct struct {
 	Price          decimal.Decimal
 	WarehouseStock int
 	Variants       []SaleVariant
+	// BhoomyVariantID is the default variant's Produk Toko variant (products without options).
+	BhoomyVariantID *uuid.UUID
+}
+
+// VariantLink maps a Produk Toko variant to what the cashier app sells (VariantID nil = the
+// product itself, no options).
+type VariantLink struct {
+	ProductID       uuid.UUID
+	VariantID       *uuid.UUID
+	BhoomyVariantID uuid.UUID
 }
 
 // SaleVariant.Price is the effective price (override or product price).
 type SaleVariant struct {
-	ID     uuid.UUID
-	Name   string
-	Price  decimal.Decimal
-	Active bool
+	ID              uuid.UUID
+	Name            string
+	Price           decimal.Decimal
+	Active          bool
+	BhoomyVariantID *uuid.UUID
 }
 
 // SourceProduct is a product as delivered by the ERP.
@@ -105,6 +116,8 @@ type Products interface {
 	Find(id uuid.UUID) (*SaleProduct, error)
 	// FindAt is Find with the location's prices.
 	FindAt(locationID, id uuid.UUID) (*SaleProduct, error)
+	// VariantLinks lists the Produk Toko variants a location sells (6c stock levels).
+	VariantLinks(locationID uuid.UUID) ([]VariantLink, error)
 	// All returns the store's products ordered by SKU, without variants.
 	All(storeID uuid.UUID) ([]SaleProduct, error)
 	Categories(storeID uuid.UUID) ([]Category, error)

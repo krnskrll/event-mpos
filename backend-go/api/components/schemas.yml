@@ -193,6 +193,21 @@ components:
         soldQty: { type: integer }
         remaining: { type: integer }
         lowStock: { type: boolean }
+    StockLevels:
+      type: object
+      required: [tracked, levels]
+      properties:
+        tracked: { type: boolean }
+        placeId: { type: string, format: uuid, nullable: true, description: "Send back as stockPlaceId with each order" }
+        levels:
+          type: array
+          items:
+            type: object
+            required: [productId, available]
+            properties:
+              productId: { type: string, format: uuid }
+              variantId: { type: string, format: uuid, nullable: true, description: "null = the product itself (no options)" }
+              available: { type: integer }
     BaStockLevel:
       type: object
       required: [productId, remaining, lowStock]
@@ -303,6 +318,8 @@ components:
         deviceId: { type: string, nullable: true, description: ignored; the server records the paired device }
         orderNumber: { type: integer, nullable: true }
         clientCreatedAt: { type: string, format: date-time, nullable: true }
+        stockPlaceId: { type: string, format: uuid, nullable: true, description: "6c: the storage place it sold from (placeId of the last stock read); null = untracked" }
+        stockKnown: { type: boolean, description: "6c: true when stockPlaceId comes from the app; older apps omit both and POS uses the current link" }
     OrderItemView:
       type: object
       required: [productId, sku, name, unitPrice, qty, lineTotal]

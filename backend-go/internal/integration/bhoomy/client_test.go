@@ -2,6 +2,8 @@ package bhoomy
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -91,5 +93,35 @@ func TestHTTPVariantChanges(t *testing.T) {
 	}
 	if len(page.Items) != 1 || page.Items[0].ProductName != "Serum" || page.Next != nil {
 		t.Errorf("page %+v", page)
+	}
+}
+
+func TestHTTPPostSale(t *testing.T) {
+	var gotPath, gotAuth string
+	var got Sale
+	status := http.StatusOK
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath, gotAuth = r.URL.Path, r.Header.Get("Authorization")
+		_ = json.NewDecoder(r.Body).Decode(&got)
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(`{"errorStatus":false,"data":{"stock_status":"conflict"}}`))
+	}))
+	defer srv.Close()
+	c, _ := New("http", srv.URL, "secret")
+	store, place := uuid.New(), uuid.New()
+	sale := Sale{PosSaleID: uuid.New(), PlaceID: &place, Lines: []SaleLine{{PosLineID: uuid.New(), Qty: 2}}}
+
+	st, err := c.PostSale(context.Background(), store, sale)
+	if err != nil || st != "conflict" || gotPath != "/api/v1/internal/pos/stores/"+store.String()+"/sales" || gotAuth != "Bearer secret" || *got.PlaceID != place {
+		t.Fatalf("%q %v %s %s %+v", st, err, gotPath, gotAuth, got)
+	}
+	var refused *RefusedError
+	status = http.StatusUnprocessableEntity
+	if _, err := c.PostSale(context.Background(), store, sale); !errors.As(err, &refused) {
+		t.Errorf("422: %v, want refused", err)
+	}
+	status = http.StatusServiceUnavailable
+	if _, err := c.PostSale(context.Background(), store, sale); err == nil || errors.As(err, &refused) {
+		t.Errorf("503: %v, want a retry", err)
 	}
 }

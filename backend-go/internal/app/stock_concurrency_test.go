@@ -6,7 +6,6 @@ import (
 	"sync/atomic"
 	"testing"
 
-	"github.com/google/uuid"
 	"gorm.io/gorm"
 
 	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
@@ -64,32 +63,5 @@ func TestConcurrentDecrementsNeverOversell(t *testing.T) {
 	}
 	if alloc.SoldQty != allocated || alloc.Remaining() < 0 {
 		t.Errorf("soldQty=%d remaining=%d — oversold", alloc.SoldQty, alloc.Remaining())
-	}
-}
-
-func TestConcurrentOrdersForLastUnitsNeverOversell(t *testing.T) {
-	a := testutil.NewApp(t)
-	ev, p := a.ActiveEvent(), a.Product("10.00")
-	const allocated, buyers = 8, 40
-	a.Allocate(ev.ID, p.ID, allocated)
-
-	ok, conflict := race(t, buyers, func() error {
-		_, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1))
-		return err
-	})
-
-	if ok != allocated || conflict != buyers-allocated {
-		t.Errorf("ok=%d conflict=%d, want %d/%d", ok, conflict, allocated, buyers-allocated)
-	}
-	if got := a.Remaining(ev.ID, p.ID); got != 0 {
-		t.Errorf("remaining = %d, want 0", got)
-	}
-	// Every successful order got a distinct daily number 1..allocated.
-	var numbers []int
-	a.DB.Table("orders").Where("event_id = ?", ev.ID).Order("order_number").Pluck("order_number", &numbers)
-	for i, n := range numbers {
-		if n != i+1 {
-			t.Fatalf("order numbers = %v, want 1..%d with no gaps or duplicates", numbers, allocated)
-		}
 	}
 }

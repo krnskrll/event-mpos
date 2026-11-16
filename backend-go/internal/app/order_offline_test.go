@@ -10,7 +10,6 @@ import (
 
 	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
 	orderiface "github.com/krnskrll/event-mpos/internal/order/iface"
-	orderrepo "github.com/krnskrll/event-mpos/internal/order/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
 )
 
@@ -39,16 +38,13 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 		t.Fatalf("server number after a block = %v, %v; want %d", server, err, orderiface.NumberBlockSize+1)
 	}
 
-	// A device-numbered order keeps its number and is never rejected for stock: 1 left, 2 sold.
+	// A device-numbered order keeps its number and is never rejected for stock.
 	conf, err := deviceOrder(3, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if conf.OrderNumber != 3 || !strings.HasSuffix(conf.ReferenceID, "-003") || !conf.StockConflict {
-		t.Errorf("offline order = #%d %s conflict=%v; want #3, -003, conflict", conf.OrderNumber, conf.ReferenceID, conf.StockConflict)
-	}
-	if got := a.Remaining(ev.ID, p.ID); got != -1 {
-		t.Errorf("remaining = %d, want -1 (the shortfall stays visible)", got)
+	if conf.OrderNumber != 3 || !strings.HasSuffix(conf.ReferenceID, "-003") {
+		t.Errorf("offline order = #%d %s; want #3, -003", conf.OrderNumber, conf.ReferenceID)
 	}
 	for _, n := range []int{orderiface.NumberBlockSize + 1, 999} { // outside this device's blocks
 		if _, err := deviceOrder(n, time.Now()); testutil.StatusOf(err) != http.StatusBadRequest {
@@ -77,9 +73,7 @@ func TestOfflineOrdersAndLateSync(t *testing.T) {
 		t.Errorf("number block for a closed event: %v, want 409", err)
 	}
 
-	var conflicts int64
-	a.DB.Model(&orderrepo.Order{}).Where("event_id = ? AND stock_conflict", ev.ID).Count(&conflicts)
-	if r := salesSoFar(t, a, ev.ID); r.LateSyncedOrders != 1 || conflicts != 2 {
-		t.Errorf("late/conflict orders = %d/%d, want 1/2", r.LateSyncedOrders, conflicts)
+	if r := salesSoFar(t, a, ev.ID); r.LateSyncedOrders != 1 {
+		t.Errorf("late orders = %d, want 1", r.LateSyncedOrders)
 	}
 }

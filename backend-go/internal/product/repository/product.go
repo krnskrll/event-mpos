@@ -244,9 +244,13 @@ func (p *Product) ToSale() iface.SaleProduct {
 	options := p.Options()
 	variants := make([]iface.SaleVariant, 0, len(options))
 	for _, v := range options {
-		variants = append(variants, iface.SaleVariant{ID: v.ID, Name: v.Name, Price: v.EffectivePrice(p.Price()), Active: v.SellInPOS})
+		variants = append(variants, iface.SaleVariant{ID: v.ID, Name: v.Name, Price: v.EffectivePrice(p.Price()), Active: v.SellInPOS, BhoomyVariantID: v.BhoomyVariantID})
 	}
-	return iface.SaleProduct{ID: p.ID, SKU: p.SKU, Name: p.DisplayName, Price: p.Price(), WarehouseStock: p.WarehouseStock, Variants: variants}
+	sale := iface.SaleProduct{ID: p.ID, SKU: p.SKU, Name: p.DisplayName, Price: p.Price(), WarehouseStock: p.WarehouseStock, Variants: variants}
+	if d := p.Default(); d != nil {
+		sale.BhoomyVariantID = d.BhoomyVariantID
+	}
+	return sale
 }
 
 func defaultID(p *Product) uuid.UUID {

@@ -5,6 +5,8 @@
 package handler
 
 import (
+	"context"
+
 	"net/http"
 	"time"
 
@@ -36,6 +38,28 @@ type Handler struct {
 	promotions promotioniface.Promotions
 	orders     orderiface.Orders
 	receipts   receiptiface.Receipts
+	// levels reads the location's stock from Bhoomy (6c); nil = untracked.
+	levels func(ctx context.Context, locationID uuid.UUID) (any, error)
+}
+
+// SetStockLevels wires GET /me/events/:id/stock-levels (6c).
+func (h *Handler) SetStockLevels(fn func(ctx context.Context, locationID uuid.UUID) (any, error)) {
+	h.levels = fn
+}
+
+// StockLevels is what the location may sell per product or variant, read from Bhoomy (30 s cache).
+// 502 means Bhoomy did not answer: the app keeps its last numbers and sells.
+func (h *Handler) StockLevels(c *gin.Context) {
+	if h.levels == nil {
+		respond(c, http.StatusOK, gin.H{"tracked": false, "placeId": nil, "levels": []any{}}, nil)
+		return
+	}
+	res, err := h.levels(c.Request.Context(), uuid.MustParse(c.Param("eventId")))
+	if err != nil {
+		common.Fail(c, common.NewAppError(http.StatusBadGateway, "Stock is not available right now"))
+		return
+	}
+	respond(c, http.StatusOK, res, nil)
 }
 
 func NewHandler(events eventiface.Events, products productiface.Products, members memberiface.Members, stk stockiface.Stock, promotions promotioniface.Promotions, orders orderiface.Orders, receipts receiptiface.Receipts) *Handler {

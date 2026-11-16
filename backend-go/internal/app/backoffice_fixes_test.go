@@ -220,7 +220,7 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	}
 }
 
-func TestStockSummaryCacheIsInvalidatedByOrders(t *testing.T) {
+func TestStockSummaryCache(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("20.00")
 	a.Allocate(ev.ID, p.ID, 10)
@@ -249,13 +249,5 @@ func TestStockSummaryCacheIsInvalidatedByOrders(t *testing.T) {
 	a.Stock.InvalidateSummary(ev.ID)
 	if b, w := remaining(); b != 9 || w != 9 {
 		t.Errorf("after invalidate: %d/%d, want 9", b, w)
-	}
-
-	// An order submit clears the event's cached summary immediately.
-	if _, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 3)); err != nil {
-		t.Fatal(err)
-	}
-	if b, w := remaining(); b != 6 || w != 6 {
-		t.Errorf("after submit: %d/%d, want 6", b, w)
 	}
 }

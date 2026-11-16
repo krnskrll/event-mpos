@@ -81,6 +81,19 @@ paths:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/BaStockLevel' } } } } }
         '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/me/events/{eventId}/stock-levels:
+    parameters:
+      - { name: eventId, in: path, required: true, schema: { type: string } }
+    get:
+      tags: [me]
+      operationId: getMyStockLevels
+      summary: "6c: what this location may sell per product or variant, read from Bhoomy (30 s cache). Untracked = no limits"
+      security: [{ deviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/StockLevels' } } } }
+        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '502': { description: Bhoomy did not answer; keep the last numbers, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/me/events/{eventId}/promotions/quote:
     parameters:
       - { name: eventId, in: path, required: true, schema: { type: string } }
