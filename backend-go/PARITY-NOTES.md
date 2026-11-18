@@ -8,7 +8,7 @@ else is byte-identical.
 > Phase 4e retired the admin routes the Bhoomy back office replaced (admin product CRUD, ERP product
 > sync, event create/edit/status, availability and location prices, member list, promotions, the
 > end-of-event report and audit). Phase 6f retired the rest: the web dashboard, login (`/api/auth/*`),
-> every `/api/admin/*` route and stock allocations. The lists below are kept as the historical parity record.
+> every `/api/admin/*` route and stock allocations; the ERP demo import followed (000015). The lists below are kept as the historical parity record.
 
 ## Intentional divergences
 

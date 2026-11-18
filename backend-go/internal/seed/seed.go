@@ -13,10 +13,10 @@ import (
 	devicesvc "github.com/krnskrll/event-mpos/internal/device/service"
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventrepo "github.com/krnskrll/event-mpos/internal/event/repository"
-	"github.com/krnskrll/event-mpos/internal/integration/erp"
 	membersrc "github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/tenant"
+	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
@@ -28,7 +28,7 @@ import (
 //
 //	EV01 staff: Bella (KASIR, PIN 1234), Sari (SUPERVISOR, PIN 9999)
 //	EV01 device "Kasir 1": its token and a fresh pairing code are printed in the log.
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, promoSvc *promotionsvc.Service, staff *staffsvc.Service, devices *devicesvc.Service) error {
+func Run(db *gorm.DB, memberSync *membersrc.Service, promoSvc *promotionsvc.Service, staff *staffsvc.Service, devices *devicesvc.Service) error {
 	var count int64
 	if err := db.Model(&eventrepo.Event{}).Where("store_id = ? AND code = ?", tenant.DefaultStoreID, "EV01").Count(&count).Error; err != nil {
 		return err
@@ -76,22 +76,41 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, p
 	log.Printf("DEV ONLY: EV01 device %q token: %s", paired.Device.Name, paired.Token)
 	log.Printf("DEV ONLY: EV01 pairing code %s (valid until %s)", code.Code, code.ExpiresAt.Format(time.RFC3339))
 
-	// Pull the initial catalogue from the (mock) ERP and make every product available for EV01.
-	erpSync.Sync()
-
-	// Give the lipstick a few shade variants (one with a price override) to exercise variants.
-	var lipstick productrepo.Product
-	if err := db.Where("sku = ?", "SKU-1002").First(&lipstick).Error; err == nil {
-		plum := decimal.RequireFromString("89000")
-		variants := []productrepo.ProductVariant{
-			{ItemID: lipstick.ID, Name: "Rose", SKU: "SKU-1002-ROSE", SellInPOS: true},
-			{ItemID: lipstick.ID, Name: "Coral", SKU: "SKU-1002-CORAL", SellInPOS: true},
-			{ItemID: lipstick.ID, Name: "Plum (limited)", SKU: "SKU-1002-PLUM", Price: &plum, SellInPOS: true},
+	// Demo catalogue; outside dev, items come from Bhoomy's Katalog POS. The lipstick has shade variants.
+	str := func(v string) *string { return &v }
+	bc := func(codes ...string) []productrepo.ProductBarcode {
+		out := make([]productrepo.ProductBarcode, 0, len(codes))
+		for _, c := range codes {
+			out = append(out, productrepo.ProductBarcode{Barcode: c})
 		}
-		for i := range variants {
-			if err := db.Create(&variants[i]).Error; err != nil {
-				return err
-			}
+		return out
+	}
+	var lipstick productrepo.Product
+	for _, d := range []struct {
+		sku, name, brand, price string
+		barcodes                []productrepo.ProductBarcode
+	}{
+		{"SKU-1001", "Hydra Glow Serum 30ml", "LumièreCo", "129000", []productrepo.ProductBarcode{{Barcode: "8990001001", Label: str("single")}, {Barcode: "18990001001", Label: str("box of 6")}}},
+		{"SKU-1002", "Velvet Matte Lipstick — Rose", "LumièreCo", "79000", bc("8990001002")},
+		{"SKU-1003", "Daily Mineral Sunscreen SPF50", "DermaPure", "99000", []productrepo.ProductBarcode{{Barcode: "8990001003", Label: str("single")}, {Barcode: "28990001003", Label: str("twin pack")}}},
+		{"SKU-1004", "Nourishing Hair Oil 100ml", "Botané", "65000", bc("8990001004")},
+		{"SKU-1005", "Gentle Foaming Cleanser 150ml", "DermaPure", "55000", bc("8990001005")},
+	} {
+		item := productrepo.Product{StoreID: tenant.DefaultStoreID, SKU: d.sku, DisplayName: d.name, Brand: str(d.brand),
+			Source: productiface.SourceManual, Status: productrepo.StatusActive, Barcodes: d.barcodes}
+		item.SetPrice(decimal.RequireFromString(d.price))
+		if d.sku == "SKU-1002" {
+			plum := decimal.RequireFromString("89000")
+			item.Variants = append(item.Variants,
+				productrepo.ProductVariant{Name: "Rose", SKU: "SKU-1002-ROSE", SellInPOS: true},
+				productrepo.ProductVariant{Name: "Coral", SKU: "SKU-1002-CORAL", SellInPOS: true},
+				productrepo.ProductVariant{Name: "Plum (limited)", SKU: "SKU-1002-PLUM", Price: &plum, SellInPOS: true})
+		}
+		if err := db.Create(&item).Error; err != nil {
+			return err
+		}
+		if d.sku == "SKU-1002" {
+			lipstick = item
 		}
 	}
 	var products []productrepo.Product

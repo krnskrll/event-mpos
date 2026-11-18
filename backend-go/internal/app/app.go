@@ -22,7 +22,6 @@ import (
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	eventsvc "github.com/krnskrll/event-mpos/internal/event/service"
 	"github.com/krnskrll/event-mpos/internal/integration/bhoomy"
-	"github.com/krnskrll/event-mpos/internal/integration/erp"
 	"github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	mehandler "github.com/krnskrll/event-mpos/internal/me/handler"
 	memberhandler "github.com/krnskrll/event-mpos/internal/member/handler"
@@ -54,7 +53,6 @@ type App struct {
 
 	Events      *eventsvc.Service
 	Products    *productsvc.Service
-	ERPSync     *erp.SyncService
 	Members     *membersvc.Service
 	MemberSync  *membersrc.Service
 	Promotions  *promotionsvc.Service
@@ -87,8 +85,6 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Events = eventsvc.NewService(db)
 	a.Media = media.NewStore(cfg.MediaDir, cfg.MediaBaseURL)
 	a.Products = productsvc.NewService(db, a.Media)
-	erpSource := erp.NewSource(cfg.ERPSource, cfg.ERPFilePath, cfg.ERPRestURL)
-	a.ERPSync = erp.NewSyncService(erpSource, db, a.Products)
 	a.Catalog = catalogsvc.NewService(db)
 	a.Products.SetSource(a.Catalog)
 	a.CatalogSync = bhoomy.NewCatalogSync(a.Bhoomy, a.Catalog, a.Products)
@@ -117,7 +113,7 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 		a.Hub.Broadcast(eventID.String(), view)
 	})
 
-	// Reporting + the runtime-editable member sync schedule. The ERP product sync only runs from the dev seed.
+	// Reporting + the runtime-editable member sync schedule.
 	a.Reports = reportsvc.NewService(a.Events, a.Orders)
 	a.SyncConfig = syncsvc.NewService(db, cfg.MemberSyncCron)
 	if err := a.SyncConfig.SeedDefaults(); err != nil {

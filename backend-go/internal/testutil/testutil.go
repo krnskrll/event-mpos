@@ -76,12 +76,11 @@ type TestApp struct {
 	t  *testing.T
 }
 
-// NewApp builds the production App (mock ERP/member sources, scheduler not started) on the test DB.
+// NewApp builds the production App (mock member source, scheduler not started) on the test DB.
 func NewApp(t *testing.T) *TestApp {
 	t.Helper()
 	db := DB(t)
 	cfg := &config.Config{
-		ERPSource:          "mock",
 		MemberSource:       "mock",
 		MemberSyncCron:     "0 0 2 * * *",
 		MediaDir:           t.TempDir(),
