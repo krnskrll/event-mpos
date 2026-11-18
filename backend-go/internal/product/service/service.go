@@ -22,17 +22,11 @@ type Service struct {
 	db     *gorm.DB
 	media  *media.Store
 	source catalogiface.Source
-	// stockRemaining enriches snapshot products; nil leaves remainingStock at 0.
-	stockRemaining func(eventID, productID uuid.UUID) (int, error)
 }
 
 var _ iface.Products = (*Service)(nil)
 
 func NewService(db *gorm.DB, m *media.Store) *Service { return &Service{db: db, media: m} }
-
-func (s *Service) SetStockRemaining(fn func(eventID, productID uuid.UUID) (int, error)) {
-	s.stockRemaining = fn
-}
 
 // SetPhoto stores a POS photo for the product and points its image URL at it.
 func (s *Service) SetPhoto(storeID, id uuid.UUID, data []byte) (*iface.ProductResponse, error) {
@@ -94,15 +88,7 @@ func (s *Service) availableSnapshotProducts(eventID uuid.UUID) ([]iface.ProductS
 	}
 	out := make([]iface.ProductSnapshotDto, 0, len(products))
 	for i := range products {
-		dto := products[i].ToSnapshotDto()
-		if s.stockRemaining != nil {
-			rem, err := s.stockRemaining(eventID, products[i].ID)
-			if err != nil {
-				return nil, err
-			}
-			dto.RemainingStock = rem
-		}
-		out = append(out, dto)
+		out = append(out, products[i].ToSnapshotDto())
 	}
 	return out, nil
 }
@@ -235,7 +221,7 @@ func (s *Service) Upsert(tx database.Tx, storeID uuid.UUID, in iface.SourceProdu
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		p = repository.Product{
 			StoreID: storeID, SKU: in.SKU, DisplayName: in.Name, Brand: in.Brand, PhotoURL: in.ImageURL,
-			WarehouseStock: in.StockQuantity, Source: iface.SourceERP, Status: repository.StatusActive, Barcodes: sourceBarcodes(in.Barcodes),
+			Source: iface.SourceERP, Status: repository.StatusActive, Barcodes: sourceBarcodes(in.Barcodes),
 		}
 		p.SetPrice(common.Rupiah(in.Price))
 		return true, tx.Create(&p).Error
@@ -244,7 +230,7 @@ func (s *Service) Upsert(tx database.Tx, storeID uuid.UUID, in iface.SourceProdu
 		return false, err
 	}
 	p.DisplayName, p.Brand, p.PhotoURL = in.Name, in.Brand, in.ImageURL
-	p.WarehouseStock, p.Source, p.UpdatedAt = in.StockQuantity, iface.SourceERP, nowUTC()
+	p.Source, p.UpdatedAt = iface.SourceERP, nowUTC()
 	p.SetPrice(common.Rupiah(in.Price))
 	if barcodesChanged(p.Barcodes, in.Barcodes) {
 		if err := tx.Where("item_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {

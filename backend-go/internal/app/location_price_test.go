@@ -33,7 +33,6 @@ func TestLocationPriceRule(t *testing.T) {
 		}
 	}
 	ev := a.ActiveEventIn(store)
-	a.Allocate(ev.ID, p.ID, 10)
 	save := func(rows ...J) int {
 		return a.Back(http.MethodPut, "/locations/"+ev.ID.String()+"/items", J{"rows": rows}, bhoomyStore).Code
 	}

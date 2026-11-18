@@ -8,7 +8,6 @@ Mobile POS for retail beauty events and outlets; the back office lives in Bhoomy
 |---|---|---|
 | Cashier app (`mobile/`) | Flutter | Selling and the pickup board on paired devices |
 | Backend API | Go (Gin + GORM) + PostgreSQL | Source of truth |
-| Old dashboard (`web/`) | React + TypeScript | ADMIN stock allocation until Phase 6 |
 
 ## Project Structure
 
@@ -17,7 +16,6 @@ event-mpos/
 ├── backend-go/       # Go API (Gin, GORM, golang-migrate, native WebSocket)
 ├── mobile/           # Flutter cashier app
 ├── testdata/         # Fixtures shared by backend and Flutter tests (promotion parity)
-├── web/              # Old dashboard: ADMIN login + stock allocation
 └── prompts/          # Cursor development prompts (one per epic)
 ```
 
@@ -28,18 +26,15 @@ event-mpos/
 docker compose up --build          # Go API on http://localhost:8080, seeded with demo data
 # After pulling a schema change, reset the dev DB first: docker compose down -v
 
-# 2. Web dashboard
-cd web && npm install && npm run dev   # http://localhost:5173
-
-# 3. Cashier app: see mobile/ (pair it with the pairing code the seed logs)
+# 2. Cashier app: see mobile/ (pair it with the pairing code the seed logs)
 ```
 
 ## Backend (Go)
 
 `backend-go/` is the only backend. Stack: **Gin** (HTTP), **GORM** on PostgreSQL,
 **golang-migrate** (schema in `backend-go/migrations/`, applied on startup — add new numbered
-`00000N_*.up.sql` / `.down.sql` files, never edit `000001_init`), JWT auth with rotating refresh
-tokens, a DB-driven **robfig/cron** sync scheduler, and a native **WebSocket** for the pickup
+`00000N_*.up.sql` / `.down.sql` files, never edit `000001_init`), device-token auth for the cashier app and a
+service token for the Bhoomy back office (no user logins since 6f), a DB-driven **robfig/cron** sync scheduler, and a native **WebSocket** for the pickup
 board at `GET /ws/events/{id}/orders?token=<device token>` (the token is redacted from access logs).
 Configuration is environment variables — see `backend-go/.env.example`; the only value that
 changes per environment is `DB_URL`. Behavioural parity with the retired Kotlin backend is recorded
@@ -56,11 +51,12 @@ Code layout (same rules as the Bhoomy backend):
 | `internal/integration` | ERP and member-system sync jobs; `bhoomy` connector |
 | `internal/app` | Composition root: the only place concrete services meet; routes |
 
-**Stores:** every user, location, product and member belongs to a store (`pos_stores`; existing data is in
-the default store from migration `000004`). The login token carries the store, and a request never
+**Stores:** every location, product, staff member and member belongs to a store (`pos_stores`; existing data is in
+the default store from migration `000004`). The device or the Bhoomy back office names the store, and a request never
 sees another store's data — lookups answer 404. Codes (SKU, barcode, location code, member code) are
 unique per store. A location (`pos_locations`) is either `type: event` (temporary) or `type: outlet`
-(a permanent shop: needs an address, no end date, stock editable while active).
+(the Cabang itself: needs an address, no end date; it pauses, never closes). Stock lives in Bhoomy
+(6c); POS keeps no stock count.
 
 **Catalogue and money:** products are `pos_items`; each has one default variant (`pos_item_variants`,
 `is_default`) carrying its price, which the API hides — `price` is the default variant's and
@@ -113,10 +109,9 @@ pickup board (`/api/warehouse/...`) keep their paths and bodies, but `eventId` m
 location. Orders record the staff member and the device. Cancelling needs `{reason, supervisorId,
 supervisorPin}` from a supervisor of that location; the audit names both.
 
-**Old admin (`/api/admin/*`, ADMIN only):** the location list, stock allocation and the Produk Toko
-pull, until Phase 6 moves stock to Bhoomy. Products are not created in POS; the ERP product sync runs
-only in the dev seed (`SEED_ENABLED`). A Bhoomy store gets its admin with
-`echo '<password>' | ./server create-admin -bhoomy-store <id> -email <email> -name <name>`.
+**Retired (6f):** the old dashboard (`web/`), its login (`/api/auth/*`, `users`), `/api/admin/*`,
+`create-admin` and stock allocations (`event_stock_allocations`) are gone (migration 000014).
+Products are not created in POS; the ERP product sync runs only in the dev seed (`SEED_ENABLED`).
 
 **Barcodes:** each Produk Toko variant barcode is copied to `pos_item_barcodes` on every sync
 (unique per store). The snapshot version includes every barcode, so a changed barcode reaches the

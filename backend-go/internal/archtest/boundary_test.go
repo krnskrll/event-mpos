@@ -70,15 +70,15 @@ func TestAllowed(t *testing.T) {
 		from, to string
 		want     bool
 	}{
-		{"order/service", "stock/iface", true},
-		{"order/service", "stock/service", false},
+		{"order/service", "promotion/iface", true},
+		{"order/service", "promotion/service", false},
 		{"order/service", "order/repository", true},
 		{"order/repository", "order/service", false},
 		{"order/iface", "order/repository", false},
 		{"order/handler", "order/service", true},
 		{"integration/erp", "product/iface", true},
 		{"integration/erp", "product/service", false},
-		{"platform/common", "user/iface", false},
+		{"platform/common", "staff/iface", false},
 		{"platform/realtime", "auth/iface", true},
 	}
 	for _, c := range cases {

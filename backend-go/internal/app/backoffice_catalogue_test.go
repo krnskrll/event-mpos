@@ -80,7 +80,6 @@ func TestBackOfficeAccess(t *testing.T) {
 	}{
 		"no token":    {"", bhoomyStore.String(), http.StatusUnauthorized},
 		"wrong token": {"nope", bhoomyStore.String(), http.StatusUnauthorized},
-		"user token":  {adminToken(t, a), bhoomyStore.String(), http.StatusUnauthorized},
 		"no store":    {testutil.ServiceToken, "", http.StatusBadRequest},
 	} {
 		if got := call(c.token, c.store); got != c.want {

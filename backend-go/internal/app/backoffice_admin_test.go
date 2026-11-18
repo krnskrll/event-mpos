@@ -43,7 +43,6 @@ func TestSyncConfigValidatesCronAndPersists(t *testing.T) {
 func TestOrderActivityIsInAppendOnlyAuditLog(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("20.00")
-	a.Allocate(ev.ID, p.ID, 50)
 	wh := a.NewStaff(ev.StoreID, staffiface.RoleKasir, ev.ID)
 
 	conf, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1))

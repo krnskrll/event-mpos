@@ -63,11 +63,11 @@ func TestBarcodeLookupStaysInTheStore(t *testing.T) {
 		if err := a.DB.Create(&productrepo.LocationItem{LocationID: ev.ID, ItemVariantID: p.Default().ID, Active: true}).Error; err != nil {
 			t.Fatal(err)
 		}
-		rec := a.DeviceDo(http.MethodGet, "/api/me/events/"+ev.ID.String()+"/products/by-barcode/"+barcode, nil, a.PairDevice(ev.ID), uuid.Nil)
-		if rec.Code != http.StatusOK {
-			t.Fatalf("scan: %d %s", rec.Code, rec.Body.String())
+		got, err := a.Products.FindAvailableByBarcode(store, ev.ID, barcode)
+		if err != nil {
+			t.Fatalf("scan: %v", err)
 		}
-		return p.ID, testutil.Decode[map[string]any](t, rec)["id"].(string)
+		return p.ID, got.ID.String()
 	}
 	for _, store := range []uuid.UUID{tenant.DefaultStoreID, a.NewStore("Store B")} {
 		if want, got := scan(store); got != want.String() {
@@ -86,7 +86,6 @@ func TestMoneyIsWholeRupiah(t *testing.T) {
 
 	// 7% of Rp15.550 is Rp1.088,5 → Rp1.089 off, total Rp14.461.
 	p := a.Product("15550")
-	a.Allocate(ev.ID, p.ID, 5)
 	pct := decimal.RequireFromString("7")
 	if _, err := a.Promotions.Create(ev.StoreID, promotioniface.PromotionRequest{LocationID: &ev.ID, Name: "7%", Type: promotioniface.TypePercentage, PercentOff: &pct}); err != nil {
 		t.Fatal(err)
@@ -112,7 +111,6 @@ func TestDefaultVariantCarriesThePrice(t *testing.T) {
 		t.Fatal(err)
 	}
 	ev := a.ActiveEvent()
-	a.Allocate(ev.ID, id, 5)
 	if line := sellOne(t, a, ev.ID, id, nil).Items[0]; line.UnitPrice.String() != "10000" || line.VariantName != nil {
 		t.Errorf("line without a variant: %+v, want the default price and no variant", line)
 	}

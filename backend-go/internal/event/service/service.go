@@ -222,18 +222,13 @@ func (s *Service) SnapshotVersion(eventID uuid.UUID) (string, error) {
 }
 
 // versionOf hashes everything that should trigger a device re-sync: the event's own mutable fields
-// plus each domain's fingerprint (product availability, member directory, allocation config,
-// promotion config). Mirrors Kotlin EventService.versionOf — SHA-256 hex, first 16 chars.
+// plus each domain's fingerprint (product availability, member directory, promotion config). Mirrors Kotlin EventService.versionOf — SHA-256 hex, first 16 chars.
 func (s *Service) versionOf(e *repository.Event) (string, error) {
 	productFp, err := s.productFingerprint(e.ID)
 	if err != nil {
 		return "", err
 	}
 	memberFp, err := s.memberFingerprint(e.StoreID)
-	if err != nil {
-		return "", err
-	}
-	stockFp, err := s.stockFingerprint(e.ID)
 	if err != nil {
 		return "", err
 	}
@@ -250,7 +245,6 @@ func (s *Service) versionOf(e *repository.Event) (string, error) {
 		strconv.FormatInt(e.UpdatedAt.UnixMilli(), 10),
 		productFp,
 		memberFp,
-		stockFp,
 		promoFp,
 	}, "|")
 	sum := sha256.Sum256([]byte(material))
@@ -269,13 +263,6 @@ func (s *Service) memberFingerprint(storeID uuid.UUID) (string, error) {
 		return "", nil
 	}
 	return s.providers.Members.Fingerprint(storeID)
-}
-
-func (s *Service) stockFingerprint(eventID uuid.UUID) (string, error) {
-	if s.providers.Stock == nil {
-		return "", nil
-	}
-	return s.providers.Stock.AllocationFingerprint(eventID)
 }
 
 func (s *Service) promotionFingerprint(eventID uuid.UUID) (string, error) {

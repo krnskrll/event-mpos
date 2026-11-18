@@ -23,8 +23,6 @@ func orderBody(productID uuid.UUID) J {
 func TestDeviceAuth(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, other, p := a.ActiveEvent(), a.ActiveEvent(), a.Product("10000")
-	a.Allocate(ev.ID, p.ID, 100)
-	a.Allocate(other.ID, p.ID, 100)
 	dev, otherDev := a.PairDevice(ev.ID), a.PairDevice(other.ID)
 	kasir := a.NewStaff(ev.StoreID, staffiface.RoleKasir, ev.ID)
 	elsewhere := a.NewStaff(ev.StoreID, staffiface.RoleKasir, other.ID)
@@ -56,13 +54,13 @@ func TestDeviceAuth(t *testing.T) {
 	}
 	second := a.PairDevice(ev.ID)
 	ok[orderiface.OrderConfirmation](t, a.DeviceDo(http.MethodPost, orders, orderBody(p.ID), second, kasir.ID), http.StatusOK)
-	if h := ok[[]orderiface.OrderSummary](t, a.DeviceDo(http.MethodGet, orders, nil, dev, uuid.Nil), http.StatusOK); len(h) != 1 || h[0].ID != conf.ID {
+	if h, err := a.Orders.History(ev.ID, dev.ID.String()); err != nil || len(h) != 1 || h[0].ID != conf.ID {
 		t.Errorf("history %+v, want this device's one order", h)
 	}
 	if trail, _ := a.Audit.ForOrder(conf.ID); trail[0].ActorName != kasir.Name {
 		t.Errorf("created by %q, want %q", trail[0].ActorName, kasir.Name)
 	}
-	if rec := a.DeviceDo(http.MethodGet, "/api/me/orders/"+conf.ID.String(), nil, otherDev, uuid.Nil); rec.Code != http.StatusNotFound {
+	if rec := a.DeviceDo(http.MethodPost, "/api/me/orders/"+conf.ID.String()+"/receipts", nil, otherDev, uuid.Nil); rec.Code != http.StatusNotFound {
 		t.Errorf("another location's order: %d, want 404", rec.Code)
 	}
 
@@ -82,13 +80,10 @@ func TestDeviceAuth(t *testing.T) {
 		t.Errorf("online order by an inactive cashier: %d, want 403", rec.Code)
 	}
 
-	// A removed device is locked out; user tokens no longer reach the cashier API.
+	// A removed device is locked out.
 	a.DB.Model(&devicerepo.Device{}).Where("id = ?", second.ID).Update("removed_at", time.Now())
 	if rec := a.DeviceDo(http.MethodGet, "/api/me/events/"+ev.ID.String()+"/snapshot", nil, second, uuid.Nil); rec.Code != http.StatusUnauthorized {
 		t.Errorf("removed device: %d, want 401", rec.Code)
-	}
-	if rec := a.Do(http.MethodGet, "/api/me/events", nil, adminToken(t, a)); rec.Code != http.StatusUnauthorized {
-		t.Errorf("user token on /api/me: %d, want 401", rec.Code)
 	}
 	if rec := a.DeviceDo(http.MethodGet, "/api/me/events/"+ev.ID.String()+"/snapshot", nil, dev, uuid.Nil); rec.Code != http.StatusOK {
 		t.Errorf("snapshot: %d", rec.Code)
@@ -99,22 +94,15 @@ func TestDeviceAuth(t *testing.T) {
 func TestPickupBoard(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, other, p := a.ActiveEvent(), a.ActiveEvent(), a.Product("10000")
-	a.Allocate(ev.ID, p.ID, 10)
-	a.Allocate(other.ID, p.ID, 10)
 	packer, elsewhere := a.NewStaff(ev.StoreID, staffiface.RoleKasir, ev.ID), a.NewStaff(ev.StoreID, staffiface.RoleKasir, other.ID)
 	dev, otherDev := a.PairDevice(ev.ID), a.PairDevice(other.ID)
 	mine := ok[orderiface.OrderConfirmation](t, a.DeviceDo(http.MethodPost, "/api/me/events/"+ev.ID.String()+"/orders", orderBody(p.ID), dev, packer.ID), http.StatusOK)
 	ok[orderiface.OrderConfirmation](t, a.DeviceDo(http.MethodPost, "/api/me/events/"+other.ID.String()+"/orders", orderBody(p.ID), otherDev, elsewhere.ID), http.StatusOK)
 
-	events := ok[[]J](t, a.DeviceDo(http.MethodGet, "/api/warehouse/events", nil, dev, uuid.Nil), http.StatusOK)
-	if len(events) != 1 || events[0]["id"] != ev.ID.String() {
-		t.Errorf("board events %v, want only the device's location", events)
-	}
 	board := ok[[]orderiface.WarehouseOrderView](t, a.DeviceDo(http.MethodGet, "/api/warehouse/events/"+ev.ID.String()+"/orders", nil, dev, uuid.Nil), http.StatusOK)
 	if len(board) != 1 || board[0].ID != mine.ID || board[0].BaName != packer.Name {
 		t.Errorf("board %+v, want the one order here by %s", board, packer.Name)
 	}
-	ok[[]J](t, a.DeviceDo(http.MethodGet, "/api/warehouse/events/"+ev.ID.String()+"/stock", nil, dev, uuid.Nil), http.StatusOK)
 
 	advance := "/api/warehouse/orders/" + mine.ID.String() + "/status"
 	for name, c := range map[string]struct {

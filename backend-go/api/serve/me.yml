@@ -16,16 +16,6 @@ paths:
         '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } }
         '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/me/events:
-    get:
-      tags: [me]
-      operationId: listMyEvents
-      summary: "The device's location, as a one-item list"
-      security: [{ deviceToken: [] }]
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/EventResponse' } } } } }
-        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/me/events/{eventId}/snapshot:
     parameters:
       - { name: eventId, in: path, required: true, schema: { type: string } }
@@ -55,32 +45,6 @@ paths:
         '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/me/events/{eventId}/products/by-barcode/{barcode}:
-    parameters:
-      - { name: eventId, in: path, required: true, schema: { type: string } }
-      - { name: barcode, in: path, required: true, schema: { type: string } }
-    get:
-      tags: [me]
-      operationId: getProductByBarcode
-      summary: "Product sold at this location by barcode"
-      security: [{ deviceToken: [] }]
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ProductResponse' } } } }
-        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/me/events/{eventId}/stock:
-    parameters:
-      - { name: eventId, in: path, required: true, schema: { type: string } }
-    get:
-      tags: [me]
-      operationId: getMyStock
-      summary: "Remaining stock per product"
-      security: [{ deviceToken: [] }]
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/BaStockLevel' } } } } }
-        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/me/events/{eventId}/stock-levels:
     parameters:
       - { name: eventId, in: path, required: true, schema: { type: string } }
@@ -94,22 +58,6 @@ paths:
         '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '502': { description: Bhoomy did not answer; keep the last numbers, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/me/events/{eventId}/promotions/quote:
-    parameters:
-      - { name: eventId, in: path, required: true, schema: { type: string } }
-    post:
-      tags: [me]
-      operationId: quoteCart
-      summary: "Authoritative cart quote with the best promotion"
-      security: [{ deviceToken: [] }]
-      requestBody:
-        required: true
-        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/QuoteRequest' } } }
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/QuoteResponse' } } } }
-        '400': { description: Invalid request, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/me/events/{eventId}/orders:
     parameters:
       - { name: eventId, in: path, required: true, schema: { type: string } }
@@ -128,15 +76,6 @@ paths:
         '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-    get:
-      tags: [me]
-      operationId: listMyOrders
-      summary: "Orders this device sold at its location"
-      security: [{ deviceToken: [] }]
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/OrderSummary' } } } } }
-        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/me/events/{eventId}/number-blocks:
     parameters:
       - { name: eventId, in: path, required: true, schema: { type: string } }
@@ -152,19 +91,6 @@ paths:
         '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '409': { description: Conflict with the current state, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/me/orders/{orderId}:
-    parameters:
-      - { name: orderId, in: path, required: true, schema: { type: string } }
-    get:
-      tags: [me]
-      operationId: getMyOrder
-      summary: "One order with its lines"
-      security: [{ deviceToken: [] }]
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/OrderConfirmation' } } } }
-        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/me/orders/{orderId}/receipts:
     parameters:
       - { name: orderId, in: path, required: true, schema: { type: string } }
@@ -178,16 +104,6 @@ paths:
         '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
         '404': { description: Not found, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-  /api/me/members:
-    get:
-      tags: [me]
-      operationId: listSnapshotMembers
-      summary: "Active members in the compact device shape"
-      security: [{ deviceToken: [] }]
-      responses:
-        '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/MemberSnapshotDto' } } } } }
-        '401': { description: Unknown or removed device, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
-        '403': { description: Another location or staff not allowed, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/me/members/by-qr/{qrCode}:
     parameters:
       - { name: qrCode, in: path, required: true, schema: { type: string } }

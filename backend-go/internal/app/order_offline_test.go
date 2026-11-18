@@ -17,7 +17,6 @@ import (
 func TestOfflineOrdersAndLateSync(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("10.00")
-	a.Allocate(ev.ID, p.ID, 2)
 	ba := uuid.New()
 	device := "device-" + uuid.NewString()
 	deviceOrder := func(n int, createdAt time.Time) (*orderiface.OrderConfirmation, error) {

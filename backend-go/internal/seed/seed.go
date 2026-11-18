@@ -1,5 +1,5 @@
 // Package seed loads dev-only starter data on boot when SEED_ENABLED=true. It is idempotent: it
-// only seeds when the users table is empty.
+// only seeds when the demo event EV01 does not exist yet.
 package seed
 
 import (
@@ -16,42 +16,28 @@ import (
 	"github.com/krnskrll/event-mpos/internal/integration/erp"
 	membersrc "github.com/krnskrll/event-mpos/internal/integration/membersrc"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/platform/security"
 	"github.com/krnskrll/event-mpos/internal/platform/tenant"
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
 	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
 	staffsvc "github.com/krnskrll/event-mpos/internal/staff/service"
-	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
-	userrepo "github.com/krnskrll/event-mpos/internal/user/repository"
 )
 
 // Seeded credentials (CHANGE before any real deployment):
 //
-//	admin@eventmpos.local / Admin123!  (ADMIN, old dashboard)
 //	EV01 staff: Bella (KASIR, PIN 1234), Sari (SUPERVISOR, PIN 9999)
 //	EV01 device "Kasir 1": its token and a fresh pairing code are printed in the log.
-func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, stockSvc *stocksvc.Service, promoSvc *promotionsvc.Service, staff *staffsvc.Service, devices *devicesvc.Service) error {
+func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, promoSvc *promotionsvc.Service, staff *staffsvc.Service, devices *devicesvc.Service) error {
 	var count int64
-	if err := db.Model(&userrepo.User{}).Count(&count).Error; err != nil {
+	if err := db.Model(&eventrepo.Event{}).Where("store_id = ? AND code = ?", tenant.DefaultStoreID, "EV01").Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
-		log.Println("seed skipped — users already exist")
+		log.Println("seed skipped — EV01 already exists")
 		return nil
 	}
-	log.Println("WARNING: seeding DEV data with default credentials — do NOT use in production")
-
-	hash, err := security.HashPassword("Admin123!")
-	if err != nil {
-		return err
-	}
-	if err := db.Create(&userrepo.User{StoreID: tenant.DefaultStoreID, Email: "admin@eventmpos.local", PasswordHash: hash,
-		FullName: "System Admin", Role: useriface.RoleAdmin, Active: true}).Error; err != nil {
-		return err
-	}
+	log.Println("WARNING: seeding DEV data with default PINs — do NOT use in production")
 
 	// EV01 — the active demo event, with a cashier, a supervisor and one paired device.
 	start := common.NewDate(2026, time.July, 1)
@@ -117,14 +103,6 @@ func Run(db *gorm.DB, erpSync *erp.SyncService, memberSync *membersrc.Service, s
 			if err := db.Create(&productrepo.LocationItem{LocationID: ev.ID, ItemVariantID: v.ID, Active: true}).Error; err != nil {
 				return err
 			}
-		}
-		// Allocate event stock; SKU-1004 gets a small amount to demo the low-stock warning.
-		qty := min(products[i].WarehouseStock, 60)
-		if products[i].SKU == "SKU-1004" {
-			qty = 8
-		}
-		if err := stockSvc.ForceAllocate(ev.ID, products[i].ID, qty); err != nil {
-			return err
 		}
 	}
 

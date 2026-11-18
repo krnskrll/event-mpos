@@ -12,15 +12,14 @@ import (
 
 // Product is a Katalog POS item (pos_items). Its base price lives on the default variant.
 type Product struct {
-	ID             uuid.UUID           `gorm:"type:uuid;primaryKey"`
-	StoreID        uuid.UUID           `gorm:"column:store_id;type:uuid;not null"`
-	SKU            string              `gorm:"column:sku;not null"`
-	DisplayName    string              `gorm:"column:display_name;not null"`
-	Brand          *string             ``
-	PhotoURL       *string             `gorm:"column:photo_url"`
-	WarehouseStock int                 `gorm:"column:warehouse_stock;not null"`
-	Source         iface.ProductSource `gorm:"type:varchar(20);not null"`
-	Status         string              `gorm:"type:varchar(16);not null"`
+	ID          uuid.UUID           `gorm:"type:uuid;primaryKey"`
+	StoreID     uuid.UUID           `gorm:"column:store_id;type:uuid;not null"`
+	SKU         string              `gorm:"column:sku;not null"`
+	DisplayName string              `gorm:"column:display_name;not null"`
+	Brand       *string             ``
+	PhotoURL    *string             `gorm:"column:photo_url"`
+	Source      iface.ProductSource `gorm:"type:varchar(20);not null"`
+	Status      string              `gorm:"type:varchar(16);not null"`
 	// BhoomyProductID links an item added from Produk Toko.
 	BhoomyProductID *uuid.UUID       `gorm:"column:bhoomy_product_id;type:uuid"`
 	Barcodes        []ProductBarcode `gorm:"foreignKey:ItemID;constraint:OnDelete:CASCADE"`
@@ -210,7 +209,6 @@ func (p *Product) ToResponse() iface.ProductResponse {
 		ImageURL:         p.PhotoURL,
 		Source:           p.Source,
 		Active:           p.Active(),
-		WarehouseStock:   p.WarehouseStock,
 		Barcodes:         barcodes,
 		Variants:         variants,
 		UpdatedAt:        p.UpdatedAt,
@@ -246,7 +244,7 @@ func (p *Product) ToSale() iface.SaleProduct {
 	for _, v := range options {
 		variants = append(variants, iface.SaleVariant{ID: v.ID, Name: v.Name, Price: v.EffectivePrice(p.Price()), Active: v.SellInPOS, BhoomyVariantID: v.BhoomyVariantID})
 	}
-	sale := iface.SaleProduct{ID: p.ID, SKU: p.SKU, Name: p.DisplayName, Price: p.Price(), WarehouseStock: p.WarehouseStock, Variants: variants}
+	sale := iface.SaleProduct{ID: p.ID, SKU: p.SKU, Name: p.DisplayName, Price: p.Price(), Variants: variants}
 	if d := p.Default(); d != nil {
 		sale.BhoomyVariantID = d.BhoomyVariantID
 	}
