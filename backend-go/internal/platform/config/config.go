@@ -24,11 +24,6 @@ type Config struct {
 	CORSOrigins []string
 	SeedEnabled bool
 
-	// JWT
-	JWTSecret           string
-	AccessTokenTTLMin   int
-	RefreshTokenTTLDays int
-
 	// ERP adapter, used only by the dev seed: mock | file | rest
 	ERPSource   string
 	ERPFilePath string
@@ -67,10 +62,6 @@ func Load() *Config {
 		Port:        getenv("PORT", getenv("SERVER_PORT", "8080")),
 		CORSOrigins: splitCSV(getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")),
 		SeedEnabled: getbool("SEED_ENABLED", true),
-
-		JWTSecret:           getenv("JWT_SECRET", "ZHYtbG9jYWwtZGV2LXNlY3JldC1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0"),
-		AccessTokenTTLMin:   getint("JWT_ACCESS_TTL", 15),
-		RefreshTokenTTLDays: getint("JWT_REFRESH_TTL", 7),
 
 		ERPSource:   getenv("ERP_SOURCE", "mock"),
 		ERPFilePath: getenv("ERP_FILE_PATH", ""),

@@ -11,21 +11,17 @@ import (
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
 	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
-// Written from the attacker's side: store B (its users, or Bhoomy acting for it) naming store-A ids
+// Written from the attacker's side: store B (its devices, or Bhoomy acting for it) naming store-A ids
 // must get 404 (never a hint the row exists), and store-A rows must not appear in store-B lists.
 func TestStoreIsolation(t *testing.T) {
 	a := testutil.NewApp(t)
-	const pw = "Passw0rd!"
 	bhoomyA, bhoomyB := uuid.New(), uuid.New()
 	storeA, storeB := posStore(t, a, bhoomyA), posStore(t, a, bhoomyB)
 
 	// Store A with one of everything.
-	adminA := a.CreateUserIn(storeA, useriface.RoleAdmin, pw)
 	evA, pA := a.ActiveEventIn(storeA), a.ProductIn(storeA, "10000")
-	a.Allocate(evA.ID, pA.ID, 10)
 	staffA, devA := a.NewStaff(storeA, staffiface.RoleKasir, evA.ID), a.PairDevice(evA.ID)
 	orderA, err := a.Orders.Submit(evA.ID, staffA.ID, orderiface.SubmitOrderRequest{
 		IdempotencyKey: testutil.Unique("iso-"), Customer: orderiface.CustomerInfo{Name: "A"},
@@ -34,7 +30,6 @@ func TestStoreIsolation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	tokA := login(t, a, adminA.Email, pw).AccessToken
 	pct := dec("10")
 	promo, err := a.Promotions.Create(storeA, promotioniface.PromotionRequest{LocationID: &evA.ID, Name: "A10", Type: promotioniface.TypePercentage, PercentOff: &pct})
 	if err != nil {
@@ -44,26 +39,11 @@ func TestStoreIsolation(t *testing.T) {
 	a.DB.Exec(`INSERT INTO members (id, member_code, qr_code, name, tier, active, updated_at, store_id)
 		VALUES (?, ?, ?, 'Member A', 'GOLD', true, now(), ?)`, uuid.New(), codeA, qrA, storeA)
 
-	// Store B with its own admin and a paired device with its staff.
-	adminB := a.CreateUserIn(storeB, useriface.RoleAdmin, pw)
+	// Store B with a paired device and its staff.
 	evB := a.ActiveEventIn(storeB)
 	devB, staffB := a.PairDevice(evB.ID), a.NewStaff(storeB, staffiface.RoleSupervisor, evB.ID).ID
-	tokB := login(t, a, adminB.Email, pw).AccessToken
 
 	ev, p, ord, pr := evA.ID.String(), pA.ID.String(), orderA.ID.String(), promo.ID.String()
-	refused := []struct {
-		name, method, path, token string
-		body                      any
-	}{
-		{"allocations", http.MethodGet, "/api/admin/events/" + ev + "/stock", tokB, nil},
-		{"set allocation", http.MethodPut, "/api/admin/events/" + ev + "/stock/" + p, tokB, map[string]int{"allocatedQty": 1}},
-	}
-	for _, r := range refused {
-		if rec := a.Do(r.method, r.path, r.body, r.token); rec.Code != http.StatusNotFound {
-			t.Errorf("%s: store B got %d, want 404 (%s)", r.name, rec.Code, rec.Body.String())
-		}
-	}
-
 	// Store B's device: another location's id is 403, another store's order or member 404.
 	cancel := J{"supervisorId": staffB, "supervisorPin": testutil.TestPin}
 	for _, r := range []struct {
@@ -73,9 +53,7 @@ func TestStoreIsolation(t *testing.T) {
 	}{
 		{"snapshot", http.MethodGet, "/api/me/events/" + ev + "/snapshot", nil, http.StatusForbidden},
 		{"submit order", http.MethodPost, "/api/me/events/" + ev + "/orders", J{"idempotencyKey": "k", "lines": []J{{"productId": p, "qty": 1}}}, http.StatusForbidden},
-		{"board stock", http.MethodGet, "/api/warehouse/events/" + ev + "/stock", nil, http.StatusForbidden},
 		{"board orders", http.MethodGet, "/api/warehouse/events/" + ev + "/orders", nil, http.StatusForbidden},
-		{"order", http.MethodGet, "/api/me/orders/" + ord, nil, http.StatusNotFound},
 		{"advance order", http.MethodPatch, "/api/warehouse/orders/" + ord + "/status", J{"status": "PACKING"}, http.StatusNotFound},
 		{"board cancel", http.MethodPost, "/api/warehouse/orders/" + ord + "/cancel", cancel, http.StatusNotFound},
 		{"cashier cancel", http.MethodPost, "/api/me/orders/" + ord + "/cancel", cancel, http.StatusNotFound},
@@ -113,16 +91,7 @@ func TestStoreIsolation(t *testing.T) {
 		}
 	}
 
-	hidden := []struct{ path, token, id string }{
-		{"/api/admin/events", tokB, ev},
-	}
-	for _, h := range hidden {
-		rec := a.Do(http.MethodGet, h.path, nil, h.token)
-		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), h.id) {
-			t.Errorf("%s: store B sees store A data (%d)", h.path, rec.Code)
-		}
-	}
-	for path, id := range map[string]string{"/api/warehouse/events": ev, "/api/me/events": ev, "/api/me/members": qrA, "/api/device/staff": staffA.ID.String()} {
+	for path, id := range map[string]string{"/api/device/staff": staffA.ID.String()} {
 		rec := a.DeviceDo(http.MethodGet, path, nil, devB, uuid.Nil)
 		if rec.Code != http.StatusOK || strings.Contains(rec.Body.String(), id) {
 			t.Errorf("device %s: store B sees store A data (%d)", path, rec.Code)
@@ -136,9 +105,6 @@ func TestStoreIsolation(t *testing.T) {
 	}
 
 	// Store A still reaches its own data, so the 404s above are about the store, not the route.
-	if rec := a.Do(http.MethodGet, "/api/admin/events/"+ev+"/stock", nil, tokA); rec.Code != http.StatusOK {
-		t.Errorf("store A allocations: %d", rec.Code)
-	}
 	for _, path := range []string{"/locations/" + ev + "/audit", "/locations/" + ev + "/report", "/promotions/" + pr} {
 		if rec := a.Back(http.MethodGet, path, nil, bhoomyA); rec.Code != http.StatusOK {
 			t.Errorf("store A %s: %d", path, rec.Code)

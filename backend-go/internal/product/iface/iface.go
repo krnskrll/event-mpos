@@ -40,7 +40,6 @@ type ProductResponse struct {
 	ImageURL         *string         `json:"imageUrl,omitempty"`
 	Source           ProductSource   `json:"source"`
 	Active           bool            `json:"active"`
-	WarehouseStock   int             `json:"warehouseStock"`
 	Barcodes         []BarcodeDto    `json:"barcodes"`
 	Variants         []VariantDto    `json:"variants"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
@@ -59,25 +58,23 @@ type VariantSnapshotDto struct {
 
 // ProductSnapshotDto is the compact product shape carried in the event snapshot.
 type ProductSnapshotDto struct {
-	ID             uuid.UUID            `json:"id"`
-	SKU            string               `json:"sku"`
-	Name           string               `json:"name"`
-	Brand          *string              `json:"brand,omitempty"`
-	Price          decimal.Decimal      `json:"price"`
-	ImageURL       *string              `json:"imageUrl,omitempty"`
-	Barcodes       []string             `json:"barcodes"`
-	Variants       []VariantSnapshotDto `json:"variants"`
-	RemainingStock int                  `json:"remainingStock"`
+	ID       uuid.UUID            `json:"id"`
+	SKU      string               `json:"sku"`
+	Name     string               `json:"name"`
+	Brand    *string              `json:"brand,omitempty"`
+	Price    decimal.Decimal      `json:"price"`
+	ImageURL *string              `json:"imageUrl,omitempty"`
+	Barcodes []string             `json:"barcodes"`
+	Variants []VariantSnapshotDto `json:"variants"`
 }
 
 // SaleProduct carries the server-authoritative prices used when selling.
 type SaleProduct struct {
-	ID             uuid.UUID
-	SKU            string
-	Name           string
-	Price          decimal.Decimal
-	WarehouseStock int
-	Variants       []SaleVariant
+	ID       uuid.UUID
+	SKU      string
+	Name     string
+	Price    decimal.Decimal
+	Variants []SaleVariant
 	// BhoomyVariantID is the default variant's Produk Toko variant (products without options).
 	BhoomyVariantID *uuid.UUID
 }

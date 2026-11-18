@@ -17,9 +17,7 @@ import (
 	receiptrepo "github.com/krnskrll/event-mpos/internal/receipt/repository"
 	reportiface "github.com/krnskrll/event-mpos/internal/report/iface"
 	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
-	stockrepo "github.com/krnskrll/event-mpos/internal/stock/repository"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // EPIC-12 Milestone D: back-office fixes.
@@ -31,19 +29,12 @@ func closeEvent(t *testing.T, a *testutil.TestApp, eventID uuid.UUID) {
 	}
 }
 
-func adminToken(t *testing.T, a *testutil.TestApp) string {
-	t.Helper()
-	admin := a.CreateUser(useriface.RoleAdmin, "Admin123!")
-	return login(t, a, admin.Email, "Admin123!").AccessToken
-}
-
 // The location report is final once the location is closed: no more orders can arrive.
 func TestReportIsFinalOnceClosed(t *testing.T) {
 	a := testutil.NewApp(t)
 	bhoomyStore := uuid.New()
 	store := posStore(t, a, bhoomyStore)
 	ev, p := a.ActiveEventIn(store), a.ProductIn(store, "50.00")
-	a.Allocate(ev.ID, p.ID, 10)
 	if _, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1)); err != nil {
 		t.Fatal(err)
 	}
@@ -155,7 +146,6 @@ func TestAuditLogIsPaginatedAndFiltered(t *testing.T) {
 func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("20.00")
-	a.Allocate(ev.ID, p.ID, 10)
 	ba := a.NewStaff(ev.StoreID, staffiface.RoleKasir, ev.ID)
 	dev := a.PairDevice(ev.ID)
 	conf, err := a.Orders.Submit(ev.ID, ba.ID, orderiface.SubmitOrderRequest{
@@ -217,37 +207,5 @@ func TestReceiptPrintWritesLogAndAuditEntry(t *testing.T) {
 	}
 	if trail, _ := a.Audit.ForOrder(conf.ID); len(trail) != 13 {
 		t.Errorf("audit entries = %d, want 13 (1 created + 12 prints)", len(trail))
-	}
-}
-
-func TestStockSummaryCache(t *testing.T) {
-	a := testutil.NewApp(t)
-	ev, p := a.ActiveEvent(), a.Product("20.00")
-	a.Allocate(ev.ID, p.ID, 10)
-
-	remaining := func() (int, int) {
-		t.Helper()
-		ba, err := a.Stock.BaLevelsForEvent(ev.ID)
-		if err != nil || len(ba) != 1 {
-			t.Fatalf("ba levels: %v %v", ba, err)
-		}
-		wh, err := a.Stock.LevelsForEvent(ev.ID)
-		if err != nil || len(wh) != 1 {
-			t.Fatalf("warehouse levels: %v %v", wh, err)
-		}
-		return ba[0].Remaining, wh[0].Remaining
-	}
-	if b, w := remaining(); b != 10 || w != 10 {
-		t.Fatalf("initial remaining %d/%d, want 10", b, w)
-	}
-
-	// A write that bypasses the service is not seen until the entry is invalidated or expires.
-	a.DB.Model(&stockrepo.EventStockAllocation{}).Where("event_id = ?", ev.ID).Update("sold_qty", 1)
-	if b, w := remaining(); b != 10 || w != 10 {
-		t.Errorf("cache not used: remaining %d/%d, want the cached 10", b, w)
-	}
-	a.Stock.InvalidateSummary(ev.ID)
-	if b, w := remaining(); b != 9 || w != 9 {
-		t.Errorf("after invalidate: %d/%d, want 9", b, w)
 	}
 }

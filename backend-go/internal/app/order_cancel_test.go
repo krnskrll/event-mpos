@@ -20,7 +20,6 @@ import (
 func TestCancelOrder(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, elsewhere, p := a.ActiveEvent(), a.ActiveEvent(), a.Product("10.00")
-	a.Allocate(ev.ID, p.ID, 10)
 	kasir, sari := a.NewStaff(ev.StoreID, staffiface.RoleKasir, ev.ID), a.NewStaff(ev.StoreID, staffiface.RoleSupervisor, ev.ID)
 	away := a.NewStaff(ev.StoreID, staffiface.RoleSupervisor, elsewhere.ID)
 	dev := a.PairDevice(ev.ID)

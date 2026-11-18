@@ -11,7 +11,6 @@ import (
 
 	"github.com/krnskrll/event-mpos/internal/auth/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 // ServiceMiddleware admits the Bhoomy backend, which has already checked the owner or manager's
@@ -36,7 +35,7 @@ func ServiceMiddleware(token string, storeFor func(bhoomyStoreID uuid.UUID, name
 			common.Fail(c, err)
 			return
 		}
-		iface.SetPrincipal(c, iface.Principal{StoreID: store, Role: useriface.RoleAdmin})
+		iface.SetPrincipal(c, iface.Principal{StoreID: store})
 		c.Next()
 	}
 }

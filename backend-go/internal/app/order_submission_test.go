@@ -29,7 +29,6 @@ func dec(s string) decimal.Decimal { return decimal.RequireFromString(s) }
 func TestSubmitCreatesNumberedOrderForBhoomy(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("100.00")
-	a.Allocate(ev.ID, p.ID, 10)
 
 	conf, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 3))
 	if err != nil {
@@ -55,7 +54,6 @@ func TestSubmitCreatesNumberedOrderForBhoomy(t *testing.T) {
 func TestIdempotentSubmitReturnsOriginalOrder(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("100.00")
-	a.Allocate(ev.ID, p.ID, 10)
 
 	key := uuid.NewString()
 	first, err := submit(a, ev.ID, key, line(p.ID, 2))
@@ -79,8 +77,6 @@ func TestIdempotentSubmitReturnsOriginalOrder(t *testing.T) {
 func TestDailyNumberIncrementsPerEvent(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, other, p := a.ActiveEvent(), a.ActiveEvent(), a.Product("100.00")
-	a.Allocate(ev.ID, p.ID, 100)
-	a.Allocate(other.ID, p.ID, 100)
 
 	for want := 1; want <= 3; want++ {
 		conf, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 1))
@@ -105,7 +101,6 @@ func TestDailyNumberIncrementsPerEvent(t *testing.T) {
 func TestStockNeverRefusesASale(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("100.00")
-	a.Allocate(ev.ID, p.ID, 2)
 	conf, err := submit(a, ev.ID, uuid.NewString(), line(p.ID, 5))
 	if err != nil || conf.OrderNumber != 1 {
 		t.Fatalf("got %+v, %v", conf, err)
@@ -115,7 +110,6 @@ func TestStockNeverRefusesASale(t *testing.T) {
 func TestBestPromotionIsAppliedAtSubmit(t *testing.T) {
 	a := testutil.NewApp(t)
 	ev, p := a.ActiveEvent(), a.Product("100.00")
-	a.Allocate(ev.ID, p.ID, 100)
 	pct := dec("10")
 	if _, err := a.Promotions.Create(ev.StoreID, promotioniface.PromotionRequest{LocationID: &ev.ID, Name: "10% off", Type: promotioniface.TypePercentage, PercentOff: &pct}); err != nil {
 		t.Fatal(err)

@@ -178,7 +178,6 @@ func TestLaporanPOS(t *testing.T) {
 	bhoomyStore := uuid.New()
 	store := posStore(t, a, bhoomyStore)
 	ev, p := a.ActiveEventIn(store), a.ProductIn(store, "50000")
-	a.Allocate(ev.ID, p.ID, 100)
 	ok[promotioniface.PromotionResponse](t, a.Back(http.MethodPost, "/promotions",
 		J{"name": "Hemat", "type": "FIXED", "amountOff": 10000, "minSubtotal": 100000}, bhoomyStore), http.StatusCreated)
 

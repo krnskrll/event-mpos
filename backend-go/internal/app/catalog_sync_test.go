@@ -11,7 +11,6 @@ import (
 	catalogiface "github.com/krnskrll/event-mpos/internal/catalog/iface"
 	"github.com/krnskrll/event-mpos/internal/integration/bhoomy"
 	"github.com/krnskrll/event-mpos/internal/testutil"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 func TestCatalogSyncPullsProdukTokoChanges(t *testing.T) {
@@ -19,7 +18,6 @@ func TestCatalogSyncPullsProdukTokoChanges(t *testing.T) {
 	mock := a.Bhoomy.(*bhoomy.Mock)
 	store, bhoomyStore := a.NewStore("Linked"), uuid.New()
 	a.DB.Exec("UPDATE pos_stores SET bhoomy_store_id = ? WHERE id = ?", bhoomyStore, store)
-	tok := login(t, a, a.CreateUserIn(store, useriface.RoleAdmin, "Passw0rd!").Email, "Passw0rd!").AccessToken
 	t0 := time.Now().UTC().Truncate(time.Second)
 	variant := func(name string, at time.Duration) catalogiface.Variant {
 		return catalogiface.Variant{BhoomyVariantID: uuid.New(), BhoomyProductID: uuid.New(), ProductName: name,
@@ -31,14 +29,14 @@ func TestCatalogSyncPullsProdukTokoChanges(t *testing.T) {
 	}
 	status := func() map[string]any {
 		t.Helper()
-		rec := a.Do(http.MethodGet, "/api/admin/catalog/sync", nil, tok)
+		rec := a.Back(http.MethodGet, "/catalog/status", nil, bhoomyStore)
 		if rec.Code != http.StatusOK {
 			t.Fatalf("status: %d %s", rec.Code, rec.Body.String())
 		}
 		return testutil.Decode[map[string]any](t, rec)
 	}
 
-	if rec := a.Do(http.MethodPost, "/api/admin/catalog/sync", nil, tok); rec.Code != http.StatusOK {
+	if rec := a.Back(http.MethodPost, "/catalog/sync", nil, bhoomyStore); rec.Code != http.StatusOK {
 		t.Fatalf("sync: %d %s", rec.Code, rec.Body.String())
 	}
 	if st := status(); st["linked"] != true || st["cached"] != float64(1200) || st["lastError"] != nil {
@@ -47,7 +45,7 @@ func TestCatalogSyncPullsProdukTokoChanges(t *testing.T) {
 
 	// Bhoomy down: the error is kept and the cursor stays; the next pull resumes with only new changes.
 	mock.Err = errors.New("connection refused")
-	if rec := a.Do(http.MethodPost, "/api/admin/catalog/sync", nil, tok); rec.Code != http.StatusBadGateway {
+	if rec := a.Back(http.MethodPost, "/catalog/sync", nil, bhoomyStore); rec.Code != http.StatusBadGateway {
 		t.Errorf("Bhoomy down: got %d, want 502", rec.Code)
 	}
 	before := status()
@@ -58,19 +56,15 @@ func TestCatalogSyncPullsProdukTokoChanges(t *testing.T) {
 	renamed := mock.Variants[bhoomyStore][0]
 	renamed.ProductName, renamed.ChangedAt = "Renamed", t0.Add(time.Hour)
 	mock.Variants[bhoomyStore] = append(mock.Variants[bhoomyStore][1:], renamed, variant("New", time.Hour+time.Second))
-	a.Do(http.MethodPost, "/api/admin/catalog/sync", nil, tok)
+	a.Back(http.MethodPost, "/catalog/sync", nil, bhoomyStore)
 	var names []string
 	a.DB.Table("pos_catalog_cache").Where("store_id = ? AND product_name IN ?", store, []string{"Renamed", "New"}).Pluck("product_name", &names)
 	if st := status(); st["cached"] != float64(1201) || st["lastError"] != nil || len(names) != 2 {
 		t.Errorf("after resume: %v %v", st, names)
 	}
 
-	// Another store sees only its own state; an unlinked store cannot pull.
-	other := login(t, a, a.CreateUser(useriface.RoleAdmin, "Passw0rd!").Email, "Passw0rd!").AccessToken
-	if st := testutil.Decode[map[string]any](t, a.Do(http.MethodGet, "/api/admin/catalog/sync", nil, other)); st["cached"] != float64(0) || st["linked"] != false {
-		t.Errorf("unlinked store status: %v", st)
-	}
-	if rec := a.Do(http.MethodPost, "/api/admin/catalog/sync", nil, other); rec.Code != http.StatusConflict {
-		t.Errorf("unlinked store sync: got %d, want 409", rec.Code)
+	// Another store sees only its own state.
+	if st := testutil.Decode[map[string]any](t, a.Back(http.MethodGet, "/catalog/status", nil, uuid.New())); st["cached"] != float64(0) {
+		t.Errorf("other store status: %v", st)
 	}
 }

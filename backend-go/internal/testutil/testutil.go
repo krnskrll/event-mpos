@@ -34,7 +34,6 @@ import (
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	productrepo "github.com/krnskrll/event-mpos/internal/product/repository"
 	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
 )
 
 var migrateOnce sync.Once
@@ -82,15 +81,12 @@ func NewApp(t *testing.T) *TestApp {
 	t.Helper()
 	db := DB(t)
 	cfg := &config.Config{
-		JWTSecret:           "ZHYtbG9jYWwtZGV2LXNlY3JldC1jaGFuZ2UtbWUtaW4tcHJvZHVjdGlvbi0xMjM0",
-		AccessTokenTTLMin:   15,
-		RefreshTokenTTLDays: 7,
-		ERPSource:           "mock",
-		MemberSource:        "mock",
-		MemberSyncCron:      "0 0 2 * * *",
-		MediaDir:            t.TempDir(),
-		MediaBaseURL:        "http://pos.test/media",
-		BhoomyServiceToken:  ServiceToken,
+		ERPSource:          "mock",
+		MemberSource:       "mock",
+		MemberSyncCron:     "0 0 2 * * *",
+		MediaDir:           t.TempDir(),
+		MediaBaseURL:       "http://pos.test/media",
+		BhoomyServiceToken: ServiceToken,
 	}
 	a, err := app.New(cfg, db)
 	if err != nil {
@@ -102,23 +98,6 @@ func NewApp(t *testing.T) *TestApp {
 // Unique returns prefix plus a short random suffix, for fixture names that must not collide.
 func Unique(prefix string) string {
 	return prefix + strings.ToUpper(uuid.NewString()[:8])
-}
-
-// CreateUser creates a user in the default store (email is made unique).
-func (a *TestApp) CreateUser(role useriface.Role, password string) *useriface.UserResponse {
-	a.t.Helper()
-	return a.CreateUserIn(tenant.DefaultStoreID, role, password)
-}
-
-func (a *TestApp) CreateUserIn(storeID uuid.UUID, role useriface.Role, password string) *useriface.UserResponse {
-	a.t.Helper()
-	u, err := a.Users.Create(storeID, useriface.CreateUserRequest{
-		Email: strings.ToLower(Unique("u-")) + "@test.local", Password: password, FullName: "Test " + string(role), Role: role,
-	})
-	if err != nil {
-		a.t.Fatalf("create user: %v", err)
-	}
-	return u
 }
 
 // NewStore inserts another store, for tenant isolation tests.
@@ -156,31 +135,13 @@ func (a *TestApp) ProductIn(storeID uuid.UUID, price string) *productrepo.Produc
 	a.t.Helper()
 	p := &productrepo.Product{
 		StoreID: storeID, SKU: Unique("SKU-"), DisplayName: "Widget",
-		WarehouseStock: 100000, Source: productiface.SourceManual, Status: productrepo.StatusActive,
+		Source: productiface.SourceManual, Status: productrepo.StatusActive,
 	}
 	p.SetPrice(decimal.RequireFromString(price))
 	if err := a.DB.Create(p).Error; err != nil {
 		a.t.Fatalf("create product: %v", err)
 	}
 	return p
-}
-
-// Allocate sets an event allocation directly (bypasses the DRAFT-only admin rule).
-func (a *TestApp) Allocate(eventID, productID uuid.UUID, qty int) {
-	a.t.Helper()
-	if err := a.Stock.ForceAllocate(eventID, productID, qty); err != nil {
-		a.t.Fatalf("allocate: %v", err)
-	}
-}
-
-// Remaining returns the remaining event stock for a product.
-func (a *TestApp) Remaining(eventID, productID uuid.UUID) int {
-	a.t.Helper()
-	n, err := a.Stock.Remaining(eventID, productID)
-	if err != nil {
-		a.t.Fatalf("remaining: %v", err)
-	}
-	return n
 }
 
 // Do sends a JSON request through the real router and returns the recorder.

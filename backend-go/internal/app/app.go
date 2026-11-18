@@ -5,9 +5,7 @@ package app
 
 import (
 	"context"
-	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -16,7 +14,6 @@ import (
 
 	auditsvc "github.com/krnskrll/event-mpos/internal/audit/service"
 	authhandler "github.com/krnskrll/event-mpos/internal/auth/handler"
-	authsvc "github.com/krnskrll/event-mpos/internal/auth/service"
 	cataloghandler "github.com/krnskrll/event-mpos/internal/catalog/handler"
 	catalogsvc "github.com/krnskrll/event-mpos/internal/catalog/service"
 	devicehandler "github.com/krnskrll/event-mpos/internal/device/handler"
@@ -46,28 +43,20 @@ import (
 	reporthandler "github.com/krnskrll/event-mpos/internal/report/handler"
 	reportsvc "github.com/krnskrll/event-mpos/internal/report/service"
 	staffhandler "github.com/krnskrll/event-mpos/internal/staff/handler"
-	staffiface "github.com/krnskrll/event-mpos/internal/staff/iface"
 	staffsvc "github.com/krnskrll/event-mpos/internal/staff/service"
-	stockhandler "github.com/krnskrll/event-mpos/internal/stock/handler"
-	stocksvc "github.com/krnskrll/event-mpos/internal/stock/service"
 	synchandler "github.com/krnskrll/event-mpos/internal/syncconfig/handler"
 	syncsvc "github.com/krnskrll/event-mpos/internal/syncconfig/service"
-	useriface "github.com/krnskrll/event-mpos/internal/user/iface"
-	usersvc "github.com/krnskrll/event-mpos/internal/user/service"
 )
 
 // App holds the wired services and the HTTP router.
 type App struct {
 	Router *gin.Engine
 
-	Users       *usersvc.Service
-	Auth        *authsvc.Service
 	Events      *eventsvc.Service
 	Products    *productsvc.Service
 	ERPSync     *erp.SyncService
 	Members     *membersvc.Service
 	MemberSync  *membersrc.Service
-	Stock       *stocksvc.Service
 	Promotions  *promotionsvc.Service
 	Audit       *auditsvc.Service
 	Receipts    *receiptsvc.Service
@@ -91,16 +80,10 @@ type App struct {
 func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a := &App{}
 
-	jwtService, err := authsvc.NewJwtService(cfg.JWTSecret, cfg.AccessTokenTTLMin)
-	if err != nil {
-		return nil, err
-	}
+	var err error
 	if a.Bhoomy, err = bhoomy.New(cfg.BhoomyMode, cfg.BhoomyURL, cfg.BhoomyServiceToken); err != nil {
 		return nil, err
 	}
-	refreshService := authsvc.NewRefreshService(db, cfg.RefreshTokenTTLDays)
-	a.Users = usersvc.NewService(db)
-	a.Auth = authsvc.NewService(a.Users, jwtService, refreshService)
 	a.Events = eventsvc.NewService(db)
 	a.Media = media.NewStore(cfg.MediaDir, cfg.MediaBaseURL)
 	a.Products = productsvc.NewService(db, a.Media)
@@ -118,11 +101,9 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Members = membersvc.NewService(db)
 	memberSource := membersrc.NewSource(cfg.MemberSource, cfg.MemberFilePath, cfg.MemberRestURL)
 	a.MemberSync = membersrc.NewService(memberSource, db, a.Members, cfg.MemberRegionFilter)
-	a.Stock = stocksvc.NewService(db, a.Events, a.Products)
 	a.Promotions = promotionsvc.NewService(db, a.Products, a.Events)
-	names := actorNames{a.Staff, a.Users}
-	a.Audit = auditsvc.NewService(db, names)
-	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Stock, a.Promotions, a.Audit, names)
+	a.Audit = auditsvc.NewService(db, a.Staff)
+	a.Orders = ordersvc.NewService(db, a.Events, a.Products, a.Promotions, a.Audit, a.Staff)
 	a.Receipts = receiptsvc.NewService(db, a.Orders, a.Audit)
 	// 6c: sales go to Bhoomy's stock; the app reads Bhoomy's numbers (30 s in memory).
 	a.StockReader = bhoomy.NewStockReader(a.Bhoomy, a.Catalog, a.Events, a.Products)
@@ -144,21 +125,19 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	}
 	a.Scheduler = syncsvc.NewScheduler(a.SyncConfig, func() { a.MemberSync.Sync() })
 
-	// Snapshot contributors: all four domains live now. Products carry remaining event stock.
-	a.Products.SetStockRemaining(a.Stock.Remaining)
+	// Snapshot contributors. Stock is not in the snapshot: the app reads it from stock-levels (6c).
 	a.Events.SetProviders(eventiface.Providers{
-		Products: a.Products, Members: a.Members, Stock: a.Stock, Promotions: a.Promotions,
+		Products: a.Products, Members: a.Members, Promotions: a.Promotions,
 	})
 
 	// Append-only audit trigger (Postgres; skipped with a warning elsewhere).
 	auditsvc.InstallAppendOnlyGuard(db)
 
-	a.Router = a.routes(cfg, jwtService)
+	a.Router = a.routes(cfg)
 	return a, nil
 }
 
-func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.Engine {
-	authHandler := authhandler.NewHandler(a.Auth)
+func (a *App) routes(cfg *config.Config) *gin.Engine {
 	eventHandler := eventhandler.NewHandler(a.Events)
 	productHandler := producthandler.NewHandler(a.Products, a.Events)
 	catalogHandler := cataloghandler.NewHandler(a.Catalog, func(storeID uuid.UUID) error {
@@ -167,15 +146,13 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		return a.CatalogSync.RunStore(ctx, storeID)
 	})
 	memberHandler := memberhandler.NewHandler(a.Members)
-	stockAdminHandler := stockhandler.NewAdminHandler(a.Stock, a.Events)
-	warehouseStockHandler := stockhandler.NewWarehouseHandler(a.Stock, a.Events)
 	promotionHandler := promotionhandler.NewHandler(a.Promotions)
 	warehouseOrderHandler := orderhandler.NewWarehouseHandler(a.Orders, a.Staff)
 	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit, a.Events)
 	memberSyncHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.MemberSync, func() { a.MemberSync.Sync() })
 	staffHandler := staffhandler.NewHandler(a.Staff)
 	deviceHandler := devicehandler.NewHandler(a.Devices, a.Staff)
-	meHandler := mehandler.NewHandler(a.Events, a.Products, a.Members, a.Stock, a.Promotions, a.Orders, a.Receipts)
+	meHandler := mehandler.NewHandler(a.Events, a.Members, a.Orders, a.Receipts)
 	meHandler.SetStockLevels(func(ctx context.Context, id uuid.UUID) (any, error) { return a.StockReader.Levels(ctx, id) })
 
 	gin.SetMode(gin.ReleaseMode)
@@ -194,8 +171,6 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 	api := r.Group("/api")
 	{
 		// Public
-		api.POST("/auth/login", authHandler.Login)
-		api.POST("/auth/refresh", authHandler.Refresh)
 		api.POST("/device/pair", common.RateLimit(10, time.Minute), deviceHandler.Pair)
 
 		// Cashier app on a paired device (Authorization: Device <token>; X-Staff-Id when acting for a person).
@@ -206,42 +181,19 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 		scoped := device.Group("", devicehandler.Scope(a.Orders.LocationOf))
 		me := scoped.Group("/me")
 		me.GET("/event", meHandler.MyEvent)
-		me.GET("/events", meHandler.MyEvents)
 		me.GET("/events/:eventId/snapshot", meHandler.Snapshot)
 		me.GET("/events/:eventId/snapshot/hash", meHandler.SnapshotHash)
-		me.GET("/events/:eventId/products/by-barcode/:barcode", meHandler.ProductByBarcode)
-		me.GET("/members", meHandler.Members)
 		me.GET("/members/by-qr/:qrCode", meHandler.MemberByQr)
-		me.GET("/events/:eventId/stock", meHandler.Stock)
 		me.GET("/events/:eventId/stock-levels", meHandler.StockLevels)
-		me.POST("/events/:eventId/promotions/quote", meHandler.Quote)
 		me.POST("/events/:eventId/orders", meHandler.SubmitOrder)
 		me.POST("/events/:eventId/number-blocks", meHandler.IssueNumberBlock)
-		me.GET("/events/:eventId/orders", meHandler.OrderHistory)
-		me.GET("/orders/:orderId", meHandler.Order)
 		me.POST("/orders/:orderId/receipts", devicehandler.RequireStaff, meHandler.LogReceipt)
 		me.POST("/orders/:orderId/cancel", devicehandler.RequireStaff, warehouseOrderHandler.CashierCancel)
 		// Pickup board: any staff on the location's devices.
 		board := scoped.Group("/warehouse")
-		board.GET("/events", warehouseStockHandler.Events)
-		board.GET("/events/:eventId/stock", warehouseStockHandler.Levels)
 		board.GET("/events/:eventId/orders", warehouseOrderHandler.Orders)
 		board.PATCH("/orders/:orderId/status", devicehandler.RequireStaff, warehouseOrderHandler.Advance)
 		board.POST("/orders/:orderId/cancel", devicehandler.RequireStaff, warehouseOrderHandler.BoardCancel)
-
-		// Authenticated (any valid token)
-		authed := api.Group("")
-		authed.Use(authhandler.JWTMiddleware(jwtService))
-		authed.POST("/auth/logout", authHandler.Logout)
-
-		// Old dashboard (ADMIN only) until Phase 6: the location list, stock allocation, Produk Toko pull.
-		admin := authed.Group("/admin")
-		admin.Use(authhandler.RequireRole(useriface.RoleAdmin))
-		admin.GET("/events", eventHandler.List)
-		admin.GET("/catalog/sync", catalogHandler.SyncStatus)
-		admin.POST("/catalog/sync", catalogHandler.Sync)
-		admin.GET("/events/:id/stock", stockAdminHandler.Allocations)
-		admin.PUT("/events/:id/stock/:productId", stockAdminHandler.SetAllocation)
 
 		// Bhoomy back office (Katalog POS, Outlet & Event, Promosi, Member POS, Laporan POS), called only by the Bhoomy backend.
 		back := api.Group("/backoffice")
@@ -302,19 +254,6 @@ func (a *App) boardAccess(token, eventID string) int {
 	return 0
 }
 
-// actorNames names an audit actor: a staff member, or an admin user for older entries.
-type actorNames struct {
-	staff staffiface.Staff
-	users useriface.Users
-}
-
-func (n actorNames) NameOf(tx database.Tx, id uuid.UUID) (string, error) {
-	if name, err := n.staff.NameOf(tx, id); err == nil {
-		return name, nil
-	}
-	return n.users.NameOf(tx, id)
-}
-
 // storeFor finds the POS store of a Bhoomy store; a new one pulls its Produk Toko copy right away.
 func (a *App) storeFor(pull bool) func(uuid.UUID, string, string) (uuid.UUID, error) {
 	return func(bhoomyStore uuid.UUID, name, address string) (uuid.UUID, error) {
@@ -334,17 +273,4 @@ func (a *App) storeFor(pull bool) func(uuid.UUID, string, string) (uuid.UUID, er
 		}
 		return id, err
 	}
-}
-
-// CreateStoreAdmin adds a POS admin to a Bhoomy store, for the old dashboard's stock allocation
-// until Phase 6 moves stock to Bhoomy.
-func (a *App) CreateStoreAdmin(bhoomyStore uuid.UUID, email, name, password string) (*useriface.UserResponse, error) {
-	if len(password) < 8 || strings.TrimSpace(name) == "" {
-		return nil, errors.New("name required, password at least 8 characters")
-	}
-	id, err := a.storeFor(false)(bhoomyStore, "", "")
-	if err != nil {
-		return nil, err
-	}
-	return a.Users.Create(id, useriface.CreateUserRequest{Email: email, Password: password, FullName: name, Role: useriface.RoleAdmin})
 }

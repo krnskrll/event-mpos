@@ -38,33 +38,24 @@ func TestRoutesUnchanged(t *testing.T) {
 	}
 }
 
-// The old admin surface that Bhoomy's back office replaced is gone; what Bhoomy does not own yet stays.
-func TestRetiredAdminRoutes(t *testing.T) {
+// The old dashboard is gone (6f): its login, every /api/admin route and the stock allocation
+// routes. So are the device routes the offline-first app never calls.
+func TestRetiredRoutes(t *testing.T) {
 	a := testutil.NewApp(t)
-	tok := adminToken(t, a)
 	ev, id := a.ActiveEvent().ID.String(), uuid.NewString()
 	for _, r := range []string{
-		"POST /events", "PUT /events/" + ev, "PATCH /events/" + ev + "/status",
-		"GET /products", "POST /products", "GET /products/" + id, "PUT /products/" + id, "POST /products/" + id + "/photo",
-		"POST /erp/sync", "GET /erp/status", "GET /members",
-		"GET /events/" + ev + "/products", "PUT /events/" + ev + "/products/" + id, "PUT /events/" + ev + "/variants/" + id,
-		"GET /events/" + ev + "/report", "GET /events/" + ev + "/report.csv", "GET /events/" + ev + "/audit",
-		"GET /events/" + ev + "/promotions", "POST /events/" + ev + "/promotions", "PUT /promotions/" + id, "DELETE /promotions/" + id,
-		// Phase 5: accounts, cashier assignment and member sync moved to Bhoomy (Staf POS, Member POS).
-		"GET /users", "POST /users", "PATCH /users/" + id, "POST /assignments",
-		"POST /members/sync", "GET /members/sync/status", "GET /sync", "PUT /sync/MEMBER",
+		"POST /api/auth/login", "POST /api/auth/refresh", "POST /api/auth/logout",
+		"GET /api/admin/events", "GET /api/admin/catalog/sync", "POST /api/admin/catalog/sync",
+		"GET /api/admin/events/" + ev + "/stock", "PUT /api/admin/events/" + ev + "/stock/" + id,
+		"POST /api/admin/events", "GET /api/admin/products", "POST /api/admin/erp/sync", "GET /api/admin/users", "POST /api/admin/assignments",
+		"GET /api/me", "GET /api/me/events", "GET /api/me/members", "GET /api/me/orders/" + id,
+		"GET /api/me/events/" + ev + "/stock", "GET /api/me/events/" + ev + "/orders",
+		"GET /api/me/events/" + ev + "/products/by-barcode/899", "POST /api/me/events/" + ev + "/promotions/quote",
+		"GET /api/warehouse/events", "GET /api/warehouse/events/" + ev + "/stock",
 	} {
 		method, path, _ := strings.Cut(r, " ")
-		if rec := a.Do(method, "/api/admin"+path, map[string]any{}, tok); rec.Code != http.StatusNotFound {
+		if rec := a.Do(method, path, map[string]any{}, ""); rec.Code != http.StatusNotFound {
 			t.Errorf("%s: got %d, want 404", r, rec.Code)
 		}
-	}
-	for _, path := range []string{"/events", "/events/" + ev + "/stock", "/catalog/sync"} {
-		if rec := a.Do(http.MethodGet, "/api/admin"+path, nil, tok); rec.Code != http.StatusOK {
-			t.Errorf("GET %s: got %d, want 200", path, rec.Code)
-		}
-	}
-	if rec := a.Do(http.MethodGet, "/api/me", nil, tok); rec.Code != http.StatusNotFound {
-		t.Errorf("GET /api/me: got %d, want 404 (GET /api/device replaces it)", rec.Code)
 	}
 }

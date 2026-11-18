@@ -25,34 +25,6 @@ components:
       properties:
         snapshotHash: { type: string }
         checkedAt: { type: string, format: date-time }
-    LoginRequest:
-      type: object
-      required: [email, password]
-      properties:
-        email: { type: string }
-        password: { type: string }
-    RefreshRequest:
-      type: object
-      required: [refreshToken]
-      properties:
-        refreshToken: { type: string }
-    TokenResponse:
-      type: object
-      required: [accessToken, refreshToken, expiresInSeconds, user]
-      properties:
-        accessToken: { type: string }
-        refreshToken: { type: string }
-        expiresInSeconds: { type: integer, format: int64 }
-        user: { $ref: '#/components/schemas/UserSummary' }
-    UserSummary:
-      type: object
-      required: [id, email, fullName, role, storeId]
-      properties:
-        storeId: { type: string, format: uuid }
-        id: { type: string, format: uuid }
-        email: { type: string }
-        fullName: { type: string }
-        role: { type: string, enum: [ADMIN] }
     EventResponse:
       type: object
       required: [id, code, name, status, storeId, type]
@@ -98,7 +70,7 @@ components:
         version: { type: string }
     ProductResponse:
       type: object
-      required: [id, defaultVariantId, sku, name, price, source, active, warehouseStock, barcodes, variants, updatedAt]
+      required: [id, defaultVariantId, sku, name, price, source, active, barcodes, variants, updatedAt]
       properties:
         id: { type: string, format: uuid }
         defaultVariantId: { type: string, format: uuid }
@@ -109,7 +81,6 @@ components:
         imageUrl: { type: string }
         source: { type: string, enum: [ERP, MANUAL] }
         active: { type: boolean }
-        warehouseStock: { type: integer }
         barcodes: { type: array, items: { $ref: '#/components/schemas/BarcodeDto' } }
         variants: { type: array, items: { $ref: '#/components/schemas/VariantDto' } }
         updatedAt: { type: string, format: date-time }
@@ -130,7 +101,7 @@ components:
         active: { type: boolean }
     ProductSnapshotDto:
       type: object
-      required: [id, sku, name, price, barcodes, variants, remainingStock]
+      required: [id, sku, name, price, barcodes, variants]
       properties:
         id: { type: string, format: uuid }
         sku: { type: string }
@@ -140,7 +111,6 @@ components:
         imageUrl: { type: string }
         barcodes: { type: array, items: { type: string } }
         variants: { type: array, items: { $ref: '#/components/schemas/VariantSnapshotDto' } }
-        remainingStock: { type: integer }
     VariantSnapshotDto:
       type: object
       required: [id, name, price]
@@ -167,32 +137,6 @@ components:
         qrCode: { type: string }
         name: { type: string }
         tier: { type: string, enum: [STANDARD, SILVER, GOLD, PLATINUM] }
-    AllocationRow:
-      type: object
-      required: [productId, sku, name, warehouseStock, allocatedQty, soldQty, remaining]
-      properties:
-        productId: { type: string, format: uuid }
-        sku: { type: string }
-        name: { type: string }
-        warehouseStock: { type: integer }
-        allocatedQty: { type: integer }
-        soldQty: { type: integer }
-        remaining: { type: integer }
-    SetAllocationRequest:
-      type: object
-      properties:
-        allocatedQty: { type: integer }
-    StockLevelRow:
-      type: object
-      required: [productId, sku, name, allocatedQty, soldQty, remaining, lowStock]
-      properties:
-        productId: { type: string, format: uuid }
-        sku: { type: string }
-        name: { type: string }
-        allocatedQty: { type: integer }
-        soldQty: { type: integer }
-        remaining: { type: integer }
-        lowStock: { type: boolean }
     StockLevels:
       type: object
       required: [tracked, levels]
@@ -208,13 +152,6 @@ components:
               productId: { type: string, format: uuid }
               variantId: { type: string, format: uuid, nullable: true, description: "null = the product itself (no options)" }
               available: { type: integer }
-    BaStockLevel:
-      type: object
-      required: [productId, remaining, lowStock]
-      properties:
-        productId: { type: string, format: uuid }
-        remaining: { type: integer }
-        lowStock: { type: boolean }
     PromotionResponse:
       type: object
       required: [id, locationId, name, type, scope, productIds, active, priority]

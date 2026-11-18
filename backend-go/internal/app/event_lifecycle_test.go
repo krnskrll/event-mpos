@@ -50,7 +50,6 @@ func TestSellingOnlyWhileActive(t *testing.T) {
 		if err := a.DB.Create(ev).Error; err != nil {
 			t.Fatal(err)
 		}
-		a.Allocate(ev.ID, p.ID, 10)
 		_, err := a.Orders.Submit(ev.ID, uuid.New(), orderiface.SubmitOrderRequest{
 			IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "X"},
 			Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 1}},
@@ -58,14 +57,10 @@ func TestSellingOnlyWhileActive(t *testing.T) {
 		if testutil.StatusOf(err) != http.StatusConflict {
 			t.Errorf("submit to %s event: got %v, want 409", status, err)
 		}
-		if got := a.Remaining(ev.ID, p.ID); got != 10 {
-			t.Errorf("%s event stock changed: remaining %d, want 10", status, got)
-		}
 	}
 
 	// The same order on an ACTIVE event goes through.
 	ev := a.ActiveEvent()
-	a.Allocate(ev.ID, p.ID, 10)
 	if _, err := a.Orders.Submit(ev.ID, uuid.New(), orderiface.SubmitOrderRequest{
 		IdempotencyKey: uuid.NewString(), Customer: orderiface.CustomerInfo{Name: "X"},
 		Lines: []orderiface.OrderLineRequest{{ProductID: p.ID, Qty: 1}},

@@ -20,7 +20,6 @@ import (
 	"github.com/krnskrll/event-mpos/internal/platform/database"
 	productiface "github.com/krnskrll/event-mpos/internal/product/iface"
 	promotioniface "github.com/krnskrll/event-mpos/internal/promotion/iface"
-	stockiface "github.com/krnskrll/event-mpos/internal/stock/iface"
 )
 
 var _ iface.Orders = (*Service)(nil)
@@ -29,7 +28,6 @@ type Service struct {
 	db         *gorm.DB
 	events     eventiface.Events
 	products   productiface.Products
-	stock      stockiface.Stock
 	promotions promotioniface.Promotions
 	audit      auditiface.Audit
 	names      auditiface.Names
@@ -40,12 +38,12 @@ type Service struct {
 	placeOf func(eventID uuid.UUID) *uuid.UUID
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, stk stockiface.Stock, promotions promotioniface.Promotions, aud auditiface.Audit, names auditiface.Names) *Service {
+func NewService(db *gorm.DB, events eventiface.Events, products productiface.Products, promotions promotioniface.Promotions, aud auditiface.Audit, names auditiface.Names) *Service {
 	loc, err := time.LoadLocation("Asia/Jakarta")
 	if err != nil {
 		loc = time.FixedZone("WIB", 7*3600)
 	}
-	return &Service{db: db, events: events, products: products, stock: stk, promotions: promotions, audit: aud, names: names, jakarta: loc}
+	return &Service{db: db, events: events, products: products, promotions: promotions, audit: aud, names: names, jakarta: loc}
 }
 
 func (s *Service) SetBroadcaster(fn func(eventID uuid.UUID, view iface.WarehouseOrderView)) {

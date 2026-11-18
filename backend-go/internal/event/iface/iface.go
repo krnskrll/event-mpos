@@ -127,11 +127,6 @@ type MemberProvider interface {
 	Fingerprint(storeID uuid.UUID) (string, error)
 }
 
-type StockProvider interface {
-	Remaining(eventID, productID uuid.UUID) (int, error)
-	AllocationFingerprint(eventID uuid.UUID) (string, error)
-}
-
 type PromotionProvider interface {
 	SnapshotPromotions(eventID uuid.UUID) ([]any, error)
 	Fingerprint(eventID uuid.UUID) (string, error)
@@ -141,7 +136,6 @@ type PromotionProvider interface {
 type Providers struct {
 	Products   ProductProvider
 	Members    MemberProvider
-	Stock      StockProvider
 	Promotions PromotionProvider
 }
 
