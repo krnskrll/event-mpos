@@ -34,7 +34,7 @@ An Event is the central domain boundary. Products, stock, promotions, orders, an
 - golang-migrate for schema — new numbered files in `backend-go/migrations/`; never edit `000001_init`
 - JWT auth (access + rotating refresh tokens), bcrypt passwords
 - Native WebSocket (gorilla/websocket) for real-time order push — `GET /ws/events/{id}/orders?token=<jwt>`
-- robfig/cron dynamic scheduler (ERP and member sync jobs, schedule stored in the DB)
+- robfig/cron dynamic scheduler (member sync job, schedule stored in the DB)
 
 ### Web Dashboard
 - React + TypeScript

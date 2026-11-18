@@ -19,6 +19,8 @@ import (
 var (
 	skipWords = map[string]bool{"outlet": true, "event": true, "pop-up": true, "popup": true, "bazaar": true, "toko": true}
 	notAlnum  = regexp.MustCompile(`[^A-Z0-9]`)
+	// placeholder is the store name used before Bhoomy sends the Cabang name (catalog StoreFor).
+	placeholder = regexp.MustCompile(`^Bhoomy [0-9a-f]{8}$`)
 )
 
 // CreateLocation creates a draft event with a generated code. The outlet comes with the Cabang
@@ -50,11 +52,19 @@ func (s *Service) EnsureOutlet(storeID uuid.UUID, name, address string) error {
 		return err
 	}
 	if n > 0 {
+		open := func() *gorm.DB {
+			return s.db.Model(&repository.Event{}).Where("store_id = ? AND type = ? AND status <> ?", storeID, iface.TypeOutlet, iface.StatusClosed)
+		}
+		// An outlet made before the Cabang name was known takes it; a name the seller chose stays.
+		if !placeholder.MatchString(name) {
+			if err := open().Where("name ~ ?", placeholder.String()).Update("name", strings.TrimSpace(name)).Error; err != nil {
+				return err
+			}
+		}
 		if address == "" {
 			return nil
 		}
-		return s.db.Model(&repository.Event{}).Where("store_id = ? AND type = ? AND status <> ? AND COALESCE(address, '') = ''",
-			storeID, iface.TypeOutlet, iface.StatusClosed).Update("address", address).Error
+		return open().Where("COALESCE(address, '') = ''").Update("address", address).Error
 	}
 	code, err := s.nextCode(storeID, iface.CreateLocationRequest{Type: iface.TypeOutlet, Name: name})
 	if err != nil {

@@ -76,8 +76,8 @@ func TestAllowed(t *testing.T) {
 		{"order/repository", "order/service", false},
 		{"order/iface", "order/repository", false},
 		{"order/handler", "order/service", true},
-		{"integration/erp", "product/iface", true},
-		{"integration/erp", "product/service", false},
+		{"integration/membersrc", "member/iface", true},
+		{"integration/membersrc", "member/service", false},
 		{"platform/common", "staff/iface", false},
 		{"platform/realtime", "auth/iface", true},
 	}

@@ -48,7 +48,7 @@ Code layout (same rules as the Bhoomy backend):
 | `internal/<module>/repository` | GORM rows for the tables the module owns |
 | `internal/<module>/service`, `handler` | Business logic, Gin handlers |
 | `internal/platform` | Config, database (`Tx`), common HTTP helpers, security, realtime hub |
-| `internal/integration` | ERP and member-system sync jobs; `bhoomy` connector |
+| `internal/integration` | Member-system sync job; `bhoomy` connector |
 | `internal/app` | Composition root: the only place concrete services meet; routes |
 
 **Stores:** every location, product, staff member and member belongs to a store (`pos_stores`; existing data is in
@@ -110,8 +110,9 @@ location. Orders record the staff member and the device. Cancelling needs `{reas
 supervisorPin}` from a supervisor of that location; the audit names both.
 
 **Retired (6f):** the old dashboard (`web/`), its login (`/api/auth/*`, `users`), `/api/admin/*`,
-`create-admin` and stock allocations (`event_stock_allocations`) are gone (migration 000014).
-Products are not created in POS; the ERP product sync runs only in the dev seed (`SEED_ENABLED`).
+`create-admin` and stock allocations (`event_stock_allocations`) are gone (migration 000014). The ERP
+demo import (`erp_sync_status`), `ERP_*` settings and `tools/manual-testers` went after (000015).
+Products are not created in POS; only the dev seed (`SEED_ENABLED`) inserts 5 demo items.
 
 **Barcodes:** each Produk Toko variant barcode is copied to `pos_item_barcodes` on every sync
 (unique per store). The snapshot version includes every barcode, so a changed barcode reaches the

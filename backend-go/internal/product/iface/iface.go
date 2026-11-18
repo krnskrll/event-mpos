@@ -5,15 +5,13 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/shopspring/decimal"
-
-	"github.com/krnskrll/event-mpos/internal/platform/database"
 )
 
 // ProductSource — where a product came from.
 type ProductSource string
 
 const (
-	SourceERP    ProductSource = "ERP"
+	SourceERP    ProductSource = "ERP" // older dev-seed rows
 	SourceManual ProductSource = "MANUAL"
 )
 
@@ -43,11 +41,6 @@ type ProductResponse struct {
 	Barcodes         []BarcodeDto    `json:"barcodes"`
 	Variants         []VariantDto    `json:"variants"`
 	UpdatedAt        time.Time       `json:"updatedAt"`
-}
-
-type BarcodeInput struct {
-	Barcode string  `json:"barcode"`
-	Label   *string `json:"label"`
 }
 
 type VariantSnapshotDto struct {
@@ -96,17 +89,6 @@ type SaleVariant struct {
 	BhoomyVariantID *uuid.UUID
 }
 
-// SourceProduct is a product as delivered by the ERP.
-type SourceProduct struct {
-	SKU           string
-	Name          string
-	Brand         *string
-	Price         decimal.Decimal
-	ImageURL      *string
-	StockQuantity int
-	Barcodes      []BarcodeInput
-}
-
 // Products is the product module's contract for other modules.
 type Products interface {
 	// Find returns nil when the product does not exist.
@@ -121,6 +103,4 @@ type Products interface {
 	// RequireItems answers 400 unless every id is an item of the store.
 	RequireItems(storeID uuid.UUID, ids []uuid.UUID) error
 	FindAvailableByBarcode(storeID, eventID uuid.UUID, barcode string) (*ProductResponse, error)
-	// Upsert creates or updates by SKU inside tx; created reports a new row.
-	Upsert(tx database.Tx, storeID uuid.UUID, p SourceProduct) (created bool, err error)
 }

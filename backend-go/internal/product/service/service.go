@@ -12,7 +12,6 @@ import (
 
 	catalogiface "github.com/krnskrll/event-mpos/internal/catalog/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
-	"github.com/krnskrll/event-mpos/internal/platform/database"
 	"github.com/krnskrll/event-mpos/internal/platform/media"
 	"github.com/krnskrll/event-mpos/internal/product/iface"
 	"github.com/krnskrll/event-mpos/internal/product/repository"
@@ -212,70 +211,6 @@ func (s *Service) All(storeID uuid.UUID) ([]iface.SaleProduct, error) {
 		out = append(out, products[i].ToSale())
 	}
 	return out, nil
-}
-
-// Upsert rewrites barcodes only when they changed, to avoid unique-constraint churn.
-func (s *Service) Upsert(tx database.Tx, storeID uuid.UUID, in iface.SourceProduct) (bool, error) {
-	var p repository.Product
-	err := tx.Preload("Barcodes").Preload("Variants").Where("store_id = ? AND sku = ?", storeID, in.SKU).First(&p).Error
-	if errors.Is(err, gorm.ErrRecordNotFound) {
-		p = repository.Product{
-			StoreID: storeID, SKU: in.SKU, DisplayName: in.Name, Brand: in.Brand, PhotoURL: in.ImageURL,
-			Source: iface.SourceERP, Status: repository.StatusActive, Barcodes: sourceBarcodes(in.Barcodes),
-		}
-		p.SetPrice(common.Rupiah(in.Price))
-		return true, tx.Create(&p).Error
-	}
-	if err != nil {
-		return false, err
-	}
-	p.DisplayName, p.Brand, p.PhotoURL = in.Name, in.Brand, in.ImageURL
-	p.Source, p.UpdatedAt = iface.SourceERP, nowUTC()
-	p.SetPrice(common.Rupiah(in.Price))
-	if barcodesChanged(p.Barcodes, in.Barcodes) {
-		if err := tx.Where("item_id = ?", p.ID).Delete(&repository.ProductBarcode{}).Error; err != nil {
-			return false, err
-		}
-		for _, b := range sourceBarcodes(in.Barcodes) {
-			b.ItemID = p.ID
-			if err := tx.Create(&b).Error; err != nil {
-				return false, err
-			}
-		}
-	}
-	if err := tx.Save(p.Default()).Error; err != nil {
-		return false, err
-	}
-	return false, tx.Model(&p).Omit("Barcodes", "Variants").Save(&p).Error
-}
-
-// sourceBarcodes keeps ERP values as delivered (no trimming).
-func sourceBarcodes(in []iface.BarcodeInput) []repository.ProductBarcode {
-	out := make([]repository.ProductBarcode, 0, len(in))
-	for _, b := range in {
-		out = append(out, repository.ProductBarcode{Barcode: b.Barcode, Label: b.Label})
-	}
-	return out
-}
-
-func barcodesChanged(current []repository.ProductBarcode, incoming []iface.BarcodeInput) bool {
-	cur := make(map[string]bool, len(current))
-	for _, c := range current {
-		cur[c.Barcode] = true
-	}
-	inc := make(map[string]bool, len(incoming))
-	for _, i := range incoming {
-		inc[i.Barcode] = true
-	}
-	if len(cur) != len(inc) {
-		return true
-	}
-	for k := range inc {
-		if !cur[k] {
-			return true
-		}
-	}
-	return false
 }
 
 func (s *Service) preloaded() *gorm.DB {

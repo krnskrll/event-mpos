@@ -28,7 +28,6 @@ services:
       DB_URL: postgres://eventmpos:eventmpos@db:5432/eventmpos?sslmode=disable
       PORT: "8080"
       SEED_ENABLED: "true"
-      ERP_SOURCE: mock
       MEMBER_SOURCE: mock
     ports:
       - "8080:8080"

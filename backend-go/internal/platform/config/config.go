@@ -24,11 +24,6 @@ type Config struct {
 	CORSOrigins []string
 	SeedEnabled bool
 
-	// ERP adapter, used only by the dev seed: mock | file | rest
-	ERPSource   string
-	ERPFilePath string
-	ERPRestURL  string
-
 	// Member adapter: mock | file | rest
 	MemberSource        string
 	MemberFilePath      string
@@ -62,10 +57,6 @@ func Load() *Config {
 		Port:        getenv("PORT", getenv("SERVER_PORT", "8080")),
 		CORSOrigins: splitCSV(getenv("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")),
 		SeedEnabled: getbool("SEED_ENABLED", true),
-
-		ERPSource:   getenv("ERP_SOURCE", "mock"),
-		ERPFilePath: getenv("ERP_FILE_PATH", ""),
-		ERPRestURL:  getenv("ERP_REST_URL", ""),
 
 		MemberSource:        getenv("MEMBER_SOURCE", "mock"),
 		MemberFilePath:      getenv("MEMBER_FILE_PATH", ""),

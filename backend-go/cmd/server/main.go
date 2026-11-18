@@ -37,7 +37,7 @@ func main() {
 
 	// 3. Seed dev data
 	if cfg.SeedEnabled {
-		if err := seed.Run(db, a.ERPSync, a.MemberSync, a.Promotions, a.Staff, a.Devices); err != nil {
+		if err := seed.Run(db, a.MemberSync, a.Promotions, a.Staff, a.Devices); err != nil {
 			log.Fatalf("seed failed: %v", err)
 		}
 	}
