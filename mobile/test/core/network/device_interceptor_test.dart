@@ -33,6 +33,22 @@ void main() {
     expect(server.requests.last.headers[staffHeader], sari.id);
   });
 
+  test('6e: reports how many orders are not uploaded yet, unless the request says itself', () async {
+    var unsent = 2;
+    dio.interceptors
+      ..clear()
+      ..add(DeviceInterceptor(storage, () => signedIn, pending: () async => unsent));
+    await dio.get('api/device');
+    expect(server.requests.last.headers[pendingHeader], '2');
+
+    unsent = 0;
+    await dio.get('api/device');
+    expect(server.requests.last.headers[pendingHeader], '0');
+
+    await dio.post('api/me/events/EV01/orders', options: Options(headers: {pendingHeader: '5'}));
+    expect(server.requests.last.headers[pendingHeader], '5');
+  });
+
   test('a 401 means the device was removed: the pairing is dropped', () async {
     server.validToken = 'other';
 

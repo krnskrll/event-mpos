@@ -680,7 +680,7 @@ components:
         updatedAt: { type: string, format: date-time }
     DeviceView:
       type: object
-      required: [id, name, pairedAt, lastSeenAt]
+      required: [id, name, pairedAt, lastSeenAt, pendingOrders]
       properties:
         id: { type: string, format: uuid }
         name: { type: string }
@@ -688,6 +688,7 @@ components:
         pairedAt: { type: string, format: date-time }
         lastSeenAt: { type: string, format: date-time, nullable: true }
         removesAt: { type: string, format: date-time }
+        pendingOrders: { type: integer, description: Orders the device last reported as not yet uploaded (X-Pending-Orders) }
     PairingCode:
       type: object
       required: [code, expiresAt]

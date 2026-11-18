@@ -49,6 +49,15 @@ class AppDatabase extends _$AppDatabase {
       }
     },
   );
+
+  /// Orders sold here that the server hasn't confirmed yet (6e: reported as X-Pending-Orders).
+  Future<int> unsentOrderCount() async {
+    final n = pendingOrders.idempotencyKey.count();
+    final q = selectOnly(pendingOrders)
+      ..addColumns([n])
+      ..where(pendingOrders.status.isIn(const ['PENDING', 'UPLOADING']));
+    return (await q.getSingle()).read(n) ?? 0;
+  }
 }
 
 final databaseProvider = Provider<AppDatabase>((ref) {

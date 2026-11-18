@@ -125,7 +125,7 @@ func nextName(tx *gorm.DB, locationID uuid.UUID) (string, error) {
 	}
 }
 
-func (s *Service) Authenticate(token string) (*iface.Device, error) {
+func (s *Service) Authenticate(token string, pending int) (*iface.Device, error) {
 	if token == "" {
 		return nil, nil
 	}
@@ -137,8 +137,15 @@ func (s *Service) Authenticate(token string) (*iface.Device, error) {
 	if err != nil {
 		return nil, err
 	}
+	seen := map[string]any{}
 	if now := time.Now(); d.LastSeenAt == nil || now.Sub(*d.LastSeenAt) >= time.Minute {
-		if err := s.db.Model(&d).UpdateColumn("last_seen_at", now).Error; err != nil {
+		seen["last_seen_at"] = now
+	}
+	if pending >= 0 && pending != d.PendingOrders {
+		seen["pending_orders"] = pending
+	}
+	if len(seen) > 0 {
+		if err := s.db.Model(&d).UpdateColumns(seen).Error; err != nil {
 			return nil, err
 		}
 	}
@@ -244,7 +251,7 @@ func (s *Service) response(d *repository.Device, ev *eventiface.EventResponse) i
 }
 
 func view(d *repository.Device) iface.DeviceView {
-	return iface.DeviceView{ID: d.ID, Name: d.Name, Model: d.Model, PairedAt: d.PairedAt, LastSeenAt: d.LastSeenAt, RemovesAt: d.RemovedAt}
+	return iface.DeviceView{ID: d.ID, Name: d.Name, Model: d.Model, PairedAt: d.PairedAt, LastSeenAt: d.LastSeenAt, RemovesAt: d.RemovedAt, PendingOrders: d.PendingOrders}
 }
 
 func hashToken(token string) string {

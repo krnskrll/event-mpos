@@ -2,6 +2,7 @@ package handler
 
 import (
 	"net/http"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -15,6 +16,7 @@ import (
 
 // Auth admits a paired device (Authorization: Device <token>). X-Staff-Id names the staff member
 // signed in on it (the device checked the PIN); the request then acts as that person.
+// X-Pending-Orders is how many orders the device still has to upload (6e close warning).
 func Auth(devices iface.Devices, staff staffiface.Staff) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		token, ok := strings.CutPrefix(c.GetHeader("Authorization"), "Device ")
@@ -22,7 +24,11 @@ func Auth(devices iface.Devices, staff staffiface.Staff) gin.HandlerFunc {
 			common.AbortUnauthorized(c)
 			return
 		}
-		d, err := devices.Authenticate(strings.TrimSpace(token))
+		pending, err := strconv.Atoi(c.GetHeader("X-Pending-Orders"))
+		if err != nil || pending < 0 {
+			pending = -1
+		}
+		d, err := devices.Authenticate(strings.TrimSpace(token), pending)
 		if err != nil {
 			common.Fail(c, err)
 			return

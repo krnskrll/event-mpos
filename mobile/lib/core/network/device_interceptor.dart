@@ -3,21 +3,30 @@ import 'package:dio/dio.dart';
 import '../secure/device_storage.dart';
 
 const staffHeader = 'X-Staff-Id';
+const pendingHeader = 'X-Pending-Orders';
 
 /// Sends the device token, and X-Staff-Id for whoever is signed in unless the request names its own
-/// staff (a queued order uploads as the cashier who sold it). A 401 means Bhoomy removed the device.
+/// staff (a queued order uploads as the cashier who sold it), and X-Pending-Orders: orders not
+/// uploaded yet, so the back office can warn before closing an event. A 401 means Bhoomy removed
+/// the device.
 class DeviceInterceptor extends Interceptor {
-  DeviceInterceptor(this._storage, this._staffId);
+  DeviceInterceptor(this._storage, this._staffId, {this.pending});
 
   final DeviceStorage _storage;
   final String? Function() _staffId;
+  final Future<int> Function()? pending;
 
   @override
-  void onRequest(RequestOptions options, RequestInterceptorHandler handler) {
+  Future<void> onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
     final token = _storage.token;
     if (token != null) options.headers['Authorization'] ??= 'Device $token';
     final staff = _staffId();
     if (staff != null) options.headers[staffHeader] ??= staff;
+    if (pending != null && !options.headers.containsKey(pendingHeader)) {
+      try {
+        options.headers[pendingHeader] = '${await pending!()}';
+      } catch (_) {} // a count is a hint; never block the request
+    }
     handler.next(options);
   }
 
