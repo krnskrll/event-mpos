@@ -236,3 +236,30 @@ func TestClosingRemovesDevicesAfter24h(t *testing.T) {
 		}
 	}
 }
+
+// 6e: a device reports how many orders it still has to upload; the back office lists it.
+func TestDeviceReportsPendingOrders(t *testing.T) {
+	a := testutil.NewApp(t)
+	bhoomyStore := uuid.New()
+	ev := a.ActiveEventIn(posStore(t, a, bhoomyStore))
+	dev := a.PairDevice(ev.ID)
+	pending := func() int {
+		list := ok[[]deviceiface.DeviceView](t, a.Back(http.MethodGet, "/locations/"+ev.ID.String()+"/devices", nil, bhoomyStore), http.StatusOK)
+		return list[0].PendingOrders
+	}
+	for _, c := range []struct {
+		header string
+		want   int
+	}{{"3", 3}, {"", 3}, {"abc", 3}, {"-1", 3}, {"0", 0}} {
+		h := map[string]string{"Authorization": "Device " + dev.Token}
+		if c.header != "" {
+			h["X-Pending-Orders"] = c.header
+		}
+		if rec := a.Send(http.MethodGet, "/api/device", nil, h); rec.Code != http.StatusOK {
+			t.Fatalf("heartbeat: %d", rec.Code)
+		}
+		if got := pending(); got != c.want {
+			t.Errorf("after X-Pending-Orders %q: pendingOrders %d, want %d", c.header, got, c.want)
+		}
+	}
+}

@@ -56,6 +56,8 @@ type DeviceView struct {
 	PairedAt   time.Time  `json:"pairedAt"`
 	LastSeenAt *time.Time `json:"lastSeenAt"`
 	RemovesAt  *time.Time `json:"removesAt,omitempty"`
+	// PendingOrders is the device's last reported count of orders not yet uploaded.
+	PendingOrders int `json:"pendingOrders"`
 }
 
 type PairingCode struct {
@@ -76,8 +78,9 @@ type Device struct {
 }
 
 type Devices interface {
-	// Authenticate returns nil for an unknown or removed device.
-	Authenticate(token string) (*Device, error)
+	// Authenticate returns nil for an unknown or removed device. pending >= 0 saves the device's
+	// count of orders not yet uploaded; -1 keeps the last one.
+	Authenticate(token string, pending int) (*Device, error)
 	// ScheduleRemoval makes a location's devices stop working at the given time.
 	ScheduleRemoval(tx database.Tx, locationID uuid.UUID, at time.Time) error
 }

@@ -290,7 +290,7 @@ func (a *App) routes(cfg *config.Config, jwtService *authsvc.JwtService) *gin.En
 
 // boardAccess lets a device watch only its own location's pickup board.
 func (a *App) boardAccess(token, eventID string) int {
-	d, err := a.Devices.Authenticate(token)
+	d, err := a.Devices.Authenticate(token, -1)
 	switch {
 	case err != nil:
 		return http.StatusInternalServerError

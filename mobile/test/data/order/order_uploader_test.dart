@@ -86,6 +86,27 @@ void main() {
     expect(receiptLog.headers[staffHeader], budi.id);
   });
 
+  test('6e: each upload reports the orders still waiting after it', () async {
+    await db
+        .into(db.pendingOrders)
+        .insert(
+          PendingOrdersCompanion.insert(
+            idempotencyKey: 'k2',
+            eventId: 'EV01',
+            customerName: 'Rina',
+            linesJson: '[]',
+            status: 'PENDING',
+            createdAt: DateTime(2026, 10, 31, 11),
+          ),
+        );
+    server.routes[_path] = (200, {'id': 's1', 'orderNumberDisplay': '#007', 'referenceId': 'ORD-1', 'total': 99000});
+    await uploader.drainPending();
+
+    final uploads = server.requests.where((r) => r.path == _path).map((r) => r.headers[pendingHeader]);
+    expect(uploads, ['1', '0']);
+    expect(await db.unsentOrderCount(), 0);
+  });
+
   test('a removed device (401) keeps the order queued without retrying', () async {
     server.routes[_path] = (401, {});
     expect(await uploader.drainPending(), isFalse);

@@ -16,7 +16,9 @@ type Device struct {
 	TokenHash  string     `gorm:"column:token_hash;not null"`
 	PairedAt   time.Time  `gorm:"column:paired_at;not null"`
 	LastSeenAt *time.Time `gorm:"column:last_seen_at"`
-	RemovedAt  *time.Time `gorm:"column:removed_at"`
+	// PendingOrders is what the device last reported as not yet uploaded (X-Pending-Orders).
+	PendingOrders int        `gorm:"column:pending_orders;not null"`
+	RemovedAt     *time.Time `gorm:"column:removed_at"`
 }
 
 func (Device) TableName() string { return "pos_devices" }

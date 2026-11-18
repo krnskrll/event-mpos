@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:drift/drift.dart';
@@ -93,7 +94,10 @@ class OrderUploader {
           'stockPlaceId': order.stockPlaceId,
           'stockKnown': true,
         },
-        options: Options(headers: {staffHeader: ?order.staffId}),
+        // The order in this request is UPLOADING, so it counts; the server hears what is left after it.
+        options: Options(
+          headers: {staffHeader: ?order.staffId, pendingHeader: '${max(0, await _db.unsentOrderCount() - 1)}'},
+        ),
       );
       final o = res.data;
       await _set(
