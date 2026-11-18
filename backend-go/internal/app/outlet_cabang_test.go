@@ -120,3 +120,22 @@ func TestOutletIsTheCabang(t *testing.T) {
 		}
 	})
 }
+
+func TestPlaceholderOutletTakesTheCabangName(t *testing.T) {
+	a := testutil.NewApp(t)
+	store := uuid.New()
+	a.Back(http.MethodGet, "/locations", nil, store) // a visit without the store name
+	if o := outletOf(t, a, store); o["name"] != "Bhoomy "+store.String()[:8] {
+		t.Fatalf("placeholder outlet = %v", o["name"])
+	}
+	backAs(a, http.MethodGet, "/locations", nil, store, "Glow Mart Bandung", "")
+	o := outletOf(t, a, store)
+	if o["name"] != "Glow Mart Bandung" {
+		t.Fatalf("want the Cabang name once known, got %v", o["name"])
+	}
+	backAs(a, http.MethodPut, "/locations/"+o["id"].(string), J{"name": "Glow Mart Dago", "address": "Jl. Dago 12"}, store, "Glow Mart Bandung", "")
+	backAs(a, http.MethodGet, "/locations", nil, store, "Glow Mart Bandung", "")
+	if o := outletOf(t, a, store); o["name"] != "Glow Mart Dago" {
+		t.Fatalf("a name the seller chose must stay, got %v", o["name"])
+	}
+}
