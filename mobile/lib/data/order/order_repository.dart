@@ -44,7 +44,7 @@ class OrderRepository {
   /// Confirms the sale on the device, online or offline: final number from this device's block,
   /// receipt stored and printed, upload queued as [staffId]. Returns the order key. Throws [NoOrderNumbers].
   Future<String> confirm(AssignedEvent event, Cart cart, PricedCart priced, {required String staffId}) async {
-    final customer = cart.customer!;
+    final customer = cart.buyer;
     final (:number, :businessDate) = await _numbers.next(event.id);
     final padded = number.toString().padLeft(3, '0');
     final display = '#$padded';

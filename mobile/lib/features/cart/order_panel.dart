@@ -158,16 +158,16 @@ class _OrderPanelState extends ConsumerState<OrderPanel> {
           ),
         const SizedBox(height: 14),
         BrandButton(
-          text: cart.customer == null && cart.items.isNotEmpty ? 'Identify a customer to confirm' : 'Confirm order',
+          text: 'Confirm order',
           loading: _confirming,
-          onPressed: cart.customer == null || cart.items.isEmpty ? null : _confirm,
+          onPressed: cart.items.isEmpty ? null : _confirm,
         ),
       ],
     );
   }
 }
 
-/// Linked customer on a green card, or the prompt to identify one (required before confirming).
+/// Linked customer on a green card, or the optional prompt to identify one (none = Walk-in).
 class _CustomerCard extends StatelessWidget {
   const _CustomerCard(this.customer);
 
@@ -210,7 +210,7 @@ class _CustomerCard extends StatelessWidget {
                       style: AppText.body.copyWith(fontWeight: FontWeight.w700, color: Brand.forest),
                     ),
                     if (c == null)
-                      Text('Needed before confirming', style: AppText.caption.copyWith(color: Brand.errorInk))
+                      Text('Optional · Walk-in if skipped', style: AppText.caption.copyWith(color: Brand.muted))
                     else if (detail.isNotEmpty)
                       Text(detail, style: AppText.caption.copyWith(color: Brand.forest)),
                   ],
