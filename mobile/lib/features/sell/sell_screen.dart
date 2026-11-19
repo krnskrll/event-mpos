@@ -350,7 +350,7 @@ class _CartBar extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final cart = ref.watch(cartProvider);
     final priced = ref.watch(pricedCartProvider);
-    final detail = [cart.customer?.name ?? 'No customer yet', if (priced.discount.toDouble() > 0) 'promo applied'];
+    final detail = [cart.buyer.name, if (priced.discount.toDouble() > 0) 'promo applied'];
     return Material(
       color: Brand.forest,
       elevation: 8,

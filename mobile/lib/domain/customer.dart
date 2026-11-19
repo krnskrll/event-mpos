@@ -5,6 +5,9 @@ enum CustomerSource { localCache, onlineLookup, manual }
 class Customer {
   const Customer({required this.name, this.tier, this.qrCode, required this.source});
 
+  /// The customer of a sale nobody was identified for (Skip, or no customer added).
+  static const walkIn = Customer(name: 'Walk-in', source: CustomerSource.manual);
+
   factory Customer.fromJson(Map<String, dynamic> json) => Customer(
     name: json['name'],
     tier: json['tier'],

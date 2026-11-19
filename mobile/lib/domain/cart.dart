@@ -25,6 +25,9 @@ class Cart {
   final Customer? customer;
 
   bool get isEmpty => items.isEmpty && customer == null;
+
+  /// Who the order is for: the identified customer, else Walk-in.
+  Customer get buyer => customer ?? Customer.walkIn;
   int get count => items.values.fold(0, (sum, qty) => sum + qty);
 
   /// Units of [productId] in the cart, across all its variants.
