@@ -47,6 +47,7 @@ class OrderRepository {
     required String staffId,
     required String staffName,
     required String storeName,
+    ReceiptSettings receipt = const ReceiptSettings(),
   }) async {
     final customer = cart.buyer;
     final (:number, :businessDate) = await _numbers.next(event.id);
@@ -115,6 +116,7 @@ class OrderRepository {
         promotionName: priced.promotionName,
         total: priced.total.toDouble(),
         dateText: '${_two(now.day)}/${_two(now.month)}/${now.year} ${_two(now.hour)}:${_two(now.minute)}',
+        settings: receipt,
       ),
     );
     return key;

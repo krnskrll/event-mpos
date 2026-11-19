@@ -11,6 +11,7 @@ import '../../data/order/order_repository.dart';
 import '../../data/session/session.dart';
 import '../../domain/cart.dart';
 import '../../domain/customer.dart';
+import '../../domain/receipt.dart';
 import 'draft_dialogs.dart';
 
 /// The order being built: customer, lines, promotion, total and Confirm. The tablet's side panel and
@@ -44,6 +45,7 @@ class _OrderPanelState extends ConsumerState<OrderPanel> {
             staffId: ref.read(signedInProvider)!.id,
             staffName: ref.read(signedInProvider)!.name,
             storeName: ref.read(deviceProvider)?.storeName ?? '',
+            receipt: ref.read(deviceProvider)?.receipt ?? const ReceiptSettings(),
           );
       ref.read(cartProvider.notifier).clear();
       if (mounted) context.push('/receipt/$key');
