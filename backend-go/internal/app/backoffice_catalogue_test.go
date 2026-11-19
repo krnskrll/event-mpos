@@ -1,6 +1,9 @@
 package app_test
 
 import (
+	"bytes"
+	"image"
+	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -217,6 +220,15 @@ func TestKatalogPOS(t *testing.T) {
 	pt.sync(t)
 	if after, _ := a.Events.SnapshotVersion(uuid.MustParse(locID)); after == before {
 		t.Error("a new Produk Toko barcode must change the cashier snapshot version")
+	}
+	before, _ = a.Events.SnapshotVersion(uuid.MustParse(locID))
+	var img bytes.Buffer
+	_ = png.Encode(&img, image.NewRGBA(image.Rect(0, 0, 2, 2)))
+	if rec := upload(a, id, img.Bytes(), store); rec.Code != http.StatusOK {
+		t.Fatalf("photo: %d", rec.Code)
+	}
+	if after, _ := a.Events.SnapshotVersion(uuid.MustParse(locID)); after == before {
+		t.Error("a new POS photo must change the cashier snapshot version")
 	}
 	locs := ok[[]J](t, a.Back(http.MethodGet, "/locations", nil, store), http.StatusOK)
 	if len(locs) != 1 || locs[0]["items"] != float64(1) || locs[0]["id"] != locID {

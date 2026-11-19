@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 	"strings"
@@ -104,22 +105,15 @@ func (s *Service) AvailableSnapshotProducts(eventID uuid.UUID) ([]any, error) {
 	return out, nil
 }
 
-// AvailabilityFingerprint is a stable hash of the event's available products, folded into the
-// snapshot version. Format: "sku:price:barcodes" per product (barcodes "+"-joined), comma-joined.
+// AvailabilityFingerprint covers everything the app gets about the event's products (name, brand,
+// photo, prices, barcodes, variants), folded into the snapshot version: any change makes the app re-download.
 func (s *Service) AvailabilityFingerprint(eventID uuid.UUID) (string, error) {
 	dtos, err := s.availableSnapshotProducts(eventID)
 	if err != nil {
 		return "", err
 	}
-	parts := make([]string, 0, len(dtos))
-	for _, d := range dtos {
-		part := d.SKU + ":" + d.Price.String() + ":" + strings.Join(d.Barcodes, "+")
-		for _, v := range d.Variants {
-			part += "|" + v.Price.String()
-		}
-		parts = append(parts, part)
-	}
-	return strings.Join(parts, ","), nil
+	b, err := json.Marshal(dtos)
+	return string(b), err
 }
 
 func (s *Service) FindAvailableByBarcode(storeID, eventID uuid.UUID, barcode string) (*iface.ProductResponse, error) {
