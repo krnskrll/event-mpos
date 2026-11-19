@@ -329,6 +329,27 @@ paths:
       responses:
         '200': { description: OK, content: { application/json: { schema: { type: array, items: { $ref: '../components/schemas.yml#/components/schemas/MemberResponse' } } } } }
         '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+  /api/backoffice/receipt:
+    get:
+      tags: [backoffice]
+      operationId: getReceiptSettings
+      summary: "Pengaturan Struk: what the cashier app prints on receipts"
+      security: [{ serviceToken: [] }]
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ReceiptSettings' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+    put:
+      tags: [backoffice]
+      operationId: saveReceiptSettings
+      summary: "Save Pengaturan Struk (text trimmed, Instagram without @)"
+      security: [{ serviceToken: [] }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ReceiptSettings' } } }
+      responses:
+        '200': { description: OK, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ReceiptSettings' } } } }
+        '400': { description: A field is longer than the receipt allows, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
+        '401': { description: Missing or invalid service token, content: { application/json: { schema: { $ref: '../components/schemas.yml#/components/schemas/ErrorResponse' } } } }
   /api/backoffice/staff:
     get:
       tags: [backoffice]

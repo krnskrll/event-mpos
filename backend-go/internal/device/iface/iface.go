@@ -10,6 +10,7 @@ import (
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
+	receiptiface "github.com/krnskrll/event-mpos/internal/receipt/iface"
 )
 
 // CodeTTL is how long a pairing code works; any number of devices may use it meanwhile.
@@ -41,6 +42,8 @@ type DeviceResponse struct {
 	Device    DeviceRef `json:"device"`
 	Location  Location  `json:"location"`
 	StoreName string    `json:"storeName"`
+	// Receipt is the store's Pengaturan Struk; the app keeps it for printing offline.
+	Receipt receiptiface.Settings `json:"receipt"`
 }
 
 type PairResponse struct {

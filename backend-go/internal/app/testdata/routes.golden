@@ -16,6 +16,7 @@ GET /api/backoffice/members/sync
 GET /api/backoffice/outlet
 GET /api/backoffice/promotions
 GET /api/backoffice/promotions/:id
+GET /api/backoffice/receipt
 GET /api/backoffice/staff
 GET /api/backoffice/staff/:id
 GET /api/device
@@ -52,4 +53,5 @@ PUT /api/backoffice/locations/:id
 PUT /api/backoffice/locations/:id/items
 PUT /api/backoffice/members/sync/schedule
 PUT /api/backoffice/promotions/:id
+PUT /api/backoffice/receipt
 PUT /api/backoffice/staff/:id

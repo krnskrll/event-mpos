@@ -22,6 +22,7 @@ import (
 	eventiface "github.com/krnskrll/event-mpos/internal/event/iface"
 	"github.com/krnskrll/event-mpos/internal/platform/common"
 	"github.com/krnskrll/event-mpos/internal/platform/database"
+	receiptiface "github.com/krnskrll/event-mpos/internal/receipt/iface"
 )
 
 var _ iface.Devices = (*Service)(nil)
@@ -30,10 +31,11 @@ type Service struct {
 	db        *gorm.DB
 	events    eventiface.Events
 	storeName func(storeID uuid.UUID) string
+	receipt   func(storeID uuid.UUID) receiptiface.Settings
 }
 
-func NewService(db *gorm.DB, events eventiface.Events, storeName func(uuid.UUID) string) *Service {
-	return &Service{db: db, events: events, storeName: storeName}
+func NewService(db *gorm.DB, events eventiface.Events, storeName func(uuid.UUID) string, receipt func(uuid.UUID) receiptiface.Settings) *Service {
+	return &Service{db: db, events: events, storeName: storeName, receipt: receipt}
 }
 
 // live keeps devices that still work: not removed, or a closed event's removal still ahead.
@@ -247,6 +249,7 @@ func (s *Service) response(d *repository.Device, ev *eventiface.EventResponse) i
 		Device:    iface.DeviceRef{ID: d.ID, Name: d.Name, RemovesAt: d.RemovedAt},
 		Location:  iface.Location{ID: ev.ID, Name: ev.Name, Type: ev.Type, Status: ev.Status, StartDate: ev.StartDate, EndDate: ev.EndDate},
 		StoreName: s.storeName(d.StoreID),
+		Receipt:   s.receipt(d.StoreID),
 	}
 }
 

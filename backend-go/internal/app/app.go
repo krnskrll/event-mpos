@@ -38,6 +38,7 @@ import (
 	productsvc "github.com/krnskrll/event-mpos/internal/product/service"
 	promotionhandler "github.com/krnskrll/event-mpos/internal/promotion/handler"
 	promotionsvc "github.com/krnskrll/event-mpos/internal/promotion/service"
+	receipthandler "github.com/krnskrll/event-mpos/internal/receipt/handler"
 	receiptsvc "github.com/krnskrll/event-mpos/internal/receipt/service"
 	reporthandler "github.com/krnskrll/event-mpos/internal/report/handler"
 	reportsvc "github.com/krnskrll/event-mpos/internal/report/service"
@@ -51,26 +52,27 @@ import (
 type App struct {
 	Router *gin.Engine
 
-	Events      *eventsvc.Service
-	Products    *productsvc.Service
-	Members     *membersvc.Service
-	MemberSync  *membersrc.Service
-	Promotions  *promotionsvc.Service
-	Audit       *auditsvc.Service
-	Receipts    *receiptsvc.Service
-	Orders      *ordersvc.Service
-	Reports     *reportsvc.Service
-	SyncConfig  *syncsvc.Service
-	Scheduler   *syncsvc.Scheduler
-	Hub         *realtime.Hub
-	Bhoomy      bhoomy.Client
-	Media       *media.Store
-	Catalog     *catalogsvc.Service
-	CatalogSync *bhoomy.CatalogSync
-	SalesSync   *bhoomy.SalesSync
-	StockReader *bhoomy.StockReader
-	Staff       *staffsvc.Service
-	Devices     *devicesvc.Service
+	Events          *eventsvc.Service
+	Products        *productsvc.Service
+	Members         *membersvc.Service
+	MemberSync      *membersrc.Service
+	Promotions      *promotionsvc.Service
+	Audit           *auditsvc.Service
+	Receipts        *receiptsvc.Service
+	ReceiptSettings *receiptsvc.Settings
+	Orders          *ordersvc.Service
+	Reports         *reportsvc.Service
+	SyncConfig      *syncsvc.Service
+	Scheduler       *syncsvc.Scheduler
+	Hub             *realtime.Hub
+	Bhoomy          bhoomy.Client
+	Media           *media.Store
+	Catalog         *catalogsvc.Service
+	CatalogSync     *bhoomy.CatalogSync
+	SalesSync       *bhoomy.SalesSync
+	StockReader     *bhoomy.StockReader
+	Staff           *staffsvc.Service
+	Devices         *devicesvc.Service
 }
 
 // New builds services, handlers and routes on an already-migrated database. It starts the WebSocket
@@ -89,7 +91,8 @@ func New(cfg *config.Config, db *gorm.DB) (*App, error) {
 	a.Products.SetSource(a.Catalog)
 	a.CatalogSync = bhoomy.NewCatalogSync(a.Bhoomy, a.Catalog, a.Products)
 	a.Staff = staffsvc.NewService(db, a.Events)
-	a.Devices = devicesvc.NewService(db, a.Events, a.Catalog.StoreName)
+	a.ReceiptSettings = receiptsvc.NewSettings(db)
+	a.Devices = devicesvc.NewService(db, a.Events, a.Catalog.StoreName, a.ReceiptSettings.ForDevice)
 	// A closed location sells nothing: its devices keep the late-sync window, then stop working.
 	a.Events.SetOnClose(func(tx database.Tx, locationID uuid.UUID, closedAt time.Time) error {
 		return a.Devices.ScheduleRemoval(tx, locationID, closedAt.Add(24*time.Hour))
@@ -147,6 +150,7 @@ func (a *App) routes(cfg *config.Config) *gin.Engine {
 	reportHandler := reporthandler.NewHandler(a.Reports, a.Audit, a.Events)
 	memberSyncHandler := synchandler.NewHandler(a.SyncConfig, a.Scheduler, a.MemberSync, func() { a.MemberSync.Sync() })
 	staffHandler := staffhandler.NewHandler(a.Staff)
+	receiptHandler := receipthandler.NewHandler(a.ReceiptSettings)
 	deviceHandler := devicehandler.NewHandler(a.Devices, a.Staff)
 	meHandler := mehandler.NewHandler(a.Events, a.Members, a.Orders, a.Receipts)
 	meHandler.SetStockLevels(func(ctx context.Context, id uuid.UUID) (any, error) { return a.StockReader.Levels(ctx, id) })
@@ -223,6 +227,8 @@ func (a *App) routes(cfg *config.Config) *gin.Engine {
 		back.GET("/members/sync", memberSyncHandler.Status)
 		back.POST("/members/sync", memberSyncHandler.SyncNow)
 		back.PUT("/members/sync/schedule", memberSyncHandler.Schedule)
+		back.GET("/receipt", receiptHandler.Get)
+		back.PUT("/receipt", receiptHandler.Save)
 		back.GET("/staff", staffHandler.List)
 		back.POST("/staff", staffHandler.Create)
 		back.GET("/staff/:id", staffHandler.Get)
