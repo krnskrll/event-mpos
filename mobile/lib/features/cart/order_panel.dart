@@ -42,6 +42,8 @@ class _OrderPanelState extends ConsumerState<OrderPanel> {
             ref.read(cartProvider),
             ref.read(pricedCartProvider),
             staffId: ref.read(signedInProvider)!.id,
+            staffName: ref.read(signedInProvider)!.name,
+            storeName: ref.read(deviceProvider)?.storeName ?? '',
           );
       ref.read(cartProvider.notifier).clear();
       if (mounted) context.push('/receipt/$key');
@@ -157,11 +159,7 @@ class _OrderPanelState extends ConsumerState<OrderPanel> {
             child: Text(_error!, style: AppText.label.copyWith(color: Brand.errorInk)),
           ),
         const SizedBox(height: 14),
-        BrandButton(
-          text: 'Confirm order',
-          loading: _confirming,
-          onPressed: cart.items.isEmpty ? null : _confirm,
-        ),
+        BrandButton(text: 'Confirm order', loading: _confirming, onPressed: cart.items.isEmpty ? null : _confirm),
       ],
     );
   }

@@ -10,8 +10,10 @@ class ReceiptLine {
 /// Everything printed on a receipt, captured at confirm time so a reprint needs no network.
 class ReceiptData {
   const ReceiptData({
-    required this.brand,
-    required this.eventName,
+    required this.store,
+    required this.location,
+    this.address,
+    required this.staffName,
     required this.orderNumberDisplay,
     required this.referenceId,
     required this.customerName,
@@ -21,12 +23,13 @@ class ReceiptData {
     required this.discount,
     this.promotionName,
     required this.total,
-    required this.cashierNote,
     required this.dateText,
   });
 
-  final String brand;
-  final String eventName;
+  final String store;
+  final String location;
+  final String? address;
+  final String staffName;
   final String orderNumberDisplay;
   final String referenceId;
   final String customerName;
@@ -36,11 +39,11 @@ class ReceiptData {
   final double discount;
   final String? promotionName;
   final double total;
-  final String cashierNote;
   final String dateText;
 }
 
-/// Renders a receipt into 58 mm thermal lines (32 characters), whatever the printer.
+/// Renders the order slip into 58 mm thermal lines (32 characters), whatever the printer: store and place
+/// on top, the order number framed so the cashier finds it, then items, totals and the pay-at-cashier note.
 abstract final class ReceiptFormatter {
   static const width = 32;
 
@@ -48,30 +51,35 @@ abstract final class ReceiptFormatter {
   static const cancelled = '       *** CANCELLED ***';
 
   static List<String> format(ReceiptData r) {
+    final staff = 'Kasir: ${r.staffName}';
     final lines = [
-      _center(r.brand.toUpperCase()),
-      _center(r.eventName),
-      _divider,
-      _leftRight('Order ${r.orderNumberDisplay}', r.dateText),
+      ..._wrap(r.store.toUpperCase()).map(_center),
+      if (r.location.trim().toLowerCase() != r.store.trim().toLowerCase()) ..._wrap(r.location).map(_center),
+      if (r.address?.trim().isNotEmpty ?? false) ..._wrap(r.address!.trim()).map(_center),
+      _rule,
+      _center('PESANAN ${r.orderNumberDisplay}'),
+      _rule,
+      if (r.dateText.length + staff.length < width) _leftRight(r.dateText, staff) else ...[r.dateText, ..._wrap(staff)],
       r.referenceId,
-      ..._wrap('Customer: ${r.customerName}${r.customerTier == null ? '' : ' (${r.customerTier})'}'),
+      ..._wrap('Pelanggan: ${r.customerName}${r.customerTier == null ? '' : ' (${r.customerTier})'}'),
       _divider,
       // Name wrapped on its own lines, amount right-aligned below: shades never get cut off on 58 mm.
       for (final item in r.items) ...[..._wrap('${item.qty} x ${item.name}'), _leftRight('', rupiah(item.lineTotal))],
       _divider,
       _leftRight('Subtotal', rupiah(r.subtotal)),
       if (r.discount > 0)
-        _leftRight('Discount${r.promotionName == null ? '' : ' (${r.promotionName})'}', '-${rupiah(r.discount)}'),
+        _leftRight('Diskon${r.promotionName == null ? '' : ' (${r.promotionName})'}', '-${rupiah(r.discount)}'),
       _leftRight('TOTAL', rupiah(r.total)),
       _divider,
-      ..._wrap(r.cashierNote).map(_center),
+      _center('Bayar di kasir dengan struk ini'),
+      _center('Terima kasih'),
       '',
-      _center('Payment at cashier counter'),
-      _center('Not a tax invoice'),
+      _center('Bukan faktur pajak'),
     ];
     return [for (final line in lines) line.length > width ? line.substring(0, width) : line];
   }
 
+  static final _rule = '=' * width;
   static final _divider = '-' * width;
 
   static String _center(String text) {
