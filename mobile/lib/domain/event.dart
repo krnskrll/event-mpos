@@ -10,6 +10,7 @@ class AssignedEvent {
     this.endDate,
     required this.status,
     this.isOutlet = false,
+    this.address,
   });
 
   factory AssignedEvent.fromJson(Map<String, dynamic> json) => AssignedEvent(
@@ -20,6 +21,7 @@ class AssignedEvent {
     endDate: json['endDate'],
     status: EventStatus.values.asNameMap()[(json['status'] as String?)?.toLowerCase()] ?? EventStatus.draft,
     isOutlet: json['type'] == 'outlet',
+    address: json['address'],
   );
 
   Map<String, dynamic> toJson() => {
@@ -30,6 +32,7 @@ class AssignedEvent {
     'endDate': ?endDate,
     'status': status.name.toUpperCase(),
     'type': isOutlet ? 'outlet' : 'event',
+    'address': ?address,
   };
 
   final String id;
@@ -39,6 +42,9 @@ class AssignedEvent {
   final String? endDate;
   final EventStatus status;
   final bool isOutlet;
+
+  /// Printed on receipts under the store name.
+  final String? address;
 }
 
 const _months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];

@@ -6,7 +6,6 @@ import 'package:drift/drift.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 
-import '../../core/config.dart';
 import '../../core/db/database.dart';
 import '../../core/network/api_client.dart';
 import '../../domain/cart.dart';
@@ -32,8 +31,6 @@ final orderRepositoryProvider = Provider(
 class OrderRepository {
   OrderRepository(this._db, this._dio, this._numbers, this._uploader, this._receipts, this._products);
 
-  static const _cashierNote = 'Please proceed to the cashier to complete payment.';
-
   final AppDatabase _db;
   final Dio _dio;
   final OrderNumbers _numbers;
@@ -43,7 +40,14 @@ class OrderRepository {
 
   /// Confirms the sale on the device, online or offline: final number from this device's block,
   /// receipt stored and printed, upload queued as [staffId]. Returns the order key. Throws [NoOrderNumbers].
-  Future<String> confirm(AssignedEvent event, Cart cart, PricedCart priced, {required String staffId}) async {
+  Future<String> confirm(
+    AssignedEvent event,
+    Cart cart,
+    PricedCart priced, {
+    required String staffId,
+    required String staffName,
+    required String storeName,
+  }) async {
     final customer = cart.buyer;
     final (:number, :businessDate) = await _numbers.next(event.id);
     final padded = number.toString().padLeft(3, '0');
@@ -97,8 +101,10 @@ class OrderRepository {
       key,
       event.id,
       ReceiptData(
-        brand: brandName,
-        eventName: event.name,
+        store: storeName,
+        location: event.name,
+        address: event.address,
+        staffName: staffName,
         orderNumberDisplay: display,
         referenceId: reference,
         customerName: customer.name,
@@ -108,8 +114,7 @@ class OrderRepository {
         discount: priced.discount.toDouble(),
         promotionName: priced.promotionName,
         total: priced.total.toDouble(),
-        cashierNote: _cashierNote,
-        dateText: '${_two(now.day)}/${_two(now.month)} ${_two(now.hour)}:${_two(now.minute)}',
+        dateText: '${_two(now.day)}/${_two(now.month)}/${now.year} ${_two(now.hour)}:${_two(now.minute)}',
       ),
     );
     return key;
