@@ -574,19 +574,31 @@ components:
         endDate: { type: string, format: date }
     DeviceResponse:
       type: object
-      required: [device, location, storeName]
+      required: [device, location, storeName, receipt]
       properties:
         device: { $ref: '#/components/schemas/DeviceRef' }
         location: { $ref: '#/components/schemas/DeviceLocation' }
         storeName: { type: string }
+        receipt: { $ref: '#/components/schemas/ReceiptSettings' }
     PairResponse:
       type: object
-      required: [token, device, location, storeName]
+      required: [token, device, location, storeName, receipt]
       properties:
         token: { type: string, description: "send as Authorization: Device <token>; shown only once" }
         device: { $ref: '#/components/schemas/DeviceRef' }
         location: { $ref: '#/components/schemas/DeviceLocation' }
         storeName: { type: string }
+        receipt: { $ref: '#/components/schemas/ReceiptSettings' }
+    ReceiptSettings:
+      type: object
+      required: [phone, instagram, note, showAddress, showStaff, showCustomer]
+      properties:
+        phone: { type: string, maxLength: 20 }
+        instagram: { type: string, maxLength: 30, description: without the leading @ }
+        note: { type: string, maxLength: 64, description: printed above "Terima kasih" (two 58 mm lines) }
+        showAddress: { type: boolean }
+        showStaff: { type: boolean }
+        showCustomer: { type: boolean }
     DeviceStaff:
       type: object
       required: [id, name, role, pinHash]
